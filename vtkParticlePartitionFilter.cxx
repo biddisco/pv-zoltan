@@ -42,7 +42,6 @@
 #include "vtkBoundingBox.h"
 #include "vtkMath.h"
 #include "vtkPointLocator.h"
-#include "vtkSPHManager.h"
 //
 #include "vtkBoundsExtentTranslator.h"
 //
@@ -317,9 +316,7 @@ vtkParticlePartitionFilter::vtkParticlePartitionFilter()
   this->NumberOfLocalPoints       = 0;
   this->IdChannelArray            = NULL;
   this->GhostCellOverlap          = 0.0;
-  this->AdaptiveGhostCellOverlap  = 0;
   this->MaxAspectRatio            = 5.0;
-  this->SimpleGhostOverlapMode    = 0;
   this->ExtentTranslator          = vtkBoundsExtentTranslator::New();
   this->Controller = NULL;
   this->SetController(vtkMultiProcessController::GetGlobalController());
@@ -424,13 +421,13 @@ vtkSmartPointer<vtkIdTypeArray> vtkParticlePartitionFilter::GenerateGlobalIds(vt
 {
   vtkSmartPointer<vtkIdTypeArray> Ids = vtkSmartPointer<vtkIdTypeArray>::New();
 
-  vtkstd::vector<int>       PartialSum(this->UpdateNumPieces+1);
-  vtkstd::vector<vtkIdType> PointsPerProcess(this->UpdateNumPieces);
+  std::vector<int>       PartialSum(this->UpdateNumPieces+1);
+  std::vector<vtkIdType> PointsPerProcess(this->UpdateNumPieces);
   //
 #ifdef VTK_USE_MPI
   vtkMPICommunicator* com = vtkMPICommunicator::SafeDownCast(this->Controller->GetCommunicator());
   com->AllGather(&N, &PointsPerProcess[0], 1);
-  vtkstd::partial_sum(PointsPerProcess.begin(), PointsPerProcess.end(), PartialSum.begin()+1);
+  std::partial_sum(PointsPerProcess.begin(), PointsPerProcess.end(), PartialSum.begin()+1);
 #endif
 
   vtkIdType initialValue = PartialSum[this->UpdatePiece];
@@ -962,13 +959,6 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation*,
   else {
     // do a calculation on all nodes
     std::vector<double> ghostOverlaps(this->UpdateNumPieces,this->GhostCellOverlap);
-    if (this->AdaptiveGhostCellOverlap) {
-      ghostOverlaps[this->UpdatePiece] = this->ComputeAdaptiveOverlap(mesh.Output, this->GhostCellOverlap, this->SimpleGhostOverlapMode);
-      std::cout << "Adaptive overlap for process " << this->UpdatePiece << " is " << ghostOverlaps[this->UpdatePiece] << std::endl;
-  #ifdef VTK_USE_MPI
-      communicator->AllGather((char*)MPI_IN_PLACE, (char*)&ghostOverlaps[0], sizeof(double));
-  #endif
-    }
     for (int p=0; p<this->UpdateNumPieces; p++) {
       vtkBoundingBox box = this->BoxList[p];  
       box.Inflate(ghostOverlaps[p]);
@@ -1119,47 +1109,5 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation*,
   timer->StopTimer();
   vtkDebugMacro(<<"Particle partitioning : " << timer->GetElapsedTime() << " seconds");
   return 1;
-}
-//----------------------------------------------------------------------------
-double vtkParticlePartitionFilter::ComputeAdaptiveOverlap(vtkPointSet *data, double defvalue, bool simplemode)
-{
-  // get sph manager singleton (assumed to be already initialized)
-  vtkSmartPointer<vtkSPHManager> sph = vtkSmartPointer<vtkSPHManager>::New();
-  if (sph->GetInterpolationMethod()==vtkSPHManager::POINT_INTERPOLATION_SHEPARD) 
-  {
-    // get centre of data
-    double centre[3];
-    vtkBoundingBox box(data->GetBounds());
-    box.GetCenter(centre);
-    if (!simplemode) {
-      // setup locator
-      vtkSmartPointer<vtkPointLocator> locator = vtkSmartPointer<vtkPointLocator>::New();
-      locator->SetDataSet(data);
-      locator->SetDivisions(100,100,100);
-      locator->BuildLocator();
-      //
-      vtkSmartPointer<vtkIdList> NearestPoints = vtkSmartPointer<vtkIdList>::New();
-      NearestPoints->Allocate(sph->GetMaximumNeighbours()*2);
-      // find 
-      locator->FindClosestNPoints(sph->GetMaximumNeighbours(),centre,NearestPoints);
-      vtkBoundingBox region;
-      for (int i=0; i<NearestPoints->GetNumberOfIds(); i++) {
-        region.AddPoint(data->GetPoint(NearestPoints->GetId(i)));
-      }
-      // approx double what we will really need for safety    
-      return std::min(defvalue, region.GetDiagonalLength()*0.5);
-    }
-    else
-    {
-      vtkIdType N = data->GetNumberOfPoints();
-      double root3 = std::pow((double)(N),1.0/3.0);
-      return box.GetDiagonalLength()/root3;
-    }
-  }
-  else
-  {
-    std::cout << "Adaptive ghost cell regions are not supported unless Shepard method is used " << std::endl;
-    return 0.0;
-  }
 }
 //----------------------------------------------------------------------------

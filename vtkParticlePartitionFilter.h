@@ -73,22 +73,7 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkDataObjectAlgorithm
     // at corner region overlaps)
     vtkSetMacro(GhostCellOverlap, double);
     vtkGetMacro(GhostCellOverlap, double);
-    
-    // Description:
-    // For some AMR like datasets, an adaptive ghost region may be preferable to
-    // a fixed one when some processes have very small tighly packed particles
-    // and another much more sparse ones.
-    vtkSetMacro(AdaptiveGhostCellOverlap, int);
-    vtkGetMacro(AdaptiveGhostCellOverlap, int);
-    vtkBooleanMacro(AdaptiveGhostCellOverlap, int);
-    
-    // Description:
-    // By default, the adaptive ghost overlap calculation uses a neighbour
-    // search, to use a simple volume estimation instead set this mode to true
-    vtkSetMacro(SimpleGhostOverlapMode, int);
-    vtkGetMacro(SimpleGhostOverlapMode, int);
-    vtkBooleanMacro(SimpleGhostOverlapMode, int);
-    
+        
 //BTX
     // Description:
     // Return the Bounding Box for a partition
@@ -99,8 +84,6 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkDataObjectAlgorithm
     // all around the box where ghost cells might be required/present
     vtkBoundingBox *GetPartitionBoundingBoxWithHalo(int partition);
 //ETX
-
-  static double ComputeAdaptiveOverlap(vtkPointSet *data, double defvalue, bool simplemode);
 
   protected:
      vtkParticlePartitionFilter();
@@ -153,9 +136,7 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkDataObjectAlgorithm
     vtkIdType       NumberOfLocalPoints;
     char           *IdChannelArray;
     double          GhostCellOverlap;
-    int             AdaptiveGhostCellOverlap;
     double          MaxAspectRatio;
-    int             SimpleGhostOverlapMode;
     vtkBoundsExtentTranslator *ExtentTranslator;
     //
   private:
