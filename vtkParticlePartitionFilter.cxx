@@ -18,20 +18,14 @@
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =========================================================================*/
-// For VTK_USE_MPI
-#include "vtkToolkits.h"
-#ifdef VTK_USE_MPI
-  #include "vtkMPI.h"
-  #include "vtkMPIController.h"
-  #include "vtkMPICommunicator.h"
-#endif
-#include "vtkDummyController.h"
 //
 #include "vtkParticlePartitionFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkPolyData.h"
+#include "vtkUnstructuredGrid.h"
 #include "vtkDataSetAttributes.h"
 #include "vtkPointData.h"
+#include "vtkCellData.h"
 #include "vtkCellArray.h"
 #include "vtkInformation.h"
 #include "vtkInformationVector.h"
@@ -42,6 +36,16 @@
 #include "vtkBoundingBox.h"
 #include "vtkMath.h"
 #include "vtkPointLocator.h"
+//
+// For PARAVIEW_USE_MPI
+#include "vtkPVConfig.h"
+#ifdef PARAVIEW_USE_MPI
+  #include "vtkMPI.h"
+  #include "vtkMPIController.h"
+  #include "vtkMPICommunicator.h"
+#endif
+#include "vtkParticlePartitionFilter.h"
+#include "vtkDummyController.h"
 //
 #include "vtkBoundsExtentTranslator.h"
 //
@@ -356,7 +360,7 @@ int vtkParticlePartitionFilter::FillOutputPortInformation(
   int vtkNotUsed(port), vtkInformation* info)
 {
   // now add our info
-  info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkPolyData");
+  info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkPointSet");
   return 1;
 }
 //----------------------------------------------------------------------------
@@ -791,10 +795,17 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation*,
   // not likely/useful for particle data anyway
   Zoltan_Set_Param(zz, "RCB_RECTILINEAR_BLOCKS", "1"); 
 
+  bool auto_migrate = false;
+
   // Let Zoltan do the load balance step automatically
   // particles will be transferred as required between processes
-  Zoltan_Set_Param(zz, "AUTO_MIGRATE", "1");  
-    
+  if (auto_migrate) {
+    Zoltan_Set_Param(zz, "AUTO_MIGRATE", "1");  
+  }
+  else {
+    Zoltan_Set_Param(zz, "AUTO_MIGRATE", "0");  
+  }
+
   //
   // Query functions, to provide geometry to Zoltan 
   //
@@ -875,7 +886,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation*,
           &importLocalGids,      // Local IDs of vertices to be sent to me
           &importProcs,          // Process rank for source of each incoming vertex
           &importToPart,         // New partition for each incoming vertex
-          &numExport,            // Number of vertices I must send to other processes*/
+          &numExport,            // Number of vertices I must send to other processes
           &exportGlobalGids,     // Global IDs of the vertices I must send
           &exportLocalGids,      // Local IDs of the vertices I must send
           &exportProcs,          // Process to which I send each of the vertices
@@ -894,10 +905,12 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation*,
       " unpack_count : " << unpack_count 
      );
 
-    Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, 
-                        &importProcs, &importToPart);
-    Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, 
-                        &exportProcs, &exportToPart);
+    if (auto_migrate) {
+      Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, 
+                          &importProcs, &importToPart);
+      Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, 
+                          &exportProcs, &exportToPart);
+    }
   }
   else {
     //
@@ -944,170 +957,266 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation*,
     }
   }
 
-  //
-  // Set the halo/ghost regions we need around each process bounding box
-  //  
-  if (input_bet && input_bet->GetBoundsHalosPresent()) {
-    this->ExtentTranslator->SetBoundsHalosPresent(1);
-    for (int p=0; p<this->UpdateNumPieces; p++) {
-      vtkBoundingBox box;  
-      box.SetBounds(input_bet->GetBoundsHaloForPiece(p));
-      this->BoxListWithHalo.push_back(box);
-      this->ExtentTranslator->SetBoundsHaloForPiece(p,input_bet->GetBoundsHaloForPiece(p));
-    }
-  }
-  else {
-    // do a calculation on all nodes
-    std::vector<double> ghostOverlaps(this->UpdateNumPieces,this->GhostCellOverlap);
-    for (int p=0; p<this->UpdateNumPieces; p++) {
-      vtkBoundingBox box = this->BoxList[p];  
-      box.Inflate(ghostOverlaps[p]);
-      this->BoxListWithHalo.push_back(box);
-    }
-  }
-
-  this->ExtentTranslator->InitWholeBounds();
-  this->LocalBox     = &this->BoxList[this->UpdatePiece];
-  this->LocalBoxHalo = &this->BoxListWithHalo[this->UpdatePiece];
-
-  //
-  // Find points which overlap other processes' ghost regions
-  // note that we must use the 'new' migrated points which are not the same
-  // as the original input points (might be bigger/smaller), so get the new IdArray 
-  //
-  vtkIdTypeArray *newIds = vtkIdTypeArray::SafeDownCast(
-    mesh.Output->GetPointData()->GetArray(IdsName.c_str()));
-  if (!newIds || newIds->GetNumberOfTuples()!=mesh.OutputPoints->GetNumberOfPoints()) {
-    vtkErrorMacro(<<"Fatal : Ids on migrated data corrupted");
-    return 0;
-  }
-
-  GhostPartition GhostIds;
-  this->FindOverlappingPoints(mesh.OutputPoints, newIds, GhostIds);
-
-  //
-  // Pass the lists of ghost cells to zoltan so that it
-  // can build a list of lists for exchanges between processes
-  //
-  size_t        num_known = GhostIds.GlobalIds.size(); 
-  int           num_found = 0;
-  ZOLTAN_ID_PTR found_global_ids = NULL;
-  ZOLTAN_ID_PTR found_local_ids  = NULL;
-  int          *found_procs      = NULL;
-  int          *found_to_part    = NULL;
-  //
-  rc = Zoltan_Invert_Lists(zz, 
-        (int)num_known,
-        num_known>0 ? &GhostIds.GlobalIds[0] : NULL,
-        num_known>0 ? &GhostIds.LocalIds[0]  : NULL,
-        num_known>0 ? &GhostIds.Procs[0]     : NULL,
-        num_known>0 ? &GhostIds.Procs[0]     : NULL,
-        &num_found,
-        &found_global_ids,
-        &found_local_ids,
-        &found_procs,
-        &found_to_part); 
-
-  if (rc != ZOLTAN_OK){
-    printf("Zoltan_LB_Partition NOT OK...\n");
-    MPI_Finalize();
-    Zoltan_Destroy(&zz);
-    exit(0);
-  }
-
-  //
-  // Before sending, we need to change the pre-migrate function as we are now adding
-  // extra ghost cells and not starting our lists from a clean slate.
-  //
-  if (pointstype==VTK_FLOAT) {
-    zprem_fn f4 = zoltan_pre_ghost_migrate_pp_func<float>;
-    Zoltan_Set_Fn(zz, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &mesh);
-  }
-  else if (pointstype==VTK_DOUBLE) {
-    zprem_fn f4 = zoltan_pre_ghost_migrate_pp_func<double>;
-    Zoltan_Set_Fn(zz, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &mesh);
-  }
-
-  //
-  // Now we can actually send ghost particles between processes
-  //
-	rc = Zoltan_Migrate (zz,
-        (int)num_found,
-        found_global_ids,
-        found_local_ids,
-        found_procs,
-        found_to_part,
-        (int)num_known,
-        num_known>0 ? &GhostIds.GlobalIds[0] : NULL,
-        num_known>0 ? &GhostIds.LocalIds[0]  : NULL,
-        num_known>0 ? &GhostIds.Procs[0]     : NULL,
-        num_known>0 ? &GhostIds.Procs[0]     : NULL
+  vtkSmartPointer<vtkIntArray> boundary;
+  if (!auto_migrate) {
+    boundary = this->BuildLinks(mesh.Input, 
+      numExport,            // Number of vertices I must send to other processes
+      exportGlobalGids,     // Global IDs of the vertices I must send
+      exportLocalGids,      // Local IDs of the vertices I must send
+      exportProcs           // Process to which I send each of the vertices
       );
+  }
 
-  //
-  // Release the arrays allocated during Zoltan_Invert_Lists
-  //
-  Zoltan_LB_Free_Part(&found_global_ids, &found_local_ids, 
-                      &found_procs, &found_to_part);
-
-  //
-  // Ghost information : Paraview doesn't let us visualize an array called vtkGhostLevels
-  // because it's an 'internal' array, so we make an extra one for debug purposes
-  //
-  vtkSmartPointer<vtkUnsignedCharArray> GhostArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
-  vtkSmartPointer<vtkIntArray> GhostArray2 = vtkSmartPointer<vtkIntArray>::New();
-  GhostArray->SetName("vtkGhostLevels");
-  GhostArray->SetNumberOfComponents(1);
-  GhostArray->SetNumberOfTuples(mesh.OutputNumberOfLocalPoints + num_found);
-  GhostArray2->SetName("GhostLevels");
-  GhostArray2->SetNumberOfComponents(1);
-  GhostArray2->SetNumberOfTuples(mesh.OutputNumberOfLocalPoints + num_found);
-  unsigned char *ghost = GhostArray->GetPointer(0);
-  int          *ghost2 = GhostArray2->GetPointer(0);
-  for (vtkIdType i=0; i<mesh.OutputNumberOfLocalPoints + num_found; i++) {
-    if (i<mesh.OutputNumberOfLocalPoints) {
-      ghost[i]  = 0;
-      ghost2[i] = 0;
+  if (auto_migrate) {
+    //
+    // Set the halo/ghost regions we need around each process bounding box
+    //  
+    if (input_bet && input_bet->GetBoundsHalosPresent()) {
+      this->ExtentTranslator->SetBoundsHalosPresent(1);
+      for (int p=0; p<this->UpdateNumPieces; p++) {
+        vtkBoundingBox box;  
+        box.SetBounds(input_bet->GetBoundsHaloForPiece(p));
+        this->BoxListWithHalo.push_back(box);
+        this->ExtentTranslator->SetBoundsHaloForPiece(p,input_bet->GetBoundsHaloForPiece(p));
+      }
     }
     else {
-      ghost[i]  = 1;
-      ghost2[i] = 1;
+      // do a calculation on all nodes
+      std::vector<double> ghostOverlaps(this->UpdateNumPieces,this->GhostCellOverlap);
+      for (int p=0; p<this->UpdateNumPieces; p++) {
+        vtkBoundingBox box = this->BoxList[p];  
+        box.Inflate(ghostOverlaps[p]);
+        this->BoxListWithHalo.push_back(box);
+      }
     }
-  }
-  output->GetPointData()->AddArray(GhostArray);
-  output->GetPointData()->AddArray(GhostArray2);
-  
-  //
-  //
-  //
-  vtkDebugMacro(<<"Process " << this->UpdatePiece << " Points Output : " << mesh.OutPointCount);
-//  for (int i=0; i<mesh.NumberOfFields; i++) {
-//    vtkDataArray *darray = output->GetPointData()->GetArray(i);
-//    vtkDebugMacro(<<"Process " << this->UpdatePiece << " Array Output : " << darray->GetNumberOfTuples());
-//  }
 
-  //
-  // If polydata create Vertices for each point
-  //
-  if (vtkPolyData::SafeDownCast(output)) {
-    vtkIdType *arraydata = vertices->WritePointer(mesh.OutPointCount, 2*mesh.OutPointCount);
-    for (int i=0; i<mesh.OutPointCount; i++) {
-      arraydata[i*2]   = 1;
-      arraydata[i*2+1] = i;
+    this->ExtentTranslator->InitWholeBounds();
+    this->LocalBox     = &this->BoxList[this->UpdatePiece];
+    this->LocalBoxHalo = &this->BoxListWithHalo[this->UpdatePiece];
+
+    //
+    // Find points which overlap other processes' ghost regions
+    // note that we must use the 'new' migrated points which are not the same
+    // as the original input points (might be bigger/smaller), so get the new IdArray 
+    //
+    vtkIdTypeArray *newIds = vtkIdTypeArray::SafeDownCast(
+      mesh.Output->GetPointData()->GetArray(IdsName.c_str()));
+    if (!newIds || newIds->GetNumberOfTuples()!=mesh.OutputPoints->GetNumberOfPoints()) {
+      vtkErrorMacro(<<"Fatal : Ids on migrated data corrupted");
+      return 0;
     }
-    vtkPolyData::SafeDownCast(output)->SetVerts(vertices);
+
+    GhostPartition GhostIds;
+    this->FindOverlappingPoints(mesh.OutputPoints, newIds, GhostIds);
+
+    //
+    // Pass the lists of ghost cells to zoltan so that it
+    // can build a list of lists for exchanges between processes
+    //
+    size_t        num_known = GhostIds.GlobalIds.size(); 
+    int           num_found = 0;
+    ZOLTAN_ID_PTR found_global_ids = NULL;
+    ZOLTAN_ID_PTR found_local_ids  = NULL;
+    int          *found_procs      = NULL;
+    int          *found_to_part    = NULL;
+    //
+    rc = Zoltan_Invert_Lists(zz, 
+      (int)num_known,
+      num_known>0 ? &GhostIds.GlobalIds[0] : NULL,
+      num_known>0 ? &GhostIds.LocalIds[0]  : NULL,
+      num_known>0 ? &GhostIds.Procs[0]     : NULL,
+      num_known>0 ? &GhostIds.Procs[0]     : NULL,
+      &num_found,
+      &found_global_ids,
+      &found_local_ids,
+      &found_procs,
+      &found_to_part); 
+
+    if (rc != ZOLTAN_OK){
+      printf("Zoltan_LB_Partition NOT OK...\n");
+      MPI_Finalize();
+      Zoltan_Destroy(&zz);
+      exit(0);
+    }
+
+    //
+    // Before sending, we need to change the pre-migrate function as we are now adding
+    // extra ghost cells and not starting our lists from a clean slate.
+    //
+    if (pointstype==VTK_FLOAT) {
+      zprem_fn f4 = zoltan_pre_ghost_migrate_pp_func<float>;
+      Zoltan_Set_Fn(zz, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &mesh);
+    }
+    else if (pointstype==VTK_DOUBLE) {
+      zprem_fn f4 = zoltan_pre_ghost_migrate_pp_func<double>;
+      Zoltan_Set_Fn(zz, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &mesh);
+    }
+
+    //
+    // Now we can actually send ghost particles between processes
+    //
+    rc = Zoltan_Migrate (zz,
+      (int)num_found,
+      found_global_ids,
+      found_local_ids,
+      found_procs,
+      found_to_part,
+      (int)num_known,
+      num_known>0 ? &GhostIds.GlobalIds[0] : NULL,
+      num_known>0 ? &GhostIds.LocalIds[0]  : NULL,
+      num_known>0 ? &GhostIds.Procs[0]     : NULL,
+      num_known>0 ? &GhostIds.Procs[0]     : NULL
+      );
+
+    //
+    // Release the arrays allocated during Zoltan_Invert_Lists
+    //
+    Zoltan_LB_Free_Part(&found_global_ids, &found_local_ids, 
+      &found_procs, &found_to_part);
+
+    //
+    // Ghost information : Paraview doesn't let us visualize an array called vtkGhostLevels
+    // because it's an 'internal' array, so we make an extra one for debug purposes
+    //
+    vtkSmartPointer<vtkUnsignedCharArray> GhostArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
+    vtkSmartPointer<vtkIntArray> GhostArray2 = vtkSmartPointer<vtkIntArray>::New();
+    GhostArray->SetName("vtkGhostLevels");
+    GhostArray->SetNumberOfComponents(1);
+    GhostArray->SetNumberOfTuples(mesh.OutputNumberOfLocalPoints + num_found);
+    GhostArray2->SetName("GhostLevels");
+    GhostArray2->SetNumberOfComponents(1);
+    GhostArray2->SetNumberOfTuples(mesh.OutputNumberOfLocalPoints + num_found);
+    unsigned char *ghost = GhostArray->GetPointer(0);
+    int          *ghost2 = GhostArray2->GetPointer(0);
+    for (vtkIdType i=0; i<mesh.OutputNumberOfLocalPoints + num_found; i++) {
+      if (i<mesh.OutputNumberOfLocalPoints) {
+        ghost[i]  = 0;
+        ghost2[i] = 0;
+      }
+      else {
+        ghost[i]  = 1;
+        ghost2[i] = 1;
+      }
+    }
+    output->GetPointData()->AddArray(GhostArray);
+    output->GetPointData()->AddArray(GhostArray2);
+
+    //
+    //
+    //
+    vtkDebugMacro(<<"Process " << this->UpdatePiece << " Points Output : " << mesh.OutPointCount);
+    //  for (int i=0; i<mesh.NumberOfFields; i++) {
+    //    vtkDataArray *darray = output->GetPointData()->GetArray(i);
+    //    vtkDebugMacro(<<"Process " << this->UpdatePiece << " Array Output : " << darray->GetNumberOfTuples());
+    //  }
+
+    //
+    // If polydata create Vertices for each point
+    //
+    if (vtkPolyData::SafeDownCast(output)) {
+      vtkIdType *arraydata = vertices->WritePointer(mesh.OutPointCount, 2*mesh.OutPointCount);
+      for (int i=0; i<mesh.OutPointCount; i++) {
+        arraydata[i*2]   = 1;
+        arraydata[i*2+1] = i;
+      }
+      vtkPolyData::SafeDownCast(output)->SetVerts(vertices);
+    }
+    //
+    //*****************************************************************
+    // Free the arrays allocated by Zoltan_LB_Partition, and free
+    // the storage allocated for the Zoltan structure.
+    //*****************************************************************
+    //
+    Zoltan_Destroy(&zz);
+
+   }
+  else { 
+    output->ShallowCopy(input);
+    output->GetCellData()->AddArray(boundary);
   }
-  //
-  //*****************************************************************
-  // Free the arrays allocated by Zoltan_LB_Partition, and free
-  // the storage allocated for the Zoltan structure.
-  //*****************************************************************
-  //
-  Zoltan_Destroy(&zz);
 
   this->Controller->Barrier();
   timer->StopTimer();
   vtkDebugMacro(<<"Particle partitioning : " << timer->GetElapsedTime() << " seconds");
   return 1;
+}
+//----------------------------------------------------------------------------
+// Build the link list array.
+vtkSmartPointer<vtkIntArray> vtkParticlePartitionFilter::BuildLinks(vtkDataSet *data,
+  int numExport,
+  ZOLTAN_ID_PTR exportGlobalGids ,
+  ZOLTAN_ID_PTR exportLocalGids,
+  int *exportProcs
+  )
+{
+  vtkIdType numPts = data->GetNumberOfPoints();
+  vtkIdType numCells = data->GetNumberOfCells();
+  vtkIdType j, cellId;
+  //
+  vtkSmartPointer<vtkIntArray> process = vtkSmartPointer<vtkIntArray>::New();
+  process->SetNumberOfTuples(numPts);
+  int *processdata = process->GetPointer(0);
+  //
+  vtkSmartPointer<vtkIntArray> count = vtkSmartPointer<vtkIntArray>::New();
+  count->SetNumberOfTuples(numPts);
+  int *countdata = count->GetPointer(0);
+  //
+  vtkSmartPointer<vtkIntArray> boundary = vtkSmartPointer<vtkIntArray>::New();
+  boundary->SetNumberOfTuples(numCells);
+  boundary->SetName("Boundary");
+  int *boundarydata = boundary->GetPointer(0);
+  //
+  for (vtkIdType i=0; i<numPts; i++) {
+    processdata[i] = -1;
+    countdata[i]   = 0;
+  }
+  for (vtkIdType i=0; i<numExport; i++) {
+    vtkIdType id = exportLocalGids[i];
+    processdata[id] = exportProcs[i];
+  }
+
+  // Use fast path if polydata
+  if (vtkPolyData::SafeDownCast(data)) {
+    vtkIdType *pts, npts;
+    vtkPolyData *pdata = vtkPolyData::SafeDownCast(data);
+    pdata->BuildCells();
+    // traverse data to determine number of uses of each point
+    for (cellId=0; cellId<numCells; cellId++) {
+      boundarydata[cellId] = 0;
+      pdata->GetCellPoints(cellId, npts, pts);
+      vtkIdType destProcess = processdata[pts[0]];
+      bool remote = (destProcess!=this->UpdatePiece);
+      for (j=1; remote && j<npts; j++) {
+        destProcess = processdata[pts[j]];
+        remote = remote && (destProcess!=this->UpdatePiece);
+      }
+      /*
+      for (j=1; j<npts; j++) {
+        if (processdata[pts[j]]!=destProcess) {
+          boundarydata[cellId] = 1;
+        }
+      }
+      */
+    }
+  }
+  else if (vtkUnstructuredGrid::SafeDownCast(data)) {
+    vtkIdType *pts, npts;
+    vtkUnstructuredGrid *pdata = vtkUnstructuredGrid::SafeDownCast(data);
+    // traverse data to determine number of uses of each point
+    for (cellId=0; cellId<numCells; cellId++) {
+      boundarydata[cellId] = 0;
+      pdata->GetCellPoints(cellId, npts, pts);
+      vtkIdType destProcess = processdata[pts[0]];
+      for (j=1; j<npts; j++) {
+        if (processdata[pts[j]]!=destProcess) {
+          boundarydata[cellId] = 1;
+        }
+      }
+    }
+  }
+  else {
+    vtkErrorMacro(<<"Can't handle non polydata yet");
+  }
+  return boundary;
 }
 //----------------------------------------------------------------------------

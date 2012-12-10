@@ -1,7 +1,7 @@
 /*=========================================================================
 
   Project                 : pv-meshless
-  Module                  : vtkParticlePartitionFilter.h
+  Module                  : vtkParallelPartitionFilter.h
   Revision of last commit : $Rev: 884 $
   Author of last commit   : $Author: biddisco $
   Date of last commit     : $Date:: 2010-04-06 12:03:55 +0200 #$
@@ -18,14 +18,14 @@
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =========================================================================*/
-// .NAME vtkParticlePartitionFilter distribute particle datasets in parallel
+// .NAME vtkParallelPartitionFilter distribute datasets in parallel
 // .SECTION Description
-// vtkParticlePartitionFilter is a parallel load balancing/partitioning 
-// filter for particle datasets. It uses the Zoltan library from the Trilinos 
+// vtkParallelPartitionFilter is a parallel load balancing/partitioning 
+// filter for datasets. It uses the Zoltan library from the Trilinos 
 // package to perform the redistribution.
 
-#ifndef __vtkParticlePartitionFilter_h
-#define __vtkParticlePartitionFilter_h
+#ifndef __vtkParallelPartitionFilter_h
+#define __vtkParallelPartitionFilter_h
 
 #include "vtkDataSetAlgorithm.h" // superclass
 #include "vtkBoundingBox.h"
@@ -33,18 +33,20 @@
 #include "zoltan.h"
 #include "vtkSmartPointer.h"
 
-class vtkMultiProcessController;
-class vtkPoints;
-class vtkIdTypeArray;
-class vtkIntArray;
-class vtkBoundsExtentTranslator;
-class vtkPointSet;
+class  vtkMultiProcessController;
+class  vtkPoints;
+class  vtkIdTypeArray;
+class  vtkIntArray;
+class  vtkBoundsExtentTranslator;
+class  vtkPointSet;
+class  vtkDataSetAttributes;
+struct ProcessExchangeVariables;
 
-class VTK_EXPORT vtkParticlePartitionFilter : public vtkDataSetAlgorithm
+class VTK_EXPORT vtkParallelPartitionFilter : public vtkDataSetAlgorithm
 {
   public:
-    static vtkParticlePartitionFilter *New();
-    vtkTypeMacro(vtkParticlePartitionFilter,vtkDataSetAlgorithm);
+    static vtkParallelPartitionFilter *New();
+    vtkTypeMacro(vtkParallelPartitionFilter,vtkDataSetAlgorithm);
     void PrintSelf(ostream& os, vtkIndent indent);
 
     // Description:
@@ -87,18 +89,20 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkDataSetAlgorithm
 //ETX
 
   protected:
-     vtkParticlePartitionFilter();
-    ~vtkParticlePartitionFilter();
+     vtkParallelPartitionFilter();
+    ~vtkParallelPartitionFilter();
 
-    int  GatherDataTypeInfo(vtkDataSet *input);
+    int  GatherDataTypeInfo(vtkPoints *points);
     bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
+    void InitBoundingBoxes(vtkDataSet *input, vtkBoundingBox &box);
+    void SetupFieldArrayPointers(vtkDataSetAttributes *fields, ProcessExchangeVariables &mesh, int &NumberOfFields);
 
     // Override to specify support for vtkPointSet input type.
     virtual int FillInputPortInformation(int port, vtkInformation* info);
 
-	  // Override to specify different type of output
-	  virtual int FillOutputPortInformation(int vtkNotUsed(port), 
-		  vtkInformation* info);
+    // Override to specify different type of output
+    virtual int FillOutputPortInformation(int vtkNotUsed(port), 
+      vtkInformation* info);
 
     // Description:
     virtual int RequestInformation(vtkInformation*,
@@ -114,40 +118,46 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkDataSetAlgorithm
                             vtkInformationVector**,
                             vtkInformationVector*);
 //BTX
-    vtkSmartPointer<vtkIdTypeArray> GenerateGlobalIds(vtkIdType N, const char *idname);
-    vtkSmartPointer<vtkIntArray> BuildLinks(vtkDataSet *data,
-      int numExport,
-      ZOLTAN_ID_PTR exportGlobalGids ,
-      ZOLTAN_ID_PTR exportLocalGids,
-      int *exportProcs);
+    vtkSmartPointer<vtkIdTypeArray> GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, ProcessExchangeVariables *mesh);
 
     typedef struct {
       std::vector<ZOLTAN_ID_TYPE> GlobalIds;
       std::vector<ZOLTAN_ID_TYPE> LocalIds;
       std::vector<int> Procs;
-    } GhostPartition;
+    } PartitionInfo;
 
-    typedef std::vector< std::vector<vtkIdType> > ListOfVectors;
-    void FindOverlappingPoints(vtkPoints *pts, vtkIdTypeArray *IdArray, GhostPartition &ghostinfo);
+    void FindPointsInHaloRegions(vtkPoints *pts, vtkIdTypeArray *IdArray, PartitionInfo &ghostinfo);
+
+    vtkSmartPointer<vtkIntArray> BuildCellToProcessList(
+      vtkDataSet *data, PartitionInfo &partitioninfo, 
+      std::vector<int> &ProcessOffsetsCellId,
+      int numExport,
+      ZOLTAN_ID_PTR exportGlobalGids ,
+      ZOLTAN_ID_PTR exportLocalGids,
+      int *exportProcs);
+
+    //
     vtkBoundingBox             *LocalBoxHalo;
     vtkBoundingBox             *LocalBox;
     std::vector<vtkBoundingBox> BoxList;
     std::vector<vtkBoundingBox> BoxListWithHalo;
 //ETX
     //
-    vtkMultiProcessController *Controller;
-    //
-    int             UpdatePiece;
-    int             UpdateNumPieces;
-    vtkIdType       NumberOfLocalPoints;
-    char           *IdChannelArray;
-    double          GhostCellOverlap;
-    double          MaxAspectRatio;
-    vtkBoundsExtentTranslator *ExtentTranslator;
+    vtkMultiProcessController  *Controller;
+     //
+    int                         UpdatePiece;
+    int                         UpdateNumPieces;
+    char                       *IdChannelArray;
+    double                      GhostCellOverlap;
+    double                      MaxAspectRatio;
+    vtkBoundsExtentTranslator  *ExtentTranslator;
+    int                         ExchangePoints;
+    int                         ExchangeCells;
+    int                         ExchangeHaloPoints;
     //
   private:
-    vtkParticlePartitionFilter(const vtkParticlePartitionFilter&);  // Not implemented.
-    void operator=(const vtkParticlePartitionFilter&);  // Not implemented.
+    vtkParallelPartitionFilter(const vtkParallelPartitionFilter&);  // Not implemented.
+    void operator=(const vtkParallelPartitionFilter&);  // Not implemented.
 };
 
 #endif
