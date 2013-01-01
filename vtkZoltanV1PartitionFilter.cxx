@@ -1,7 +1,6 @@
 /*=========================================================================
 
-  Project                 : pv-meshless
-  Module                  : vtkParallelPartitionFilter.h
+  Module                  : vtkZoltanV1PartitionFilter.h
   Revision of last commit : $Rev: 884 $
   Author of last commit   : $Author: biddisco $
   Date of last commit     : $Date:: 2010-04-06 12:03:55 +0200 #$
@@ -19,7 +18,7 @@
 
 =========================================================================*/
 //
-#include "vtkParallelPartitionFilter.h"
+#include "vtkZoltanV1PartitionFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkPolyData.h"
 #include "vtkUnstructuredGrid.h"
@@ -44,7 +43,7 @@
   #include "vtkMPIController.h"
   #include "vtkMPICommunicator.h"
 #endif
-#include "vtkParallelPartitionFilter.h"
+#include "vtkZoltanV1PartitionFilter.h"
 #include "vtkDummyController.h"
 //
 #include "vtkBoundsExtentTranslator.h"
@@ -78,8 +77,8 @@
   #define vtkErrorMacro(a) vtkDebugMacro(a)  
 #endif
 //----------------------------------------------------------------------------
-vtkStandardNewMacro(vtkParallelPartitionFilter);
-vtkCxxSetObjectMacro(vtkParallelPartitionFilter, Controller, vtkMultiProcessController);
+vtkStandardNewMacro(vtkZoltanV1PartitionFilter);
+vtkCxxSetObjectMacro(vtkZoltanV1PartitionFilter, Controller, vtkMultiProcessController);
 //----------------------------------------------------------------------------
 #ifdef EXTRA_ZOLTAN_DEBUG
   static int pack_count   = 0;
@@ -95,44 +94,12 @@ vtkCxxSetObjectMacro(vtkParallelPartitionFilter, Controller, vtkMultiProcessCont
   #define INC_SIZE_COUNT 
   #define CLEAR_ZOLTAN_DEBUG 
 #endif
+//
+typedef vtkZoltanV1PartitionFilter::ProcessExchangeVariables Exchange;
 //----------------------------------------------------------------------------
 // Zoltan callback interface
-//
-// Structure to hold mesh data 
 //----------------------------------------------------------------------------
-typedef struct ProcessExchangeVariables {
-  int                           ProcessRank;
-  vtkPointSet                  *Input;
-  vtkPointSet                  *Output;
-  std::vector<int>              ProcessOffsetsPointId;      // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
-  std::vector<int>              ProcessOffsetsCellId;       // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
-  vtkIdType                     InputNumberOfLocalPoints;
-  vtkIdType                     InputNumberOfLocalCells;
-  vtkIdType                     OutputNumberOfLocalPoints;
-  vtkIdType                     OutputNumberOfLocalCells;
-  vtkIdType                     OutputNumberOfPointsWithHalo;
-  vtkPoints                    *OutputPoints; 
-  void                         *InputPointsData;  // float/double
-  void                         *OutputPointsData; // float/double
-  int                           NumberOfPointFields;
-  int                           NumberOfCellFields;
-  int                           MaxCellSize;
-  vtkIdType                     OutPointCount;
-  vtkIdType                     OutCellCount;
-  vtkSmartPointer<vtkCellArray> OutputCellArray;
-  std::vector<vtkIdType>        LocalToLocalIdMap;
-  std::map<vtkIdType,vtkIdType> ReceivedGlobalToLocalIdMap;
-  //
-  // The variables below are used twice, once for points, then again for cells
-  // but the information is updated in between
-  //
-  std::vector<void*>            InputArrayPointers;
-  std::vector<void*>            OutputArrayPointers;
-  std::vector<int>              MemoryPerTuple;
-  int                           TotalSizePerId;
-} ProcessExchangeVariables;
-//----------------------------------------------------------------------------
-void add_Id_to_interval_map(ProcessExchangeVariables *mesh, vtkIdType GID, vtkIdType LID) {
+void add_Id_to_interval_map(Exchange *mesh, vtkIdType GID, vtkIdType LID) {
   vtkIdType diff = GID-LID;
   std::map<vtkIdType,vtkIdType>::reverse_iterator prev = mesh->ReceivedGlobalToLocalIdMap.rbegin();
   if (prev!=mesh->ReceivedGlobalToLocalIdMap.rend()) {
@@ -152,7 +119,7 @@ void add_Id_to_interval_map(ProcessExchangeVariables *mesh, vtkIdType GID, vtkId
   }
 }
 //----------------------------------------------------------------------------
-vtkIdType global_to_local_Id(ProcessExchangeVariables *mesh, vtkIdType GID) {
+vtkIdType global_to_local_Id(Exchange *mesh, vtkIdType GID) {
   std::map<vtkIdType,vtkIdType>::iterator ub = mesh->ReceivedGlobalToLocalIdMap.upper_bound(GID);
     ub--;
     vtkIdType key = ub->first;
@@ -164,7 +131,7 @@ vtkIdType global_to_local_Id(ProcessExchangeVariables *mesh, vtkIdType GID) {
 //----------------------------------------------------------------------------
 static int get_number_of_objects_points(void *data, int *ierr)
 {
-  int res = static_cast<ProcessExchangeVariables*>(data)->InputNumberOfLocalPoints; 
+  int res = static_cast<Exchange*>(data)->InputNumberOfLocalPoints; 
   *ierr = (res < 0) ? ZOLTAN_FATAL : ZOLTAN_OK;
   return res;
 }
@@ -175,7 +142,7 @@ static void get_object_list_points(void *data, int sizeGID, int sizeLID,
             ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
                   int wgt_dim, float *obj_wgts, int *ierr)
 {
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   //
   // Return the IDs of our objects, but no weights.
   // Zoltan will assume equally weighted objects.
@@ -204,7 +171,7 @@ void get_geometry_list(
   ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
   int num_dim, double *geom_vec, int *ierr)
 {
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   for (int i=0;  i<num_obj; i++){
     geom_vec[3*i]   = ((T*)(mesh->InputPointsData))[3*i+0];
     geom_vec[3*i+1] = ((T*)(mesh->InputPointsData))[3*i+1];
@@ -235,7 +202,7 @@ int zoltan_obj_size_func_points(void *data, int num_gid_entries, int num_lid_ent
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int *ierr)
 {
   INC_SIZE_COUNT
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   *ierr = ZOLTAN_OK;
   return mesh->TotalSizePerId + sizeof(T)*3;
 }
@@ -247,7 +214,7 @@ void zoltan_pack_obj_func_points(void *data, int num_gid_entries, int num_lid_en
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr)
 {
   INC_PACK_COUNT
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   vtkIdType GID = *global_id;
   vtkIdType LID = *local_id;
   //
@@ -273,7 +240,7 @@ void zoltan_unpack_obj_func_points(void *data, int num_gid_entries,
     *ierr = ZOLTAN_FATAL;
     return;
   }
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   vtkIdType GID = *global_id;
   //
   vtkPointData *inPD  = mesh->Input->GetPointData();
@@ -318,7 +285,7 @@ void zoltan_pre_migrate_func_points(void *data, int num_gid_entries, int num_lid
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
   ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr)
 {
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   // newTotal = original points - sent away + received
   mesh->OutputNumberOfLocalPoints = mesh->InputNumberOfLocalPoints + num_import - num_export;
   mesh->OutputPoints->SetNumberOfPoints(mesh->OutputNumberOfLocalPoints);
@@ -373,7 +340,7 @@ void zoltan_pre_migrate_func_halo(void *data, int num_gid_entries, int num_lid_e
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
   ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr)
 {
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   // resize points to accept ghost cell additions
   mesh->OutputNumberOfPointsWithHalo = mesh->OutputNumberOfLocalPoints + num_import;
   mesh->OutputPoints->GetData()->Resize(mesh->OutputNumberOfPointsWithHalo);
@@ -410,7 +377,7 @@ void zoltan_pre_migrate_func_cell(void *data, int num_gid_entries, int num_lid_e
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
   ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr)
 {
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   // How many cells will we have at the end
   mesh->OutputNumberOfLocalCells = mesh->InputNumberOfLocalCells + num_import - num_export;
   vtkIdType ReservedPointCount = mesh->OutputNumberOfLocalPoints;
@@ -509,12 +476,12 @@ int zoltan_obj_size_func_cell(void *data, int num_gid_entries, int num_lid_entri
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int *ierr)
 {
   INC_SIZE_COUNT
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   *ierr = ZOLTAN_OK;
   // return the size of the cell data + number of points in cell + point Ids
   vtkIdType LID = *local_id;
   //
-  vtkIdType npts, *pts, newPts[32];
+  vtkIdType npts, *pts;
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(mesh->Input);
   vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(mesh->Input);
   //
@@ -530,7 +497,7 @@ void zoltan_pack_obj_func_cell(void *data, int num_gid_entries, int num_lid_entr
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr)
 {
   INC_PACK_COUNT
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   vtkIdType GID = *global_id;
   vtkIdType LID = *local_id;
   //
@@ -577,7 +544,7 @@ void zoltan_unpack_obj_func_cell(void *data, int num_gid_entries,
   ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr)
 {
   INC_UNPACK_COUNT
-  ProcessExchangeVariables *mesh = (ProcessExchangeVariables*)data;
+  Exchange *mesh = (Exchange*)data;
   vtkIdType GID = *global_id;
   //
   vtkIdType npts, *pts, ctype, newPts[32];
@@ -613,9 +580,9 @@ void zoltan_unpack_obj_func_cell(void *data, int num_gid_entries,
   return;
 }
 //----------------------------------------------------------------------------
-// vtkParallelPartitionFilter :: implementation 
+// vtkZoltanV1PartitionFilter :: implementation 
 //----------------------------------------------------------------------------
-vtkParallelPartitionFilter::vtkParallelPartitionFilter()
+vtkZoltanV1PartitionFilter::vtkZoltanV1PartitionFilter()
 {
   this->UpdatePiece               = 0;
   this->UpdateNumPieces           = 1;
@@ -634,7 +601,7 @@ vtkParallelPartitionFilter::vtkParallelPartitionFilter()
 }
 
 //----------------------------------------------------------------------------
-vtkParallelPartitionFilter::~vtkParallelPartitionFilter()
+vtkZoltanV1PartitionFilter::~vtkZoltanV1PartitionFilter()
 {
   this->SetController(NULL);
   this->SetIdChannelArray(NULL);
@@ -642,13 +609,13 @@ vtkParallelPartitionFilter::~vtkParallelPartitionFilter()
 }
 
 //----------------------------------------------------------------------------
-void vtkParallelPartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
+void vtkZoltanV1PartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os,indent);
 }
 
 //----------------------------------------------------------------------------
-int vtkParallelPartitionFilter::FillInputPortInformation(int, vtkInformation* info)
+int vtkZoltanV1PartitionFilter::FillInputPortInformation(int, vtkInformation* info)
 {
   // This filter uses the vtkDataSet cell traversal methods so it
   // supports any vtkPointSet type as input.
@@ -656,7 +623,7 @@ int vtkParallelPartitionFilter::FillInputPortInformation(int, vtkInformation* in
   return 1;
 }
 //----------------------------------------------------------------------------
-int vtkParallelPartitionFilter::FillOutputPortInformation(
+int vtkZoltanV1PartitionFilter::FillOutputPortInformation(
   int vtkNotUsed(port), vtkInformation* info)
 {
   // now add our info
@@ -664,7 +631,7 @@ int vtkParallelPartitionFilter::FillOutputPortInformation(
   return 1;
 }
 //----------------------------------------------------------------------------
-vtkBoundingBox *vtkParallelPartitionFilter::GetPartitionBoundingBox(int partition)
+vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBox(int partition)
 {
   if (partition<this->BoxList.size()) {
     return &this->BoxList[partition];
@@ -673,7 +640,7 @@ vtkBoundingBox *vtkParallelPartitionFilter::GetPartitionBoundingBox(int partitio
   return NULL;
 }
 //----------------------------------------------------------------------------
-vtkBoundingBox *vtkParallelPartitionFilter::GetPartitionBoundingBoxWithHalo(int partition)
+vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBoxWithHalo(int partition)
 {
   if (partition<this->BoxListWithHalo.size()) {
     return &this->BoxListWithHalo[partition];
@@ -682,7 +649,7 @@ vtkBoundingBox *vtkParallelPartitionFilter::GetPartitionBoundingBoxWithHalo(int 
   return NULL;
 }
 //----------------------------------------------------------------------------
-void vtkParallelPartitionFilter::FindPointsInHaloRegions(vtkPoints *pts, vtkIdTypeArray *IdArray, PartitionInfo &ghostinfo)
+void vtkZoltanV1PartitionFilter::FindPointsInHaloRegions(vtkPoints *pts, vtkIdTypeArray *IdArray, PartitionInfo &ghostinfo)
 {
   typedef std::pair<vtkBoundingBox*,int> boxproc;
   // we don't want to test against boxes that are far away, so first reject
@@ -721,7 +688,7 @@ void vtkParallelPartitionFilter::FindPointsInHaloRegions(vtkPoints *pts, vtkIdTy
 //  copy ( ghostinfo.GlobalIds.begin(), ghostinfo.GlobalIds.end(), out_it );
 }
 //----------------------------------------------------------------------------
-vtkSmartPointer<vtkIdTypeArray> vtkParallelPartitionFilter::GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, ProcessExchangeVariables *mesh)
+vtkSmartPointer<vtkIdTypeArray> vtkZoltanV1PartitionFilter::GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, Exchange *mesh)
 {
   vtkSmartPointer<vtkIdTypeArray> ptIds = vtkSmartPointer<vtkIdTypeArray>::New();
 
@@ -758,7 +725,7 @@ struct vtkPPF_datainfo {
   vtkPPF_datainfo() : datatype(-1), numC(-1) {};
 };
 //----------------------------------------------------------------------------
-bool vtkParallelPartitionFilter::GatherDataArrayInfo(vtkDataArray *data, 
+bool vtkZoltanV1PartitionFilter::GatherDataArrayInfo(vtkDataArray *data, 
   int &datatype, std::string &dataname, int &numComponents)
 {
 #ifdef VTK_USE_MPI
@@ -785,7 +752,7 @@ bool vtkParallelPartitionFilter::GatherDataArrayInfo(vtkDataArray *data,
 #endif
 }
 //----------------------------------------------------------------------------
-int vtkParallelPartitionFilter::GatherDataTypeInfo(vtkPoints *points)
+int vtkZoltanV1PartitionFilter::GatherDataTypeInfo(vtkPoints *points)
 {
 #ifdef VTK_USE_MPI
   if (this->UpdateNumPieces==1) {
@@ -811,7 +778,7 @@ int vtkParallelPartitionFilter::GatherDataTypeInfo(vtkPoints *points)
 #endif
 }
 //-------------------------------------------------------------------------
-void vtkParallelPartitionFilter::InitBoundingBoxes(vtkDataSet *input, vtkBoundingBox &box) 
+void vtkZoltanV1PartitionFilter::InitBoundingBoxes(vtkDataSet *input, vtkBoundingBox &box) 
 {
   double bounds[6];
   input->GetBounds(bounds);
@@ -848,7 +815,7 @@ void vtkParallelPartitionFilter::InitBoundingBoxes(vtkDataSet *input, vtkBoundin
   }
 }
 //-------------------------------------------------------------------------
-void vtkParallelPartitionFilter::SetupFieldArrayPointers(vtkDataSetAttributes *fields, ProcessExchangeVariables &mesh, int &NumberOfFields) 
+void vtkZoltanV1PartitionFilter::SetupFieldArrayPointers(vtkDataSetAttributes *fields, Exchange &mesh, int &NumberOfFields) 
 {
   int NumberOfFieldArrays = fields->GetNumberOfArrays();
   this->Controller->AllReduce(&NumberOfFieldArrays, &NumberOfFields, 1, vtkCommunicator::MAX_OP);
@@ -871,7 +838,7 @@ void vtkParallelPartitionFilter::SetupFieldArrayPointers(vtkDataSetAttributes *f
   }
 }
 //-------------------------------------------------------------------------
-int vtkParallelPartitionFilter::RequestUpdateExtent(
+int vtkZoltanV1PartitionFilter::RequestUpdateExtent(
   vtkInformation *vtkNotUsed(request),
   vtkInformationVector **inputVector,
   vtkInformationVector *outputVector)
@@ -891,7 +858,7 @@ int vtkParallelPartitionFilter::RequestUpdateExtent(
   return 1;
 }
 //----------------------------------------------------------------------------
-int vtkParallelPartitionFilter::RequestInformation(
+int vtkZoltanV1PartitionFilter::RequestInformation(
   vtkInformation* request,
   vtkInformationVector** inputVector,
   vtkInformationVector* outputVector)
@@ -920,7 +887,7 @@ int vtkParallelPartitionFilter::RequestInformation(
   return 1;
 }
 //----------------------------------------------------------------------------
-int vtkParallelPartitionFilter::RequestData(vtkInformation*,
+int vtkZoltanV1PartitionFilter::RequestData(vtkInformation*,
                                  vtkInformationVector** inputVector,
                                  vtkInformationVector* outputVector)
 {
@@ -1001,7 +968,7 @@ int vtkParallelPartitionFilter::RequestData(vtkInformation*,
   // A structure we can pass in/out of zoltan callbacks holding the info we
   // need for our allocation and exchange of particles
   //
-  ProcessExchangeVariables mesh;
+  Exchange mesh;
 
   vtkDebugMacro(<<"Initializing Zoltan on " << this->UpdatePiece);
   float ver;
@@ -1518,7 +1485,7 @@ int vtkParallelPartitionFilter::RequestData(vtkInformation*,
 // during the initial partition, but we must also send the points which are on this process
 // and part of the cell which ...hold one, we can keep partial cells ...
 //
-vtkSmartPointer<vtkIntArray> vtkParallelPartitionFilter::BuildCellToProcessList(     
+vtkSmartPointer<vtkIntArray> vtkZoltanV1PartitionFilter::BuildCellToProcessList(     
   vtkDataSet *data, PartitionInfo &partitioninfo, std::vector<int> &ProcessOffsetsCellId,
   int numExport,
   ZOLTAN_ID_PTR exportGlobalGids,

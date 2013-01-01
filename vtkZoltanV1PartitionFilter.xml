@@ -10,7 +10,7 @@
     <!-- ================================================================ -->
     <SourceProxy
       name="ParallelPartitionFilter"
-      class="vtkParallelPartitionFilter"
+      class="vtkZoltanV1PartitionFilter"
       label="Parallel Partition Filter">
       <Documentation
          short_help="Re-Partitioning of Particle Datasets in parallel">

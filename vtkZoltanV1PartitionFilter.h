@@ -1,7 +1,6 @@
 /*=========================================================================
 
-  Project                 : pv-meshless
-  Module                  : vtkParallelPartitionFilter.h
+  Module                  : vtkZoltanV1PartitionFilter.h
   Revision of last commit : $Rev: 884 $
   Author of last commit   : $Author: biddisco $
   Date of last commit     : $Date:: 2010-04-06 12:03:55 +0200 #$
@@ -18,18 +17,20 @@
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =========================================================================*/
-// .NAME vtkParallelPartitionFilter distribute datasets in parallel
+// .NAME vtkZoltanV1PartitionFilter distribute datasets in parallel
 // .SECTION Description
-// vtkParallelPartitionFilter is a parallel load balancing/partitioning 
+// vtkZoltanV1PartitionFilter is a parallel load balancing/partitioning 
 // filter for datasets. It uses the Zoltan library from the Trilinos 
 // package to perform the redistribution.
 
-#ifndef __vtkParallelPartitionFilter_h
-#define __vtkParallelPartitionFilter_h
+#ifndef __vtkZoltanV1PartitionFilter_h
+#define __vtkZoltanV1PartitionFilter_h
 
+#include <vector>
+#include <map>
+//
 #include "vtkDataSetAlgorithm.h" // superclass
 #include "vtkBoundingBox.h"
-#include <vector>
 #include "zoltan.h"
 #include "vtkSmartPointer.h"
 
@@ -40,13 +41,14 @@ class  vtkIntArray;
 class  vtkBoundsExtentTranslator;
 class  vtkPointSet;
 class  vtkDataSetAttributes;
+class  vtkCellArray;
 struct ProcessExchangeVariables;
 
-class VTK_EXPORT vtkParallelPartitionFilter : public vtkDataSetAlgorithm
+class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 {
   public:
-    static vtkParallelPartitionFilter *New();
-    vtkTypeMacro(vtkParallelPartitionFilter,vtkDataSetAlgorithm);
+    static vtkZoltanV1PartitionFilter *New();
+    vtkTypeMacro(vtkZoltanV1PartitionFilter,vtkDataSetAlgorithm);
     void PrintSelf(ostream& os, vtkIndent indent);
 
     // Description:
@@ -88,9 +90,44 @@ class VTK_EXPORT vtkParallelPartitionFilter : public vtkDataSetAlgorithm
     vtkBoundingBox *GetPartitionBoundingBoxWithHalo(int partition);
 //ETX
 
+    //----------------------------------------------------------------------------
+    // Structure to hold mesh data 
+    //----------------------------------------------------------------------------
+    typedef struct ProcessExchangeVariables {
+      int                           ProcessRank;
+      vtkPointSet                  *Input;
+      vtkPointSet                  *Output;
+      std::vector<int>              ProcessOffsetsPointId;      // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
+      std::vector<int>              ProcessOffsetsCellId;       // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
+      vtkIdType                     InputNumberOfLocalPoints;
+      vtkIdType                     InputNumberOfLocalCells;
+      vtkIdType                     OutputNumberOfLocalPoints;
+      vtkIdType                     OutputNumberOfLocalCells;
+      vtkIdType                     OutputNumberOfPointsWithHalo;
+      vtkPoints                    *OutputPoints; 
+      void                         *InputPointsData;  // float/double
+      void                         *OutputPointsData; // float/double
+      int                           NumberOfPointFields;
+      int                           NumberOfCellFields;
+      int                           MaxCellSize;
+      vtkIdType                     OutPointCount;
+      vtkIdType                     OutCellCount;
+      vtkSmartPointer<vtkCellArray> OutputCellArray;
+      std::vector<vtkIdType>        LocalToLocalIdMap;
+      std::map<vtkIdType,vtkIdType> ReceivedGlobalToLocalIdMap;
+      //
+      // The variables below are used twice, once for points, then again for cells
+      // but the information is updated in between
+      //
+      std::vector<void*>            InputArrayPointers;
+      std::vector<void*>            OutputArrayPointers;
+      std::vector<int>              MemoryPerTuple;
+      int                           TotalSizePerId;
+    } ProcessExchangeVariables;
+
   protected:
-     vtkParallelPartitionFilter();
-    ~vtkParallelPartitionFilter();
+     vtkZoltanV1PartitionFilter();
+    ~vtkZoltanV1PartitionFilter();
 
     int  GatherDataTypeInfo(vtkPoints *points);
     bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
@@ -156,8 +193,8 @@ class VTK_EXPORT vtkParallelPartitionFilter : public vtkDataSetAlgorithm
     int                         ExchangeHaloPoints;
     //
   private:
-    vtkParallelPartitionFilter(const vtkParallelPartitionFilter&);  // Not implemented.
-    void operator=(const vtkParallelPartitionFilter&);  // Not implemented.
+    vtkZoltanV1PartitionFilter(const vtkZoltanV1PartitionFilter&);  // Not implemented.
+    void operator=(const vtkZoltanV1PartitionFilter&);  // Not implemented.
 };
 
 #endif

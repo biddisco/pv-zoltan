@@ -27,7 +27,7 @@
 #ifndef __vtkParticlePartitionFilter_h
 #define __vtkParticlePartitionFilter_h
 
-#include "vtkDataSetAlgorithm.h" // superclass
+#include "vtkZoltanV1PartitionFilter.h" // superclass
 #include "vtkBoundingBox.h"
 #include <vector>
 #include "zoltan.h"
@@ -40,33 +40,13 @@ class vtkIntArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
-class VTK_EXPORT vtkParticlePartitionFilter : public vtkDataSetAlgorithm
+class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
 {
   public:
     static vtkParticlePartitionFilter *New();
     vtkTypeMacro(vtkParticlePartitionFilter,vtkDataSetAlgorithm);
     void PrintSelf(ostream& os, vtkIndent indent);
 
-    // Description:
-    // By default this filter uses the global controller,
-    // but this method can be used to set another instead.
-    virtual void SetController(vtkMultiProcessController*);
-
-    // Description:
-    // Specify the name of a scalar array which will be used to fetch
-    // the index of each point. This is necessary only if the particles
-    // change position (Id order) on each time step. The Id can be used
-    // to identify particles at each step and hence track them properly.
-    // If this array is NULL, the global point ids are used.  If an Id
-    // array cannot otherwise be found, the point index is used as the ID.
-    vtkSetStringMacro(IdChannelArray);
-    vtkGetStringMacro(IdChannelArray);
-    
-    // Description:
-    // Set the maximum aspect ratio allowed for any pair of axes when subdividing
-    vtkSetMacro(MaxAspectRatio, double);
-    vtkGetMacro(MaxAspectRatio, double);
-  
     // Description:
     // The thickness of the region between each partition that is used for 
     // ghost cell exchanges. Any particles within this overlap region of another
@@ -90,61 +70,12 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkDataSetAlgorithm
      vtkParticlePartitionFilter();
     ~vtkParticlePartitionFilter();
 
-    int  GatherDataTypeInfo(vtkDataSet *input);
-    bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
-
-    // Override to specify support for vtkPointSet input type.
-    virtual int FillInputPortInformation(int port, vtkInformation* info);
-
-	  // Override to specify different type of output
-	  virtual int FillOutputPortInformation(int vtkNotUsed(port), 
-		  vtkInformation* info);
-
-    // Description:
-    virtual int RequestInformation(vtkInformation*,
-                            vtkInformationVector**,
-                            vtkInformationVector*);
-    // Description:
-    virtual int RequestUpdateExtent(vtkInformation*, 
-                                   vtkInformationVector**, 
-                                   vtkInformationVector*);
-    
     // Description:
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
                             vtkInformationVector*);
-//BTX
-    vtkSmartPointer<vtkIdTypeArray> GenerateGlobalIds(vtkIdType N, const char *idname);
-    vtkSmartPointer<vtkIntArray> BuildLinks(vtkDataSet *data,
-      int numExport,
-      ZOLTAN_ID_PTR exportGlobalGids ,
-      ZOLTAN_ID_PTR exportLocalGids,
-      int *exportProcs);
+//    double GhostCellOverlap;
 
-    typedef struct {
-      std::vector<ZOLTAN_ID_TYPE> GlobalIds;
-      std::vector<ZOLTAN_ID_TYPE> LocalIds;
-      std::vector<int> Procs;
-    } GhostPartition;
-
-    typedef std::vector< std::vector<vtkIdType> > ListOfVectors;
-    void FindOverlappingPoints(vtkPoints *pts, vtkIdTypeArray *IdArray, GhostPartition &ghostinfo);
-    vtkBoundingBox             *LocalBoxHalo;
-    vtkBoundingBox             *LocalBox;
-    std::vector<vtkBoundingBox> BoxList;
-    std::vector<vtkBoundingBox> BoxListWithHalo;
-//ETX
-    //
-    vtkMultiProcessController *Controller;
-    //
-    int             UpdatePiece;
-    int             UpdateNumPieces;
-    vtkIdType       NumberOfLocalPoints;
-    char           *IdChannelArray;
-    double          GhostCellOverlap;
-    double          MaxAspectRatio;
-    vtkBoundsExtentTranslator *ExtentTranslator;
-    //
   private:
     vtkParticlePartitionFilter(const vtkParticlePartitionFilter&);  // Not implemented.
     void operator=(const vtkParticlePartitionFilter&);  // Not implemented.
