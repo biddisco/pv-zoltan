@@ -1,7 +1,7 @@
 /*=========================================================================
 
   Project                 : pv-meshless
-  Module                  : vtkParticlePartitionRepresentation.h
+  Module                  : vtkPartitionOutline.h
   Revision of last commit : $Rev: 155 $
   Author of last commit   : $Author: biddisco $
   Date of last commit     : $Date:: 2006-07-13 10:23:31 +0200 #$
@@ -15,27 +15,27 @@
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =========================================================================*/
-// .NAME vtkParticlePartitionRepresentation - Generate boxes from partitioned regions of data
+// .NAME vtkPartitionOutline - Generate boxes from partitioned regions of data
 //
 // .SECTION Description
 //
 // .SECTION See Also
 // 
 
-#ifndef _vtkParticlePartitionRepresentation_h
-#define _vtkParticlePartitionRepresentation_h
+#ifndef _vtkPartitionOutline_h
+#define _vtkPartitionOutline_h
 
 #include "vtkPolyDataAlgorithm.h"
 
-class VTK_EXPORT vtkParticlePartitionRepresentation : public vtkPolyDataAlgorithm {
+class VTK_EXPORT vtkPartitionOutline : public vtkPolyDataAlgorithm {
   public:
     // Description:
     // Standard Type-Macro
-    vtkTypeMacro(vtkParticlePartitionRepresentation,vtkPolyDataAlgorithm);
+    vtkTypeMacro(vtkPartitionOutline,vtkPolyDataAlgorithm);
 
     // Description:
-    // Create an instance of vtkParticlePartitionRepresentation
-    static vtkParticlePartitionRepresentation *New();
+    // Create an instance of vtkPartitionOutline
+    static vtkPartitionOutline *New();
 
     // Description:
     // By default, each process generates only the box for its own rank
@@ -52,8 +52,8 @@ class VTK_EXPORT vtkParticlePartitionRepresentation : public vtkPolyDataAlgorith
     vtkGetMacro(InflateFactor,double);
     
   protected:
-     vtkParticlePartitionRepresentation(void);
-    ~vtkParticlePartitionRepresentation();
+     vtkPartitionOutline(void);
+    ~vtkPartitionOutline();
     //
     virtual int RequestInformation (vtkInformation *,
                                     vtkInformationVector **,
@@ -69,8 +69,8 @@ class VTK_EXPORT vtkParticlePartitionRepresentation : public vtkPolyDataAlgorith
     double InflateFactor;
 private:
   // Not implemented.
-  vtkParticlePartitionRepresentation(const vtkParticlePartitionRepresentation&);
-  void operator=(const vtkParticlePartitionRepresentation&);
+  vtkPartitionOutline(const vtkPartitionOutline&);
+  void operator=(const vtkPartitionOutline&);
 };
 
 #endif

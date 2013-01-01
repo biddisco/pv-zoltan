@@ -1,7 +1,7 @@
 /*=========================================================================
 
   Project                 : pv-meshless
-  Module                  : vtkParticlePartitionRepresentation.cpp
+  Module                  : vtkPartitionOutline.cpp
   Revision of last commit : $Rev: 155 $
   Author of last commit   : $Author: biddisco $
   Date of last commit     : $Date:: 2006-07-13 10:23:31 +0200 #$
@@ -15,7 +15,7 @@
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =========================================================================*/
-#include "vtkParticlePartitionRepresentation.h"
+#include "vtkPartitionOutline.h"
 #include "vtkInformation.h"
 #include "vtkInformationVector.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
@@ -34,24 +34,24 @@
 //
 #include <cmath>
 //---------------------------------------------------------------------------
-vtkStandardNewMacro(vtkParticlePartitionRepresentation);
+vtkStandardNewMacro(vtkPartitionOutline);
 //---------------------------------------------------------------------------
-vtkParticlePartitionRepresentation::vtkParticlePartitionRepresentation(void)
+vtkPartitionOutline::vtkPartitionOutline(void)
 {
   this->AllBoxesOnAllProcesses = 0;
   this->InflateFactor = 1.0;
 }
 //---------------------------------------------------------------------------
-vtkParticlePartitionRepresentation::~vtkParticlePartitionRepresentation(void) {
+vtkPartitionOutline::~vtkPartitionOutline(void) {
 }
 //----------------------------------------------------------------------------
-int vtkParticlePartitionRepresentation::FillInputPortInformation(int, vtkInformation *info)
+int vtkPartitionOutline::FillInputPortInformation(int, vtkInformation *info)
 {
   info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkPointSet");
   return 1;
 }
 //----------------------------------------------------------------------------
-int vtkParticlePartitionRepresentation::RequestInformation(
+int vtkPartitionOutline::RequestInformation(
   vtkInformation *vtkNotUsed(request),
   vtkInformationVector **vtkNotUsed(inputVector),
   vtkInformationVector *outputVector)
@@ -61,7 +61,7 @@ int vtkParticlePartitionRepresentation::RequestInformation(
   return 1;
 }
 //----------------------------------------------------------------------------
-int vtkParticlePartitionRepresentation::RequestData(vtkInformation *request,
+int vtkPartitionOutline::RequestData(vtkInformation *request,
                                        vtkInformationVector** inputVector,
                                        vtkInformationVector* outputVector)
 {

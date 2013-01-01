@@ -6,9 +6,9 @@
   <ProxyGroup name="filters">
 
     <SourceProxy 
-      name="ParticlePartitionDisplay" 
-      class="vtkParticlePartitionRepresentation" 
-      label="Particle Partition Display">
+      name="PartitionOutline" 
+      class="vtkPartitionOutline" 
+      label="Partition Outline">
       <Documentation
          long_help="Displays bounding boxes of partition particle datasets"
          short_help="Displays bounding boxes of partition particle datasets">
