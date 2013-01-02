@@ -24,9 +24,11 @@
 #define __vtkBoundsExtentTranslator_h
 
 #include "vtkExtentTranslator.h"
+#include "vtkSmartPointer.h"
 #include <vector>
 
 class vtkMultiProcessController;
+class vtkPKdTree;
 
 class VTK_EXPORT vtkBoundsExtentTranslator : public vtkExtentTranslator
 {
@@ -35,6 +37,11 @@ public:
   void PrintSelf(ostream& os, vtkIndent indent);
   
   static vtkBoundsExtentTranslator* New();
+
+  // Description:
+  // Set the bounding box to be used for a piece.
+  virtual void SetKdTree(vtkPKdTree *cuts);
+  virtual vtkPKdTree *GetKdTree();  
 
   // Description:
   // Set the number of pieces that will be stored.
@@ -116,6 +123,7 @@ protected:
   double Spacing[3];
   double MaximumGhostDistance;
   int    BoundsHalosPresent;
+  vtkSmartPointer<vtkPKdTree> KdTree;
    
 private:
   vtkBoundsExtentTranslator(const vtkBoundsExtentTranslator&);  // Not implemented.

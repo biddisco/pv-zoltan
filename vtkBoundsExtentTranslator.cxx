@@ -17,6 +17,7 @@
 #include "vtkMultiProcessController.h"
 #include "vtkMath.h"
 #include "vtkBoundingBox.h"
+#include "vtkPKdTree.h"
 
 vtkStandardNewMacro(vtkBoundsExtentTranslator);
 
@@ -25,6 +26,7 @@ vtkBoundsExtentTranslator::vtkBoundsExtentTranslator()
 {
   this->MaximumGhostDistance = 0;
   this->BoundsHalosPresent = 0;
+  this->KdTree = NULL;
 }
 
 //----------------------------------------------------------------------------
@@ -172,6 +174,18 @@ double* vtkBoundsExtentTranslator::GetBoundsHaloForPiece(int piece)
     return emptyBounds;
     }
   return &this->BoundsTableHalo[piece*6];
+}
+
+//----------------------------------------------------------------------------
+void vtkBoundsExtentTranslator::SetKdTree(vtkPKdTree *cuts)
+{
+  this->KdTree = cuts;
+}
+
+//----------------------------------------------------------------------------
+vtkPKdTree *vtkBoundsExtentTranslator::GetKdTree()
+{
+  return this->KdTree;
 }
 
 //----------------------------------------------------------------------------
