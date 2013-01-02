@@ -26,6 +26,8 @@
 #include "vtkExtentTranslator.h"
 #include <vector>
 
+class vtkMultiProcessController;
+
 class VTK_EXPORT vtkBoundsExtentTranslator : public vtkExtentTranslator
 {
 public:
@@ -95,6 +97,13 @@ public:
   // Description:
   // Returns the union of all bounds
   virtual double *GetWholeBounds();
+
+  // Description:
+  // if you only know the local bounds and not the bounds of all processes, 
+  // call ExchangeBoundsForAllProcesses passing in a bounds object for the local
+  // piece and a controller. The class will initialize the correct number of pieces and
+  // bounds for all pieces.
+  void ExchangeBoundsForAllProcesses(vtkMultiProcessController *controller, double localbounds[6]);
 
 protected:
    vtkBoundsExtentTranslator();

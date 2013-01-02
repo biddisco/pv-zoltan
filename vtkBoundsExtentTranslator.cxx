@@ -14,6 +14,8 @@
 =========================================================================*/
 #include "vtkBoundsExtentTranslator.h"
 #include "vtkObjectFactory.h"
+#include "vtkMultiProcessController.h"
+#include "vtkMath.h"
 #include "vtkBoundingBox.h"
 
 vtkStandardNewMacro(vtkBoundsExtentTranslator);
@@ -67,6 +69,20 @@ void vtkBoundsExtentTranslator::SetNumberOfPieces(int pieces)
   this->BoundsTable.resize(pieces*6);
   this->BoundsTableHalo.resize(pieces*6);
   this->Superclass::SetNumberOfPieces(pieces);
+}
+
+//----------------------------------------------------------------------------
+void vtkBoundsExtentTranslator::ExchangeBoundsForAllProcesses(vtkMultiProcessController *controller, double localbounds[6])
+{
+  // init bounds storage arrays
+  int piece = controller->GetLocalProcessId();
+  this->SetNumberOfPieces(controller->GetNumberOfProcesses());
+  //
+  controller->AllGather(localbounds, &this->BoundsTable[0], 6);
+  //
+  for (int i=0; i<controller->GetNumberOfProcesses(); i++) {
+    this->SetBoundsForPiece(i, &this->BoundsTable[i*6]);
+  }
 }
 
 //----------------------------------------------------------------------------
