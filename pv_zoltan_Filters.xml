@@ -1,0 +1,9 @@
+<ParaViewFilters>
+  <Category name="Partitioning" menu_label="&amp;Partitioning">
+    <Proxy group="filters" name="PartitionOutline" />
+    <Proxy group="filters" name="ParallelPartitionFilter" />
+    <Proxy group="filters" name="ParticlePartitionFilter" />
+  </Category>
+</ParaViewFilters>
+
+
