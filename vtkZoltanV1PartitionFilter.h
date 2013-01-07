@@ -25,24 +25,71 @@
 
 #ifndef __vtkZoltanV1PartitionFilter_h
 #define __vtkZoltanV1PartitionFilter_h
-
+//
 #include <vector>
 #include <map>
 //
 #include "vtkDataSetAlgorithm.h" // superclass
 #include "vtkBoundingBox.h"
-#include "zoltan.h"
 #include "vtkSmartPointer.h"
-
+//
+#include "zoltan.h"
+// standard vtk classes
 class  vtkMultiProcessController;
 class  vtkPoints;
 class  vtkIdTypeArray;
 class  vtkIntArray;
-class  vtkBoundsExtentTranslator;
 class  vtkPointSet;
 class  vtkDataSetAttributes;
 class  vtkCellArray;
-struct ProcessExchangeVariables;
+class  vtkTimerLog;
+// our special extent translator
+class  vtkBoundsExtentTranslator;
+
+//----------------------------------------------------------------------------
+// #define JB_DEBUG__
+//----------------------------------------------------------------------------
+#ifdef EXTRA_ZOLTAN_DEBUG
+  #define INC_PACK_COUNT pack_count++;
+  #define INC_UNPACK_COUNT unpack_count++;
+  #define INC_SIZE_COUNT size_count++;
+  #define CLEAR_ZOLTAN_DEBUG pack_count = 0; size_count = 0; unpack_count = 0;
+#else
+  #define INC_PACK_COUNT 
+  #define INC_UNPACK_COUNT 
+  #define INC_SIZE_COUNT 
+  #define CLEAR_ZOLTAN_DEBUG 
+#endif
+//----------------------------------------------------------------------------
+#if defined JB_DEBUG__
+#define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
+
+  #undef vtkDebugMacro
+  #define vtkDebugMacro(a)  \
+  { \
+    if (this->UpdatePiece>=0) { \
+      vtkOStreamWrapper::EndlType endl; \
+      vtkOStreamWrapper::UseEndl(endl); \
+      vtkOStrStreamWrapper vtkmsg; \
+      vtkmsg << "P(" << this->UpdatePiece << "): " a << "\n"; \
+      OUTPUTTEXT(vtkmsg.str()); \
+      vtkmsg.rdbuf()->freeze(0); \
+    } \
+  }
+
+  #undef  vtkErrorMacro
+  #define vtkErrorMacro(a) vtkDebugMacro(a)  
+#endif
+//----------------------------------------------------------------------------
+//
+// GCC has trouble resolving some templated function pointers, 
+// we explicitly declare the types and then cast them as args where needed
+//    
+typedef int  (*zsize_fn) (void *, int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int *);
+typedef void (*zpack_fn) (void *, int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int , int , char *, int *);
+typedef void (*zupack_fn)(void *, int , ZOLTAN_ID_PTR , int , char *, int *);
+typedef void (*zprem_fn) (void *, int , int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int *, int *, int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int *, int *, int *);
+//----------------------------------------------------------------------------
 
 class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 {
@@ -71,14 +118,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     vtkSetMacro(MaxAspectRatio, double);
     vtkGetMacro(MaxAspectRatio, double);
   
-    // Description:
-    // The thickness of the region between each partition that is used for 
-    // ghost cell exchanges. Any particles within this overlap region of another
-    // processor will be duplicated on neighbouring processors (possibly multiple times
-    // at corner region overlaps)
-    vtkSetMacro(GhostCellOverlap, double);
-    vtkGetMacro(GhostCellOverlap, double);
-        
 //BTX
     // Description:
     // Return the Bounding Box for a partition
@@ -91,12 +130,15 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 //ETX
 
     //----------------------------------------------------------------------------
-    // Structure to hold mesh data 
+    // Structure to hold all the dataset/mesh/points related data we pass to
+    // and from zoltan during the calbacks
     //----------------------------------------------------------------------------
-    typedef struct ProcessExchangeVariables {
+    typedef struct CallbackData {
+      vtkZoltanV1PartitionFilter   *self;
       int                           ProcessRank;
       vtkPointSet                  *Input;
       vtkPointSet                  *Output;
+      int                           PointType;
       std::vector<int>              ProcessOffsetsPointId;      // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
       std::vector<int>              ProcessOffsetsCellId;       // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
       vtkIdType                     InputNumberOfLocalPoints;
@@ -107,8 +149,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       vtkPoints                    *OutputPoints; 
       void                         *InputPointsData;  // float/double
       void                         *OutputPointsData; // float/double
-      int                           NumberOfPointFields;
-      int                           NumberOfCellFields;
+      int                           NumberOfFields;
       int                           MaxCellSize;
       vtkIdType                     OutPointCount;
       vtkIdType                     OutCellCount;
@@ -123,7 +164,90 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       std::vector<void*>            OutputArrayPointers;
       std::vector<int>              MemoryPerTuple;
       int                           TotalSizePerId;
-    } ProcessExchangeVariables;
+    } CallbackData;
+
+    //----------------------------------------------------------------------------
+    // Structure holding pointers that zoltan returns for lists of assignments
+    // to processors etc
+    //----------------------------------------------------------------------------
+    typedef struct ZoltanLoadBalanceData {
+      int changes, numGidEntries, numLidEntries, numImport, numExport;
+      ZOLTAN_ID_PTR importGlobalGids;
+      ZOLTAN_ID_PTR importLocalGids; 
+      ZOLTAN_ID_PTR exportGlobalGids;
+      ZOLTAN_ID_PTR exportLocalGids;
+      int *importProcs;
+      int *importToPart;
+      int *exportProcs;
+      int *exportToPart;
+    } ZoltanLoadBalanceData;
+
+    //----------------------------------------------------------------------------
+    // Structure we use as a temp storage for 
+    // to processors etc
+    //----------------------------------------------------------------------------
+    typedef struct {
+      std::vector<ZOLTAN_ID_TYPE> GlobalIds;
+      std::vector<ZOLTAN_ID_TYPE> LocalIds;
+      std::vector<int> Procs;
+    } PartitionInfo;
+
+//BTX
+    // Description:
+    // zoltan callback to return number of points participating in load/balance
+    static int get_number_of_objects_points(void *data, int *ierr);
+
+    // Description:
+    // Zoltan callback which fills the Ids for each point in the exchange
+    static void get_object_list_points(void *data, int sizeGID, int sizeLID,
+      ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID, int wgt_dim, float *obj_wgts, int *ierr);
+
+    // Description:
+    // Zoltan callback which returns the dimension of geometry (3D for us)
+    static int get_num_geometry(void *data, int *ierr);
+
+    // Description:
+    // Zoltan callback which returns coordinate geometry data (points)
+    // templated here to alow float/double instances in our implementation
+    template<typename T>
+    static void get_geometry_list(
+      void *data, int sizeGID, int sizeLID, int num_obj, 
+      ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
+      int num_dim, double *geom_vec, int *ierr);
+
+    // Description:
+    // A ZOLTAN_OBJ_SIZE_FN query function returns the size (in bytes) of the data buffer 
+    // that is needed to pack all of a single object's data.
+    // Here we add up the size of all the field arrays for points + the geometry itself
+    template<typename T>
+    static int zoltan_obj_size_func_points(void *data, 
+      int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id, 
+      ZOLTAN_ID_PTR local_id, int *ierr);
+
+    // Description:
+    // Zoltan callback to pack all the data for one point into a buffer
+    template<typename T>
+    static void zoltan_pack_obj_func_points(void *data, int num_gid_entries, int num_lid_entries,
+      ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr);
+
+    // Description:
+    // Zoltan callback to unpack all the data for one point from a buffer
+    template<typename T>
+    static void zoltan_unpack_obj_func_points(void *data, int num_gid_entries,
+      ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr);
+
+    // Description:
+    // Zoltan callback for Pre migration setup/initialization
+    template<typename T>
+    static void zoltan_pre_migrate_func_points(void *data, int num_gid_entries, int num_lid_entries,
+      int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
+      int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
+      ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
+//ETX
+
+    void        InitializeZoltanLoadBalance();
+    static void add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID);
+    vtkIdType   global_to_local_Id(vtkIdType GID);
 
   protected:
      vtkZoltanV1PartitionFilter();
@@ -131,8 +255,8 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     int  GatherDataTypeInfo(vtkPoints *points);
     bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
-    void InitBoundingBoxes(vtkDataSet *input, vtkBoundingBox &box);
-    void SetupFieldArrayPointers(vtkDataSetAttributes *fields, ProcessExchangeVariables &mesh, int &NumberOfFields);
+    void SetupFieldArrayPointers(vtkDataSetAttributes *fields);
+    virtual void InitBoundingBoxes(vtkDataSet *input, vtkBoundingBox &box);
 
     // Override to specify support for vtkPointSet input type.
     virtual int FillInputPortInformation(int port, vtkInformation* info);
@@ -155,15 +279,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
                             vtkInformationVector**,
                             vtkInformationVector*);
 //BTX
-    vtkSmartPointer<vtkIdTypeArray> GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, ProcessExchangeVariables *mesh);
-
-    typedef struct {
-      std::vector<ZOLTAN_ID_TYPE> GlobalIds;
-      std::vector<ZOLTAN_ID_TYPE> LocalIds;
-      std::vector<int> Procs;
-    } PartitionInfo;
-
-    void FindPointsInHaloRegions(vtkPoints *pts, vtkIdTypeArray *IdArray, PartitionInfo &ghostinfo);
+    vtkSmartPointer<vtkIdTypeArray> GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname);
 
     vtkSmartPointer<vtkIntArray> BuildCellToProcessList(
       vtkDataSet *data, PartitionInfo &partitioninfo, 
@@ -173,6 +289,9 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       ZOLTAN_ID_PTR exportLocalGids,
       int *exportProcs);
 
+    MPI_Comm GetMPIComm();
+    int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
+
     //
     vtkBoundingBox             *LocalBoxHalo;
     vtkBoundingBox             *LocalBox;
@@ -180,18 +299,28 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     std::vector<vtkBoundingBox> BoxListWithHalo;
 //ETX
     //
-    vtkMultiProcessController  *Controller;
+    vtkMultiProcessController   *Controller;
      //
-    int                         UpdatePiece;
-    int                         UpdateNumPieces;
-    char                       *IdChannelArray;
-    double                      GhostCellOverlap;
-    double                      MaxAspectRatio;
-    vtkBoundsExtentTranslator  *ExtentTranslator;
-    int                         ExchangePoints;
-    int                         ExchangeCells;
-    int                         ExchangeHaloPoints;
+    int                          UpdatePiece;
+    int                          UpdateNumPieces;
+    char                        *IdChannelArray;
+    double                       MaxAspectRatio;
+    vtkBoundsExtentTranslator   *ExtentTranslator;
+    vtkBoundsExtentTranslator   *InputExtentTranslator;
+    vtkSmartPointer<vtkTimerLog> Timer;
+    std::string                  IdsName;
     //
+    struct Zoltan_Struct       *ZoltanData;
+    CallbackData                ZoltanCallbackData;
+    ZoltanLoadBalanceData       LoadBalanceData;
+
+    //
+    // For debugging
+    //
+    int pack_count;
+    int unpack_count;
+    int size_count;
+
   private:
     vtkZoltanV1PartitionFilter(const vtkZoltanV1PartitionFilter&);  // Not implemented.
     void operator=(const vtkZoltanV1PartitionFilter&);  // Not implemented.

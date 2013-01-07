@@ -74,6 +74,7 @@ IF(Trilinos_FOUND)
   SET(TRILINOS_CXX 
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.cxx
   )
   SET(TRILINOS_XML 
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.xml

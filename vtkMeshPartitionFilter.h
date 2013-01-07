@@ -1,7 +1,7 @@
 /*=========================================================================
 
   Project                 : pv-meshless
-  Module                  : vtkParticlePartitionFilter.h
+  Module                  : vtkMeshPartitionFilter.h
   Revision of last commit : $Rev: 884 $
   Author of last commit   : $Author: biddisco $
   Date of last commit     : $Date:: 2010-04-06 12:03:55 +0200 #$
@@ -18,14 +18,14 @@
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =========================================================================*/
-// .NAME vtkParticlePartitionFilter distribute particle datasets in parallel
+// .NAME vtkMeshPartitionFilter distribute particle datasets in parallel
 // .SECTION Description
-// vtkParticlePartitionFilter is a parallel load balancing/partitioning 
+// vtkMeshPartitionFilter is a parallel load balancing/partitioning 
 // filter for particle datasets. It uses the Zoltan library from the Trilinos 
 // package to perform the redistribution.
 
-#ifndef __vtkParticlePartitionFilter_h
-#define __vtkParticlePartitionFilter_h
+#ifndef __vtkMeshPartitionFilter_h
+#define __vtkMeshPartitionFilter_h
 
 #include "vtkZoltanV1PartitionFilter.h" // superclass
 #include "vtkBoundingBox.h"
@@ -40,57 +40,44 @@ class vtkIntArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
-class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
+class VTK_EXPORT vtkMeshPartitionFilter : public vtkZoltanV1PartitionFilter
 {
   public:
-    static vtkParticlePartitionFilter *New();
-    vtkTypeMacro(vtkParticlePartitionFilter,vtkDataSetAlgorithm);
+    static vtkMeshPartitionFilter *New();
+    vtkTypeMacro(vtkMeshPartitionFilter,vtkDataSetAlgorithm);
     void PrintSelf(ostream& os, vtkIndent indent);
 
-    // Description:
-    // The thickness of the region between each partition that is used for 
-    // ghost cell exchanges. Any particles within this overlap region of another
-    // processor will be duplicated on neighbouring processors (possibly multiple times
-    // at corner region overlaps)
-    vtkSetMacro(GhostCellOverlap, double);
-    vtkGetMacro(GhostCellOverlap, double);
-        
 //BTX
-    // Description:
-    // Return the Bounding Box for a partition plus the extended region
-    // all around the box where ghost cells might be required/present
-    vtkBoundingBox *GetPartitionBoundingBoxWithHalo(int partition);
-//ETX
-
-    virtual void InitBoundingBoxes(vtkDataSet *input, vtkBoundingBox &box);
-
     template <typename T>
-    static void zoltan_pre_migrate_func_halo(void *data, int num_gid_entries, int num_lid_entries,
+    static void zoltan_pre_migrate_func_cell(void *data, int num_gid_entries, int num_lid_entries,
       int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
       int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
       ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
 
-    void FindPointsInHaloRegions(vtkPoints *pts, vtkIdTypeArray *IdArray, PartitionInfo &ghostinfo);
+    static int zoltan_obj_size_func_cell(void *data, int num_gid_entries, int num_lid_entries,
+      ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int *ierr);
 
-    int ExchangeHaloPoints(vtkInformation* info,
-          vtkInformationVector** inputVector,
-          vtkInformationVector* outputVector);
+    static void zoltan_pack_obj_func_cell(void *data, int num_gid_entries, int num_lid_entries,
+      ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr);
 
-    double GhostCellOverlap;
+    static void zoltan_unpack_obj_func_cell(void *data, int num_gid_entries,
+      ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr);
+//ETX
+
+    int PartitionCells(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
 
   protected:
-     vtkParticlePartitionFilter();
-    ~vtkParticlePartitionFilter();
+     vtkMeshPartitionFilter();
+    ~vtkMeshPartitionFilter();
 
     // Description:
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
                             vtkInformationVector*);
-//    double GhostCellOverlap;
 
   private:
-    vtkParticlePartitionFilter(const vtkParticlePartitionFilter&);  // Not implemented.
-    void operator=(const vtkParticlePartitionFilter&);  // Not implemented.
+    vtkMeshPartitionFilter(const vtkMeshPartitionFilter&);  // Not implemented.
+    void operator=(const vtkMeshPartitionFilter&);  // Not implemented.
 };
 
 #endif
