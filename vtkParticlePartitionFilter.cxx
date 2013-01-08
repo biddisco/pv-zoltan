@@ -19,7 +19,6 @@
 
 =========================================================================*/
 //
-#include "vtkParticlePartitionFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkPolyData.h"
 #include "vtkUnstructuredGrid.h"
@@ -44,10 +43,10 @@
   #include "vtkMPIController.h"
   #include "vtkMPICommunicator.h"
 #endif
-#include "vtkParticlePartitionFilter.h"
 #include "vtkDummyController.h"
 //
 #include "vtkBoundsExtentTranslator.h"
+#include "vtkParticlePartitionFilter.h"
 //
 #include <sstream>
 //
@@ -128,8 +127,37 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
     Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
   }
   
-  this->ExchangeHaloPoints(info, inputVector, outputVector);
+  //
+  // Initialize the halo regions based on our redistribution
+  //
+  this->FillPartitionBoundingBoxWithHalo();
 
+  //
+  // Find points in halo regions and sent them to remote processes
+  //
+  if (this->UpdateNumPieces>1) {
+    this->ExchangeHaloPoints(info, inputVector, outputVector);
+  }
+
+  //
+  // If polydata create Vertices for each final point
+  //
+  vtkSmartPointer<vtkCellArray> cells = vtkSmartPointer<vtkCellArray>::New();
+  if (vtkPolyData::SafeDownCast(this->ZoltanCallbackData.Output)) {
+    vtkIdType *arraydata = cells->WritePointer(this->ZoltanCallbackData.OutPointCount, 2*this->ZoltanCallbackData.OutPointCount);
+    for (int i=0; i<this->ZoltanCallbackData.OutPointCount; i++) {
+      arraydata[i*2]   = 1;
+      arraydata[i*2+1] = i;
+    }
+    vtkPolyData::SafeDownCast(this->ZoltanCallbackData.Output)->SetVerts(cells);
+  }
+  //
+  //*****************************************************************
+  // Free the arrays allocated by Zoltan_LB_Partition, and free
+  // the storage allocated for the Zoltan structure.
+  //*****************************************************************
+  //
+  Zoltan_Destroy(&this->ZoltanData);
 
   this->Controller->Barrier();
   this->Timer->StopTimer();
@@ -137,25 +165,39 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   return 1;
 }
 //----------------------------------------------------------------------------
-void vtkParticlePartitionFilter::InitBoundingBoxes(vtkDataSet *input, vtkBoundingBox &box) 
+vtkBoundingBox *vtkParticlePartitionFilter::GetPartitionBoundingBoxWithHalo(int partition)
 {
-  this->vtkZoltanV1PartitionFilter::InitBoundingBoxes(input, box);
-  // hardly need to bother since on one process we are not going to use the halo regions
-  double bounds[6];
-  input->GetBounds(bounds);
-  this->BoxList.clear();
+  if (partition<this->BoxListWithHalo.size()) {
+    return &this->BoxListWithHalo[partition];
+  }
+  vtkErrorMacro(<<"Partition not found in Bounding Box list");
+  return NULL;
+}
+//----------------------------------------------------------------------------
+void vtkParticlePartitionFilter::FillPartitionBoundingBoxWithHalo()
+{
+  //
+  // Set the halo/ghost regions we need around each process bounding box
+  //  
   this->BoxListWithHalo.clear();
-  if (this->UpdateNumPieces==1) {
-    vtkBoundingBox databox(bounds);
-    this->BoxList.push_back(databox);
-    // we add a ghost cell region to our boxes
-    databox.Inflate(this->GhostCellOverlap);
-    this->BoxListWithHalo.push_back(databox);
-    this->ExtentTranslator->SetNumberOfPieces(1);
-    // Copy the bounds to our piece to bounds translator
-    this->ExtentTranslator->SetBoundsForPiece(0, bounds);
-    this->ExtentTranslator->InitWholeBounds();
-  } 
+  if (this->InputExtentTranslator && this->InputExtentTranslator->GetBoundsHalosPresent()) {
+    this->ExtentTranslator->SetBoundsHalosPresent(1);
+    for (int p=0; p<this->UpdateNumPieces; p++) {
+      vtkBoundingBox box;  
+      box.SetBounds(this->InputExtentTranslator->GetBoundsHaloForPiece(p));
+      this->BoxListWithHalo.push_back(box);
+      this->ExtentTranslator->SetBoundsHaloForPiece(p,this->InputExtentTranslator->GetBoundsHaloForPiece(p));
+    }
+  }
+  else {
+    // @todo : extend this to handle AMR ghost regions etc.
+    std::vector<double> ghostOverlaps(this->UpdateNumPieces,this->GhostCellOverlap);
+    for (int p=0; p<this->UpdateNumPieces; p++) {
+      vtkBoundingBox box = this->BoxList[p];  
+      box.Inflate(ghostOverlaps[p]);
+      this->BoxListWithHalo.push_back(box);
+    }
+  }
 }
 //-------------------------------------------------------------------------
 void vtkParticlePartitionFilter::FindPointsInHaloRegions(vtkPoints *pts, vtkIdTypeArray *IdArray, PartitionInfo &ghostinfo)
@@ -201,28 +243,6 @@ int vtkParticlePartitionFilter::ExchangeHaloPoints(vtkInformation* info,
                                  vtkInformationVector** inputVector,
                                  vtkInformationVector* outputVector)
 {
-  //
-  // Set the halo/ghost regions we need around each process bounding box
-  //  
-  if (this->InputExtentTranslator && this->InputExtentTranslator->GetBoundsHalosPresent()) {
-    this->ExtentTranslator->SetBoundsHalosPresent(1);
-    for (int p=0; p<this->UpdateNumPieces; p++) {
-      vtkBoundingBox box;  
-      box.SetBounds(this->InputExtentTranslator->GetBoundsHaloForPiece(p));
-      this->BoxListWithHalo.push_back(box);
-      this->ExtentTranslator->SetBoundsHaloForPiece(p,this->InputExtentTranslator->GetBoundsHaloForPiece(p));
-    }
-  }
-  else {
-    // do a calculation on all nodes
-    std::vector<double> ghostOverlaps(this->UpdateNumPieces,this->GhostCellOverlap);
-    for (int p=0; p<this->UpdateNumPieces; p++) {
-      vtkBoundingBox box = this->BoxList[p];  
-      box.Inflate(ghostOverlaps[p]);
-      this->BoxListWithHalo.push_back(box);
-    }
-  }
-
   this->ExtentTranslator->InitWholeBounds();
   this->LocalBox     = &this->BoxList[this->UpdatePiece];
   this->LocalBoxHalo = &this->BoxListWithHalo[this->UpdatePiece];

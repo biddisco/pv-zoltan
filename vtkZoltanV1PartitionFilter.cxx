@@ -18,7 +18,6 @@
 
 =========================================================================*/
 //
-#include "vtkZoltanV1PartitionFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkPolyData.h"
 #include "vtkUnstructuredGrid.h"
@@ -43,18 +42,19 @@
   #include "vtkMPIController.h"
   #include "vtkMPICommunicator.h"
 #endif
-#include "vtkZoltanV1PartitionFilter.h"
 #include "vtkDummyController.h"
 //
 #include "vtkBoundsExtentTranslator.h"
-//
-#include <sstream>
+#include "vtkZoltanV1PartitionFilter.h"
 //
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <numeric>
 #include <algorithm>
 #include <map>
+#include <iostream>
+#include <sstream>
+//
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkZoltanV1PartitionFilter);
 vtkCxxSetObjectMacro(vtkZoltanV1PartitionFilter, Controller, vtkMultiProcessController);
@@ -270,6 +270,7 @@ vtkZoltanV1PartitionFilter::vtkZoltanV1PartitionFilter()
   this->IdChannelArray            = NULL;
   this->MaxAspectRatio            = 5.0;
   this->ExtentTranslator          = vtkBoundsExtentTranslator::New();
+  this->InputExtentTranslator     = NULL;
   this->ZoltanData                = NULL;
   this->Controller                = NULL;
   this->SetController(vtkMultiProcessController::GetGlobalController());
@@ -292,8 +293,7 @@ void vtkZoltanV1PartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
 //----------------------------------------------------------------------------
 int vtkZoltanV1PartitionFilter::FillInputPortInformation(int, vtkInformation* info)
 {
-  // This filter uses the vtkDataSet cell traversal methods so it
-  // supports any vtkPointSet type as input.
+  // This filter supports any vtkPointSet type as input.
   info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkPointSet");
   return 1;
 }
@@ -301,7 +301,7 @@ int vtkZoltanV1PartitionFilter::FillInputPortInformation(int, vtkInformation* in
 int vtkZoltanV1PartitionFilter::FillOutputPortInformation(
   int vtkNotUsed(port), vtkInformation* info)
 {
-  // now add our info
+  // output should be the same as the input (a subclass of vtkPointSet)
   info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkPointSet");
   return 1;
 }
@@ -315,24 +315,13 @@ vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBox(int partitio
   return NULL;
 }
 //----------------------------------------------------------------------------
-vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBoxWithHalo(int partition)
+vtkSmartPointer<vtkIdTypeArray> vtkZoltanV1PartitionFilter::GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, vtkIdTypeArray *ptIds)
 {
-  if (partition<this->BoxListWithHalo.size()) {
-    return &this->BoxListWithHalo[partition];
-  }
-  vtkErrorMacro(<<"Partition not found in Bounding Box list");
-  return NULL;
-}
-//----------------------------------------------------------------------------
-vtkSmartPointer<vtkIdTypeArray> vtkZoltanV1PartitionFilter::GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname)
-{
-  vtkSmartPointer<vtkIdTypeArray> ptIds = vtkSmartPointer<vtkIdTypeArray>::New();
-
+  // offset arrays
   std::vector<vtkIdType> PointsPerProcess(this->UpdateNumPieces);
   std::vector<vtkIdType> CellsPerProcess(this->UpdateNumPieces);
   this->ZoltanCallbackData.ProcessOffsetsPointId.assign(this->UpdateNumPieces+1, 0);
   this->ZoltanCallbackData.ProcessOffsetsCellId.assign(this->UpdateNumPieces+1, 0);
-
   // create array of Id offsets increasing for each process rank
 #ifdef VTK_USE_MPI
   vtkMPICommunicator* com = vtkMPICommunicator::SafeDownCast(this->Controller->GetCommunicator());
@@ -341,16 +330,21 @@ vtkSmartPointer<vtkIdTypeArray> vtkZoltanV1PartitionFilter::GenerateGlobalIds(vt
   std::partial_sum(PointsPerProcess.begin(), PointsPerProcess.end(), this->ZoltanCallbackData.ProcessOffsetsPointId.begin()+1);
   std::partial_sum(CellsPerProcess.begin(), CellsPerProcess.end(), this->ZoltanCallbackData.ProcessOffsetsCellId.begin()+1);
 #endif
-
   //
   // Global point IDs generated here
   //
   vtkIdType offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece];
-  ptIds->SetNumberOfValues(Npoints);
-  for (vtkIdType id=0; id<Npoints; id++) {
-    ptIds->SetValue(id, id + offset);
+  //
+  if (!ptIds) {
+    vtkSmartPointer<vtkIdTypeArray> newptIds = vtkSmartPointer<vtkIdTypeArray>::New();
+    newptIds = vtkIdTypeArray::New();
+    newptIds->SetNumberOfValues(Npoints);
+    for (vtkIdType id=0; id<Npoints; id++) {
+      newptIds->SetValue(id, id + offset);
+    }
+    newptIds->SetName(ptidname);
+    return newptIds;
   }
-  ptIds->SetName(ptidname);
   return ptIds;
 }
 //----------------------------------------------------------------------------
@@ -414,24 +408,12 @@ int vtkZoltanV1PartitionFilter::GatherDataTypeInfo(vtkPoints *points)
 #endif
 }
 //-------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::InitBoundingBoxes(vtkDataSet *input, vtkBoundingBox &box) 
+vtkBoundingBox vtkZoltanV1PartitionFilter::GetGlobalBounds(vtkDataSet *input) 
 {
   double bounds[6];
   input->GetBounds(bounds);
-  this->BoxList.clear();
-  this->BoxListWithHalo.clear();
-  if (this->UpdateNumPieces==1) {
-    vtkBoundingBox databox(bounds);
-    this->BoxList.push_back(databox);
-    // we add a ghost cell region to our boxes
-//    databox.Inflate(this->GhostCellOverlap);
-    this->BoxListWithHalo.push_back(databox);
-    this->ExtentTranslator->SetNumberOfPieces(1);
-    // Copy the bounds to our piece to bounds translator
-    this->ExtentTranslator->SetBoundsForPiece(0, bounds);
-    this->ExtentTranslator->InitWholeBounds();
-  } 
-  else {
+  vtkBoundingBox globalBounds(bounds);
+  if (this->UpdateNumPieces>1) {
     double bmin[3] = {bounds[0], bounds[2], bounds[4]};
     double bmax[3] = {bounds[1], bounds[3], bounds[5]};
     if (!vtkMath::AreBoundsInitialized(bounds)) {
@@ -446,9 +428,10 @@ void vtkZoltanV1PartitionFilter::InitBoundingBoxes(vtkDataSet *input, vtkBoundin
       bmin[1] = globalMins[1];  bmax[1] = globalMaxes[1];
       bmin[2] = globalMins[2];  bmax[2] = globalMaxes[2];
     }
-    box.SetMinPoint(bmin);
-    box.SetMaxPoint(bmin);
+    globalBounds.SetMinPoint(bmin);
+    globalBounds.SetMaxPoint(bmax);
   }
+  return globalBounds;
 }
 //-------------------------------------------------------------------------
 void vtkZoltanV1PartitionFilter::SetupFieldArrayPointers(vtkDataSetAttributes *fields) 
@@ -647,27 +630,6 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   vtkDataArray    *inPoints = numPoints>0 ? input->GetPoints()->GetData() : NULL;
   vtkDebugMacro(<<"Partitioning on " << this->UpdatePiece << " Points Input : " << numPoints);
 
-  // collect bounding boxes for all MPI ranks, we'll use it later to clamp the BSP limits
-  // do this even if just one process as it also sets up the extent translator
-  vtkBoundingBox globalBounds;
-  this->InitBoundingBoxes(input,globalBounds);
-
-  // if only one process, we can exit quietly just passing data through
-  if (this->UpdateNumPieces==1) {
-    output->ShallowCopy(input);
-    return 1;
-  }
-
-  //
-  // we make a temp copy of the input so we can add Ids if necessary
-  //
-  vtkSmartPointer<vtkPointSet> inputCopy = input->NewInstance();
-  inputCopy->ShallowCopy(input);
-
-  // Setup output points/cells
-  vtkSmartPointer<vtkPoints>   outPoints = vtkSmartPointer<vtkPoints>::New();
-  vtkSmartPointer<vtkCellArray>    cells = vtkSmartPointer<vtkCellArray>::New();
-
   //--------------------------------------------------------------
   // Use Zoltan library to re-partition data in parallel
   // declare pointers which hold returned array info
@@ -683,20 +645,47 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   this->LoadBalanceData.exportProcs  = NULL;
   this->LoadBalanceData.exportToPart = NULL;
 
-  // if input had 0 points, make sure output is still setup correctly (float/double?)
-  // collective exchanges will break if this is wrong as we may still receive data
-  this->ZoltanCallbackData.PointType = this->GatherDataTypeInfo(input->GetPoints());
-  outPoints->SetDataType(this->ZoltanCallbackData.PointType);
-  output->SetPoints(outPoints);
+  // collect bounding boxes for all MPI ranks, we'll use it later to clamp the BSP limits
+  // do this even if just one process as it also sets up the extent translator
+  vtkBoundingBox globalBounds = this->GetGlobalBounds(input);
 
-  vtkDebugMacro(<<"Initializing Zoltan on " << this->UpdatePiece);
-  float ver;
-  int zoltan_error = Zoltan_Initialize(0, NULL, &ver);
-  if (zoltan_error != ZOLTAN_OK){
-    printf("Zoltan initialization failed ...\n");
-    return 0;
+  // if only one piece, no partitioing will be done,
+  // so set global bounds in partition informnation before quitting
+  if (this->UpdateNumPieces==1) {
+    this->BoxList.clear();
+    this->BoxList.push_back(globalBounds);
+    this->ExtentTranslator->SetNumberOfPieces(1);
+    // Copy the bounds into our piece to bounds translator
+    this->ExtentTranslator->SetBoundsForPiece(0, globalBounds);
+    this->ExtentTranslator->InitWholeBounds();
+  } 
+
+  //
+  // we make a temp copy of the input so we can add Ids if necessary
+  //
+  vtkSmartPointer<vtkPointSet> inputCopy;
+  vtkSmartPointer<vtkPoints>   outPoints;
+  if (this->UpdateNumPieces>1) {
+    inputCopy.TakeReference(input->NewInstance());
+    inputCopy->ShallowCopy(input);
+    // create a new output points array to be filled
+    outPoints = vtkSmartPointer<vtkPoints>::New();
+    // if input had 0 points, make sure output is still setup correctly (float/double?)
+    // collective exchanges will break if this is wrong as we may still receive data from another process
+    // even though we are not sending any
+    this->ZoltanCallbackData.PointType = this->GatherDataTypeInfo(input->GetPoints());
+    outPoints->SetDataType(this->ZoltanCallbackData.PointType);
+    output->SetPoints(outPoints);
+
   }
-  vtkDebugMacro(<<"Zoltan Initialized on " << this->UpdatePiece);
+  else {
+    // if only one process, we can just pass data through
+    output->ShallowCopy(input);
+    this->ZoltanCallbackData.OutPointCount = output->GetNumberOfPoints();
+    this->ZoltanCallbackData.Output        = output;
+    return 1;
+  }
+
 
   //
   // Setup mesh structure as a user parameter to zoltan 
@@ -710,6 +699,15 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   this->ZoltanCallbackData.InputPointsData          = inPoints ? inPoints->GetVoidPointer(0) : NULL;
   this->ZoltanCallbackData.OutputPoints             = outPoints;
   this->ZoltanCallbackData.OutPointCount            = 0;
+
+  vtkDebugMacro(<<"Initializing Zoltan on " << this->UpdatePiece);
+  float ver;
+  int zoltan_error = Zoltan_Initialize(0, NULL, &ver);
+  if (zoltan_error != ZOLTAN_OK){
+    printf("Zoltan initialization failed ...\n");
+    return 0;
+  }
+  vtkDebugMacro(<<"Zoltan Initialized on " << this->UpdatePiece);
 
   //
   // if a process has zero points, we need to make dummy point data arrays to allow 
@@ -729,19 +727,19 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
     this->IdsName = "PPF_PointIds";
   } 
 
-  vtkSmartPointer<vtkDataArray> Ids = NULL;
-  Ids = PointDataCopy->GetArray(this->IdsName.c_str());
+  vtkSmartPointer<vtkIdTypeArray> Ids = NULL;
+  Ids = vtkIdTypeArray::SafeDownCast(PointDataCopy->GetArray(this->IdsName.c_str()));
   if (!Ids) {
     // Try loading the user supplied global ids.
-    Ids = PointDataCopy->GetGlobalIds();
+    Ids = vtkIdTypeArray::SafeDownCast(PointDataCopy->GetGlobalIds());
   }
   if (!Ids) {
-    // Generate our own since none exist
-    Ids = this->GenerateGlobalIds(numPoints, numCells, this->IdsName.c_str());
-    inputCopy->GetPointData()->AddArray(Ids);
     // and increment the mesh field count
     this->ZoltanCallbackData.NumberOfFields++;
   }
+  // Generate our own if none exist
+  Ids = this->GenerateGlobalIds(numPoints, numCells, this->IdsName.c_str(), Ids);
+  inputCopy->GetPointData()->AddArray(Ids);
 
   //
   this->InitializeZoltanLoadBalance();
@@ -780,6 +778,7 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
     //
     // Get bounding boxes input ExtentTranslator
     //
+    this->BoxList.clear();
     for (int p=0; p<this->UpdateNumPieces; p++) {
       vtkBoundingBox box;  
       box.SetBounds(this->InputExtentTranslator->GetBoundsForPiece(p));
@@ -827,6 +826,7 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
     //
     // Get bounding boxes from zoltan and set them in the ExtentTranslator
     //
+    this->BoxList.clear();
     for (int p=0; p<this->UpdateNumPieces; p++) {
       double bounds[6];
       int ndim;

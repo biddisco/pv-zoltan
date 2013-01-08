@@ -61,7 +61,9 @@ class  vtkBoundsExtentTranslator;
   #define CLEAR_ZOLTAN_DEBUG 
 #endif
 //----------------------------------------------------------------------------
-#if defined JB_DEBUG__
+#define JB_DEBUG__
+
+#if defined JB_DEBUG__ && !defined VTK_WRAPPING_CXX
 #define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
 
   #undef vtkDebugMacro
@@ -124,9 +126,8 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     vtkBoundingBox *GetPartitionBoundingBox(int partition);
 
     // Description:
-    // Return the Bounding Box for a partition plus the extended region
-    // all around the box where ghost cells might be required/present
-    vtkBoundingBox *GetPartitionBoundingBoxWithHalo(int partition);
+    // Return the Bounding Box of all the data (uses MPI to collect all boxes)
+    vtkBoundingBox GetGlobalBounds(vtkDataSet *input);
 //ETX
 
     //----------------------------------------------------------------------------
@@ -256,7 +257,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     int  GatherDataTypeInfo(vtkPoints *points);
     bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
     void SetupFieldArrayPointers(vtkDataSetAttributes *fields);
-    virtual void InitBoundingBoxes(vtkDataSet *input, vtkBoundingBox &box);
 
     // Override to specify support for vtkPointSet input type.
     virtual int FillInputPortInformation(int port, vtkInformation* info);
@@ -279,7 +279,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
                             vtkInformationVector**,
                             vtkInformationVector*);
 //BTX
-    vtkSmartPointer<vtkIdTypeArray> GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname);
+    vtkSmartPointer<vtkIdTypeArray> GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, vtkIdTypeArray *ptIds);
 
     vtkSmartPointer<vtkIntArray> BuildCellToProcessList(
       vtkDataSet *data, PartitionInfo &partitioninfo, 
@@ -293,10 +293,8 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
 
     //
-    vtkBoundingBox             *LocalBoxHalo;
     vtkBoundingBox             *LocalBox;
     std::vector<vtkBoundingBox> BoxList;
-    std::vector<vtkBoundingBox> BoxListWithHalo;
 //ETX
     //
     vtkMultiProcessController   *Controller;

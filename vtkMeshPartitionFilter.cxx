@@ -19,7 +19,6 @@
 
 =========================================================================*/
 //
-#include "vtkMeshPartitionFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkPolyData.h"
 #include "vtkUnstructuredGrid.h"
@@ -44,10 +43,10 @@
   #include "vtkMPIController.h"
   #include "vtkMPICommunicator.h"
 #endif
-#include "vtkMeshPartitionFilter.h"
 #include "vtkDummyController.h"
 //
 #include "vtkBoundsExtentTranslator.h"
+#include "vtkMeshPartitionFilter.h"
 //
 #include <sstream>
 //

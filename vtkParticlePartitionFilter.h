@@ -55,14 +55,12 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
     vtkSetMacro(GhostCellOverlap, double);
     vtkGetMacro(GhostCellOverlap, double);
         
-//BTX
     // Description:
     // Return the Bounding Box for a partition plus the extended region
     // all around the box where ghost cells might be required/present
     vtkBoundingBox *GetPartitionBoundingBoxWithHalo(int partition);
-//ETX
 
-    virtual void InitBoundingBoxes(vtkDataSet *input, vtkBoundingBox &box);
+    void FillPartitionBoundingBoxWithHalo();
 
     template <typename T>
     static void zoltan_pre_migrate_func_halo(void *data, int num_gid_entries, int num_lid_entries,
@@ -77,6 +75,8 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
           vtkInformationVector* outputVector);
 
     double GhostCellOverlap;
+    vtkBoundingBox             *LocalBoxHalo;
+    std::vector<vtkBoundingBox> BoxListWithHalo;
 
   protected:
      vtkParticlePartitionFilter();
@@ -86,7 +86,6 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
                             vtkInformationVector*);
-//    double GhostCellOverlap;
 
   private:
     vtkParticlePartitionFilter(const vtkParticlePartitionFilter&);  // Not implemented.

@@ -98,6 +98,15 @@ void vtkBoundsExtentTranslator::SetBoundsForPiece(int piece, double* bounds)
     }
   memcpy(&this->BoundsTable[piece*6], bounds, sizeof(double)*6);
 }
+
+//----------------------------------------------------------------------------
+void vtkBoundsExtentTranslator::SetBoundsForPiece(int piece, vtkBoundingBox &box)
+{
+  double bounds[6];
+  box.GetBounds(bounds);
+  this->SetBoundsForPiece(piece, bounds);
+}
+
 //----------------------------------------------------------------------------
 void vtkBoundsExtentTranslator::SetBoundsHaloForPiece(int piece, double* bounds)
 {
@@ -108,6 +117,14 @@ void vtkBoundsExtentTranslator::SetBoundsHaloForPiece(int piece, double* bounds)
     return;
     }
   memcpy(&this->BoundsTableHalo[piece*6], bounds, sizeof(double)*6);
+}
+
+//----------------------------------------------------------------------------
+void vtkBoundsExtentTranslator::SetBoundsHaloForPiece(int piece, vtkBoundingBox &box)
+{
+  double bounds[6];
+  box.GetBounds(bounds);
+  this->SetBoundsHaloForPiece(piece, bounds);
 }
 
 //----------------------------------------------------------------------------

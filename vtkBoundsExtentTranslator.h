@@ -29,6 +29,7 @@
 
 class vtkMultiProcessController;
 class vtkPKdTree;
+class vtkBoundingBox;
 
 class VTK_EXPORT vtkBoundsExtentTranslator : public vtkExtentTranslator
 {
@@ -68,8 +69,16 @@ public:
   virtual void SetBoundsForPiece(int piece, double* bounds);
   
   // Description:
+  // Set the bounding box to be used for a piece.
+  virtual void SetBoundsForPiece(int piece, vtkBoundingBox &box);
+  
+  // Description:
   // Set the bounding box + halo region to be used for a piece.
   virtual void SetBoundsHaloForPiece(int piece, double* bounds);
+
+  // Description:
+  // Set the bounding box + halo region to be used for a piece.
+  virtual void SetBoundsHaloForPiece(int piece, vtkBoundingBox &box);
 
   // Description:
   // Set the maximum ghost overlap region that is required 
