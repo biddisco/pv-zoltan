@@ -65,7 +65,7 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_func_cell(void *data, int num_gi
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
   ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr)
 {
-  CallbackData *mesh = (CallbackData*)data;
+  CallbackData *mesh = static_cast<CallbackData*>(data);
   // How many cells will we have at the end
   mesh->OutputNumberOfLocalCells = mesh->InputNumberOfLocalCells + num_import - num_export;
   vtkIdType ReservedPointCount = mesh->OutputNumberOfLocalPoints;

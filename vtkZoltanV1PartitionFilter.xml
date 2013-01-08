@@ -6,15 +6,11 @@
   <ProxyGroup name="filters">
 
     <!-- ================================================================ -->
-    <!-- Representation of a BSP Tree for particles                       -->
+    <!-- Base class for Partitioning datasets between parallel processes  -->
     <!-- ================================================================ -->
     <SourceProxy
-      name="ParallelPartitionFilter"
-      class="vtkZoltanV1PartitionFilter"
-      label="Parallel Partition Filter">
-      <Documentation
-         short_help="Re-Partitioning of Particle Datasets in parallel">
-      </Documentation>
+      name="ZoltanPartitionFilter"
+      class="vtkZoltanV1PartitionFilter">
 
       <InputProperty
         name="Input"
@@ -35,40 +31,29 @@
         number_of_elements="1"
         animateable="0"
         default_values="Ids"
-        label="Global IDs for particles">
+        label="Global points IDs">
         <ArrayListDomain
           name="array_list"
           attribute_type="Scalars"
           none_string="Not available"
           input_domain_name="input_array">
-          <!--
-          <RequiredProperties>
-            <Property name="Input" function="Input"/>
-          </RequiredProperties>
-          -->
-        </ArrayListDomain>
+\        </ArrayListDomain>
         <Documentation>
           This property indicates the name of the array to be used for Ids
         </Documentation>
       </StringVectorProperty>
 
       <DoubleVectorProperty
-        name="GhostCellOverlap"
-        command="SetGhostCellOverlap"
-        label="Maximum distance required for ghost regions (largest kernel radius)"
-        number_of_elements="1"
-        animateable="0"
-        default_values="0.01" >
-      </DoubleVectorProperty>
-
-      <DoubleVectorProperty
         name="MaxAspectRatio"
         command="SetMaxAspectRatio"
-        label="Max aspect ratio allowed between any bounding box axis"
+        label="Max aspect ratio between bounding box axes"
         number_of_elements="1"
         animateable="1"
         default_values="5.0" >
         <DoubleRangeDomain name="range" min="1" max="20.0"/>
+        <Documentation>
+          Max aspect ratio allowed between any bounding box axis
+        </Documentation>
       </DoubleVectorProperty>
 
     </SourceProxy>

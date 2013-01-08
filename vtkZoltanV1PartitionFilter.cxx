@@ -70,7 +70,7 @@ int vtkZoltanV1PartitionFilter::get_number_of_objects_points(void *data, int *ie
 void vtkZoltanV1PartitionFilter::get_object_list_points(void *data, int sizeGID, int sizeLID,
   ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID, int wgt_dim, float *obj_wgts, int *ierr)
 {
-  CallbackData *mesh = (CallbackData*)data;
+  CallbackData *mesh = static_cast<CallbackData*>(data);
   //
   // Return the IDs of our objects, but no weights.
   // Zoltan will assume equally weighted objects.
@@ -99,7 +99,7 @@ void vtkZoltanV1PartitionFilter::get_geometry_list(
   ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
   int num_dim, double *geom_vec, int *ierr)
 {
-  CallbackData *mesh = (CallbackData*)data;
+  CallbackData *mesh = static_cast<CallbackData*>(data);
   for (int i=0;  i<num_obj; i++){
     geom_vec[3*i]   = ((T*)(mesh->InputPointsData))[3*i+0];
     geom_vec[3*i+1] = ((T*)(mesh->InputPointsData))[3*i+1];
@@ -131,7 +131,7 @@ int vtkZoltanV1PartitionFilter::zoltan_obj_size_func_points(void *data,
   ZOLTAN_ID_PTR local_id, int *ierr)
 {
   INC_SIZE_COUNT
-  CallbackData *mesh = (CallbackData*)data;
+  CallbackData *mesh = static_cast<CallbackData*>(data);
   *ierr = ZOLTAN_OK;
   return mesh->TotalSizePerId + sizeof(T)*3;
 }
@@ -143,7 +143,7 @@ void vtkZoltanV1PartitionFilter::zoltan_pack_obj_func_points(void *data, int num
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr)
 {
   INC_PACK_COUNT
-  CallbackData *mesh = (CallbackData*)data;
+  CallbackData *mesh = static_cast<CallbackData*>(data);
   vtkIdType GID = *global_id;
   vtkIdType LID = *local_id;
   //
@@ -169,7 +169,7 @@ void vtkZoltanV1PartitionFilter::zoltan_unpack_obj_func_points(void *data, int n
     *ierr = ZOLTAN_FATAL;
     return;
   }
-  CallbackData *mesh = (CallbackData*)data;
+  CallbackData *mesh = static_cast<CallbackData*>(data);
   vtkIdType GID = *global_id;
   //
   vtkPointData *inPD  = mesh->Input->GetPointData();
@@ -214,7 +214,7 @@ void vtkZoltanV1PartitionFilter::zoltan_pre_migrate_func_points(void *data, int 
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
   ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr)
 {
-  CallbackData *mesh = (CallbackData*)data;
+  CallbackData *mesh = static_cast<CallbackData*>(data);
   // newTotal = original points - sent away + received
   mesh->OutputNumberOfLocalPoints = mesh->InputNumberOfLocalPoints + num_import - num_export;
   mesh->OutputPoints->SetNumberOfPoints(mesh->OutputNumberOfLocalPoints);
@@ -641,19 +641,7 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   this->LoadBalanceData.exportToPart = NULL;
 
   // collect bounding boxes for all MPI ranks, we'll use it later to clamp the BSP limits
-  // do this even if just one process as it also sets up the extent translator
   vtkBoundingBox globalBounds = this->GetGlobalBounds(input);
-
-  // if only one piece, no partitioing will be done,
-  // so set global bounds in partition informnation before quitting
-  if (this->UpdateNumPieces==1) {
-    this->BoxList.clear();
-    this->BoxList.push_back(globalBounds);
-    this->ExtentTranslator->SetNumberOfPieces(1);
-    // Copy the bounds into our piece to bounds translator
-    this->ExtentTranslator->SetBoundsForPiece(0, globalBounds);
-    this->ExtentTranslator->InitWholeBounds();
-  } 
 
   //
   // we make a temp copy of the input so we can add Ids if necessary
@@ -676,11 +664,17 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   else {
     // if only one process, we can just pass data through
     output->ShallowCopy(input);
+    // vertex generation will fail if we don't set certain values
     this->ZoltanCallbackData.OutPointCount = output->GetNumberOfPoints();
     this->ZoltanCallbackData.Output        = output;
+    // make sure bounding boxes are set so that objects querying the output get the correct results
+    this->BoxList.clear();
+    this->BoxList.push_back(globalBounds);
+    this->ExtentTranslator->SetNumberOfPieces(1);
+    this->ExtentTranslator->SetBoundsForPiece(0, globalBounds);
+    this->ExtentTranslator->InitWholeBounds();
     return 1;
   }
-
 
   //
   // Setup mesh structure as a user parameter to zoltan 
@@ -694,6 +688,7 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   this->ZoltanCallbackData.InputPointsData          = inPoints ? inPoints->GetVoidPointer(0) : NULL;
   this->ZoltanCallbackData.OutputPoints             = outPoints;
   this->ZoltanCallbackData.OutPointCount            = 0;
+  this->ZoltanCallbackData.self                     = this;
 
   vtkDebugMacro(<<"Initializing Zoltan on " << this->UpdatePiece);
   float ver;

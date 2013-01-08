@@ -80,7 +80,8 @@ IF(Trilinos_FOUND)
   SET(TRILINOS_XML 
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.xml
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.xml
-    )
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.xml
+  )
   SET(TRILINOS_LIBS zoltan)
   SET(TRILINOS_ENABLED 1)
   ADD_DEFINITIONS(-DPLUGIN_USE_TRILINOS)

@@ -43,10 +43,9 @@ class VTK_EXPORT vtkMeshPartitionFilter : public vtkZoltanV1PartitionFilter
 {
   public:
     static vtkMeshPartitionFilter *New();
-    vtkTypeMacro(vtkMeshPartitionFilter,vtkDataSetAlgorithm);
+    vtkTypeMacro(vtkMeshPartitionFilter,vtkZoltanV1PartitionFilter);
     void PrintSelf(ostream& os, vtkIndent indent);
 
-//BTX
     template <typename T>
     static void zoltan_pre_migrate_func_cell(void *data, int num_gid_entries, int num_lid_entries,
       int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
@@ -61,7 +60,6 @@ class VTK_EXPORT vtkMeshPartitionFilter : public vtkZoltanV1PartitionFilter
 
     static void zoltan_unpack_obj_func_cell(void *data, int num_gid_entries,
       ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr);
-//ETX
 
     int PartitionCells(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
 

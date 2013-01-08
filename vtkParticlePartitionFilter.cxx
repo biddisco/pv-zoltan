@@ -64,7 +64,7 @@ void vtkParticlePartitionFilter::zoltan_pre_migrate_func_halo(void *data, int nu
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
   ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr)
 {
-  CallbackData *mesh = (CallbackData*)data;
+  CallbackData *mesh = static_cast<CallbackData*>(data);
   // resize points to accept ghost cell additions
   mesh->OutputNumberOfPointsWithHalo = mesh->OutputNumberOfLocalPoints + num_import;
   mesh->OutputPoints->GetData()->Resize(mesh->OutputNumberOfPointsWithHalo);

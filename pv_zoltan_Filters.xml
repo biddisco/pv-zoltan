@@ -1,9 +1,7 @@
 <ParaViewFilters>
-  <Category name="Partitioning" menu_label="&amp;Partitioning">
+  <Category name="Zoltan" menu_label="&amp;Zoltan">
     <Proxy group="filters" name="PartitionOutline" />
-    <Proxy group="filters" name="ParallelPartitionFilter" />
     <Proxy group="filters" name="ParticlePartitionFilter" />
+    <Proxy group="filters" name="MeshPartitionFilter" />
   </Category>
 </ParaViewFilters>
-
-

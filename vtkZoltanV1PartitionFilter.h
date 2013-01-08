@@ -132,8 +132,8 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     typedef struct CallbackData {
       vtkZoltanV1PartitionFilter   *self;
       int                           ProcessRank;
-      vtkPointSet                  *Input;
-      vtkPointSet                  *Output;
+      vtkSmartPointer<vtkPointSet>  Input;
+      vtkSmartPointer<vtkPointSet>  Output;
       int                           PointType;
       std::vector<int>              ProcessOffsetsPointId;      // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
       std::vector<int>              ProcessOffsetsCellId;       // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
@@ -142,7 +142,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       vtkIdType                     OutputNumberOfLocalPoints;
       vtkIdType                     OutputNumberOfLocalCells;
       vtkIdType                     OutputNumberOfPointsWithHalo;
-      vtkPoints                    *OutputPoints; 
+      vtkSmartPointer<vtkPoints>    OutputPoints; 
       void                         *InputPointsData;  // float/double
       void                         *OutputPointsData; // float/double
       int                           NumberOfFields;

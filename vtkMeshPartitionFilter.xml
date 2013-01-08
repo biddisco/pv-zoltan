@@ -6,26 +6,17 @@
   <ProxyGroup name="filters">
 
     <!-- ================================================================ -->
-    <!-- Re-Partitioning of Particle Datasets in parallel                 -->
+    <!-- Partitioning of PolyData or UnstructuredGrid Meshes in parallel  -->
     <!-- ================================================================ -->
     <SourceProxy
-      name="ParticlePartitionFilter"
-      class="vtkParticlePartitionFilter"
-      label="Particle Partition Filter"
+      name="MeshPartitionFilter"
+      class="vtkMeshPartitionFilter"
+      label="Mesh Partition Filter"
       base_proxygroup="filters"
       base_proxyname="ZoltanPartitionFilter">
       <Documentation
-         short_help="Re-Partitioning of Particle Datasets in parallel">
+         short_help="Partitioning of PolyData or UnstructuredGrid Meshes in parallel">
       </Documentation>
-
-      <DoubleVectorProperty
-        name="GhostCellOverlap"
-        command="SetGhostCellOverlap"
-        label="Maximum distance required for ghost regions (largest kernel radius)"
-        number_of_elements="1"
-        animateable="0"
-        default_values="0.01" >
-      </DoubleVectorProperty>
 
     </SourceProxy>
 

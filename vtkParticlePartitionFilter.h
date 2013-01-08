@@ -41,7 +41,7 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
 {
   public:
     static vtkParticlePartitionFilter *New();
-    vtkTypeMacro(vtkParticlePartitionFilter,vtkDataSetAlgorithm);
+    vtkTypeMacro(vtkParticlePartitionFilter,vtkZoltanV1PartitionFilter);
     void PrintSelf(ostream& os, vtkIndent indent);
 
     // Description:
@@ -67,9 +67,9 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
 
     void FindPointsInHaloRegions(vtkPoints *pts, vtkIdTypeArray *IdArray, PartitionInfo &ghostinfo);
 
-    int ExchangeHaloPoints(vtkInformation* info,
-          vtkInformationVector** inputVector,
-          vtkInformationVector* outputVector);
+    int ExchangeHaloPoints(vtkInformation*,
+                           vtkInformationVector**,
+                           vtkInformationVector*);
 
     double                      GhostCellOverlap;
     vtkBoundingBox             *LocalBoxHalo;
