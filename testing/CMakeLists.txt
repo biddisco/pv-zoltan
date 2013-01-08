@@ -59,7 +59,16 @@ string(REPLACE " " ";" MPIEXEC_NUMPROC_FLAG ${MPIEXEC_NUMPROC_FLAG})
   TARGET_LINK_LIBRARIES(TestParticlePartitionFilter
     pv_zoltan 
     ${Trilinos_LIBRARIES}
-    )
+  )
+  
+  ADD_EXECUTABLE(TestMeshPartitionFilter 
+    TestMeshPartitionFilter.cxx
+    TestUtils.cxx
+  )
+  TARGET_LINK_LIBRARIES(TestMeshPartitionFilter
+    pv_zoltan 
+    ${Trilinos_LIBRARIES}
+  )
   
   greater_equal(${MPIEXEC_MAX_NUMPROCS} 4 processors)
   SET(test_name "TestParticlePartitionFilter-P4")
@@ -72,6 +81,22 @@ string(REPLACE " " ";" MPIEXEC_NUMPROC_FLAG ${MPIEXEC_NUMPROC_FLAG})
         -testName ${test_name}
         -generateParticles 1000
         -V ${PROJECT_SOURCE_DIR}/Testing/baseline/ParticlePartition.png
+        -doRender 1
+        -windowSize "400 400"
+    )
+  ENDIF (processors)
+
+  SET(test_name "TestMeshPartitionFilter-P4")
+  IF (processors)
+    ADD_TEST(
+      NAME ${test_name}
+      COMMAND 
+        ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+        $<TARGET_FILE:TestMeshPartitionFilter> 
+        -testName ${test_name}
+        -F neuron-test.vtp
+        -D ${PROJECT_SOURCE_DIR}/Testing/data
+        -V ${PROJECT_SOURCE_DIR}/Testing/baseline/MeshPartition.png
         -doRender 1
         -windowSize "400 400"
     )

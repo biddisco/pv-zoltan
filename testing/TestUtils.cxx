@@ -14,7 +14,9 @@
 #include <algorithm>
 #include <vtksys/SystemTools.hxx>
 //
+#include "vtkXMLPolyDataReader.h"
 #include "vtkParticlePartitionFilter.h"
+#include "vtkMeshPartitionFilter.h"
 //
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -107,7 +109,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.windowSize[0] = test.windowSize[1] = 400;
 
   // uncomment this to wait for debugger
-  // DEBUG_WAIT
+   DEBUG_WAIT
   //
   test.controller->Barrier();
 
@@ -141,7 +143,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.generateN = GetParameter<vtkIdType>("-generateParticles", "Generated Particles", argc, argv, 0, test.myRank, unused);
 
   //
-  // H5Part info
+  // File load / H5Part info
   //
   std::string filename = GetParameter<std::string>("-F", "Filename", argc, argv, "", test.myRank, unused);
   std::string filepath = GetParameter<std::string>("-D", "Filepath", argc, argv, "", test.myRank, unused);
@@ -198,12 +200,23 @@ int initTest(int argc, char* argv[], TestStruct &test)
 }  
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+void TestStruct::CreateXMLPolyDataReader()
+{
+  this->xmlreader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
+  this->xmlreader->SetFileName(this->fullName.c_str());
+}
 //----------------------------------------------------------------------------
-void TestStruct::CreatePartitioner()
+void TestStruct::CreatePartitioner_Particles()
 {
   testDebugMacro( "Creating Partitioner " << this->myRank << " of " << this->numProcs );
   this->partitioner = vtkSmartPointer<vtkParticlePartitionFilter>::New();
-  this->partitioner->SetGhostCellOverlap(this->ghostOverlap);
+  this->partitioner->SetController(this->controller);
+}
+//----------------------------------------------------------------------------
+void TestStruct::CreatePartitioner_Mesh()
+{
+  testDebugMacro( "Creating Partitioner " << this->myRank << " of " << this->numProcs );
+  this->partitioner = vtkSmartPointer<vtkMeshPartitionFilter>::New();
   this->partitioner->SetController(this->controller);
 }
 //----------------------------------------------------------------------------

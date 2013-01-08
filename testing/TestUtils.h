@@ -20,7 +20,8 @@
 #include "vtkStreamingDemandDrivenPipeline.h"
 
 // only defined if trilinos used
-class vtkParticlePartitionFilter;
+class vtkZoltanV1PartitionFilter;
+class vtkXMLPolyDataReader;
 //----------------------------------------------------------------------------
 #if 0
   #define OUTPUTTEXT(a) std::cout << (a);
@@ -48,8 +49,9 @@ class TestStruct {
  public:
   //
   vtkSmartPointer<vtkMultiProcessController>  controller;
-  vtkSmartPointer<vtkParticlePartitionFilter> partitioner;
+  vtkSmartPointer<vtkZoltanV1PartitionFilter> partitioner;
   vtkSmartPointer<vtkAlgorithm>               sphResampler;
+  vtkSmartPointer<vtkXMLPolyDataReader>       xmlreader;
   //
   vtkTypeInt64 myRank;
   vtkTypeInt64 numProcs;
@@ -107,7 +109,9 @@ class TestStruct {
   int         imageThreshold;
   bool        benchmarkPartition;
   //
-  void    CreatePartitioner();
+  void    CreateXMLPolyDataReader();
+  void    CreatePartitioner_Particles();
+  void    CreatePartitioner_Mesh();
   double  UpdatePartitioner();
   void    DeletePartitioner();
   //

@@ -45,6 +45,7 @@
 #include "vtkBoundingBox.h"
 #include "vtkOutlineSource.h"
 #include "vtkProcessIdScalars.h"
+#include "vtkXMLPolyDataReader.h"
 //
 #include <vtksys/SystemTools.hxx>
 #include <sstream>
@@ -57,7 +58,7 @@
 //
 #include "TestUtils.h"
 //
-#include "vtkParticlePartitionFilter.h"
+#include "vtkMeshPartitionFilter.h"
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -84,60 +85,16 @@ int main (int argc, char* argv[])
   vtkSmartPointer<vtkAlgorithm> data_algorithm; 
   vtkIdType totalParticles = 0;
 
-  //--------------------------------------------------------------
-  // allocate points + arrays
-  //--------------------------------------------------------------
-  vtkSmartPointer<vtkPolyData>  Sprites = vtkSmartPointer<vtkPolyData>::New();
-  vtkSmartPointer<vtkPoints>     points = vtkSmartPointer<vtkPoints>::New();
-  vtkSmartPointer<vtkCellArray>   verts = vtkSmartPointer<vtkCellArray>::New();
-  vtkSmartPointer<vtkIdTypeArray>   Ids = vtkSmartPointer<vtkIdTypeArray>::New();
-  vtkSmartPointer<vtkIntArray>    Ranks = vtkSmartPointer<vtkIntArray>::New();
-  //
-  points->SetNumberOfPoints(test.generateN);
-  //
-  verts->Allocate(test.generateN,test.generateN);
-  Sprites->SetPoints(points);
-  Sprites->SetVerts(verts);
-  //
-  Ids->SetNumberOfTuples(test.generateN);
-  Ids->SetNumberOfComponents(1);
-  Ids->SetName("PointIds");
-  Sprites->GetPointData()->AddArray(Ids);  
-  //
-  Ranks->SetNumberOfTuples(test.generateN);
-  Ranks->SetNumberOfComponents(1);
-  Ranks->SetName("Rank");
-  Sprites->GetPointData()->AddArray(Ranks);  
-  //
-  //--------------------------------------------------------------
-  // Create default scalar arrays
-  //--------------------------------------------------------------
-  double radius  = 500.0;
-  const double a = 0.9;
-  test.ghostOverlap = radius*0.1; // ghost_region
-  
-  known_seed();
-  SpherePoints(test.generateN, radius*(1.5+test.myRank)/(test.numProcs+0.5), vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0));
-  for (vtkIdType Id=0; Id<test.generateN; Id++) {
-    Ids->SetTuple1(Id, Id + test.myRank*test.generateN);
-    Ranks->SetTuple1(Id, test.myRank);
-    verts->InsertNextCell(1,&Id);
-  }
-/*
-  // Randomly give some processes zero points to improve test coverage
-  random_seed();
-  if (test.numProcs>1 && rand()%2==1) {
-    test.generateN = 0;
-    Sprites = vtkSmartPointer<vtkPolyData>::New();
-  }
-*/  
+  test.CreateXMLPolyDataReader();
+  test.xmlreader->Update();
+
   //--------------------------------------------------------------
   // Parallel partition
   //--------------------------------------------------------------
-  test.CreatePartitioner_Particles();
-  test.partitioner->SetInputData(Sprites);
+  test.CreatePartitioner_Mesh();
+  test.partitioner->SetInputConnection(test.xmlreader->GetOutputPort());
 //  test.partitioner->SetIdChannelArray("PointIds");
-  static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
+//  test.partitioner->SetGhostCellOverlap(test.ghostOverlap);
   partition_elapsed = test.UpdatePartitioner();
 
   //--------------------------------------------------------------
@@ -223,7 +180,7 @@ int main (int argc, char* argv[])
         mapper2->SelectColorArray("vtkGhostLevels");
         actor2->SetMapper(mapper2);
         actor2->GetProperty()->SetPointSize(2);
-        actor2->SetPosition(2.0*radius, 0.0, 0.0);
+//        actor2->SetPosition(2.0*radius, 0.0, 0.0);
         ren->AddActor(actor2);
       }
       //
@@ -242,7 +199,7 @@ int main (int argc, char* argv[])
         ren->AddActor(bactor);
       }
       
-      ren->GetActiveCamera()->SetPosition(0,4*radius,0);
+//      ren->GetActiveCamera()->SetPosition(0,4*radius,0);
       ren->GetActiveCamera()->SetFocalPoint(0,0,0);
       ren->GetActiveCamera()->SetViewUp(0,0,-1);
       ren->ResetCamera();

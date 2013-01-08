@@ -47,21 +47,32 @@ class VTK_EXPORT vtkMeshPartitionFilter : public vtkZoltanV1PartitionFilter
     void PrintSelf(ostream& os, vtkIndent indent);
 
     template <typename T>
-    static void zoltan_pre_migrate_func_cell(void *data, int num_gid_entries, int num_lid_entries,
+    static void zoltan_pre_migrate_function_cell(void *data, int num_gid_entries, int num_lid_entries,
       int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
       int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
       ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
 
-    static int zoltan_obj_size_func_cell(void *data, int num_gid_entries, int num_lid_entries,
+    static int zoltan_obj_size_function_cell(void *data, int num_gid_entries, int num_lid_entries,
       ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int *ierr);
 
-    static void zoltan_pack_obj_func_cell(void *data, int num_gid_entries, int num_lid_entries,
+    static void zoltan_pack_obj_function_cell(void *data, int num_gid_entries, int num_lid_entries,
       ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr);
 
-    static void zoltan_unpack_obj_func_cell(void *data, int num_gid_entries,
+    static void zoltan_unpack_obj_function_cell(void *data, int num_gid_entries,
       ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr);
 
     int PartitionCells(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
+
+    template <typename T>
+    void BuildCellToProcessList(
+      vtkDataSet *data, 
+      PartitionInfo &cell_partitioninfo, 
+      PartitionInfo &point_partitioninfo, 
+      int numExport,
+      ZOLTAN_ID_PTR exportGlobalGids ,
+      ZOLTAN_ID_PTR exportLocalGids,
+      int *exportProcs);
+
 
   protected:
      vtkMeshPartitionFilter();

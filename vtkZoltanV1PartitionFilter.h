@@ -44,6 +44,7 @@ class  vtkPointSet;
 class  vtkDataSetAttributes;
 class  vtkCellArray;
 class  vtkTimerLog;
+class vtkFieldData;
 // our special extent translator
 class  vtkBoundsExtentTranslator;
 
@@ -134,17 +135,12 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       int                           ProcessRank;
       vtkSmartPointer<vtkPointSet>  Input;
       vtkSmartPointer<vtkPointSet>  Output;
-      int                           PointType;
-      std::vector<int>              ProcessOffsetsPointId;      // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
-      std::vector<int>              ProcessOffsetsCellId;       // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
-      vtkIdType                     InputNumberOfLocalPoints;
-      vtkIdType                     InputNumberOfLocalCells;
-      vtkIdType                     OutputNumberOfLocalPoints;
-      vtkIdType                     OutputNumberOfLocalCells;
-      vtkIdType                     OutputNumberOfPointsWithHalo;
-      vtkSmartPointer<vtkPoints>    OutputPoints; 
-      void                         *InputPointsData;  // float/double
-      void                         *OutputPointsData; // float/double
+      std::vector<int>              ProcessOffsetsPointId; // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
+      std::vector<int>              ProcessOffsetsCellId;  // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
+      int                           PointType;             // float/double flag
+      bool                          CopyFromOutput;        
+      void                         *InputPointsData;       // float/double pointer
+      void                         *OutputPointsData;      // float/double pointer
       int                           NumberOfFields;
       int                           MaxCellSize;
       vtkIdType                     OutPointCount;
@@ -215,29 +211,43 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     // that is needed to pack all of a single object's data.
     // Here we add up the size of all the field arrays for points + the geometry itself
     template<typename T>
-    static int zoltan_obj_size_func_points(void *data, 
+    static int zoltan_obj_size_function_points(void *data, 
       int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id, 
       ZOLTAN_ID_PTR local_id, int *ierr);
 
     // Description:
     // Zoltan callback to pack all the data for one point into a buffer
     template<typename T>
-    static void zoltan_pack_obj_func_points(void *data, int num_gid_entries, int num_lid_entries,
+    static void zoltan_pack_obj_function_points(void *data, int num_gid_entries, int num_lid_entries,
       ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr);
 
     // Description:
     // Zoltan callback to unpack all the data for one point from a buffer
     template<typename T>
-    static void zoltan_unpack_obj_func_points(void *data, int num_gid_entries,
+    static void zoltan_unpack_obj_function_points(void *data, int num_gid_entries,
       ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr);
 
     // Description:
     // Zoltan callback for Pre migration setup/initialization
     template<typename T>
-    static void zoltan_pre_migrate_func_points(void *data, int num_gid_entries, int num_lid_entries,
+    static void zoltan_pre_migrate_function_points(
+      void *data, int num_gid_entries, int num_lid_entries,
       int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
       int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
       ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
+
+    template <typename T>
+    static void zoltan_pre_migrate_function_points_add(
+      void *data, int num_gid_entries, int num_lid_entries,
+      int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
+      int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
+      ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
+
+    void InitializeFieldDataArrayPointers(
+      CallbackData *callbackdata, 
+      vtkFieldData *infielddata, 
+      vtkFieldData *outfielddata,
+      vtkIdType Nfinal);
 
     void        InitializeZoltanLoadBalance();
     static void add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID);
@@ -249,7 +259,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     int  GatherDataTypeInfo(vtkPoints *points);
     bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
-    void SetupFieldArrayPointers(vtkDataSetAttributes *fields);
+    void AllocateFieldArrays(vtkDataSetAttributes *fields);
 
     // Override to specify support for vtkPointSet input type.
     virtual int FillInputPortInformation(int port, vtkInformation* info);
@@ -273,16 +283,9 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     vtkSmartPointer<vtkIdTypeArray> GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, vtkIdTypeArray *ptIds);
 
-    vtkSmartPointer<vtkIntArray> BuildCellToProcessList(
-      vtkDataSet *data, PartitionInfo &partitioninfo, 
-      std::vector<int> &ProcessOffsetsCellId,
-      int numExport,
-      ZOLTAN_ID_PTR exportGlobalGids ,
-      ZOLTAN_ID_PTR exportLocalGids,
-      int *exportProcs);
-
     MPI_Comm GetMPIComm();
     int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
+    int ManualPointMigrate(PartitionInfo &point_partitioninfo, bool useoutput);
 
     //
     vtkBoundingBox                             *LocalBox;
