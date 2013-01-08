@@ -1,10 +1,6 @@
 /*=========================================================================
 
-  Project                 : pv-meshless
-  Module                  : vtkMeshPartitionFilter.h
-  Revision of last commit : $Rev: 884 $
-  Author of last commit   : $Author: biddisco $
-  Date of last commit     : $Date:: 2010-04-06 12:03:55 +0200 #$
+  Module                  : vtkMeshPartitionFilter.cxx
 
   Copyright (C) CSCS - Swiss National Supercomputing Centre.
   You may use modify and and distribute this code freely providing

@@ -1,9 +1,6 @@
 /*=========================================================================
 
-  Module                  : vtkZoltanV1PartitionFilter.h
-  Revision of last commit : $Rev: 884 $
-  Author of last commit   : $Author: biddisco $
-  Date of last commit     : $Date:: 2010-04-06 12:03:55 +0200 #$
+  Module                  : vtkPartitionOutline.h
 
   Copyright (C) CSCS - Swiss National Supercomputing Centre.
   You may use modify and and distribute this code freely providing
@@ -17,11 +14,15 @@
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =========================================================================*/
-// .NAME vtkZoltanV1PartitionFilter distribute datasets in parallel
+//
+// .NAME vtkZoltanV1PartitionFilter Efficiently distribute datasets in parallel
 // .SECTION Description
-// vtkZoltanV1PartitionFilter is a parallel load balancing/partitioning 
-// filter for datasets. It uses the Zoltan library from the Trilinos 
-// package to perform the redistribution.
+// vtkZoltanV1PartitionFilter is the abstract base class used for parallel 
+// load balancing/partitioning using the Zoltan library from Trilinos.
+//
+// .SECTION See Also
+// vtkParticlePartitionFilter, vtkMeshPartitionFilter
+
 
 #ifndef __vtkZoltanV1PartitionFilter_h
 #define __vtkZoltanV1PartitionFilter_h

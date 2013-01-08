@@ -1,10 +1,6 @@
 /*=========================================================================
 
-  Project                 : pv-meshless
   Module                  : vtkParticlePartitionFilter.h
-  Revision of last commit : $Rev: 884 $
-  Author of last commit   : $Author: biddisco $
-  Date of last commit     : $Date:: 2010-04-06 12:03:55 +0200 #$
 
   Copyright (C) CSCS - Swiss National Supercomputing Centre.
   You may use modify and and distribute this code freely providing
@@ -18,11 +14,13 @@
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =========================================================================*/
-// .NAME vtkParticlePartitionFilter distribute particle datasets in parallel
+//
+// .NAME vtkParticlePartitionFilter Efficiently distribute particle datasets in parallel
 // .SECTION Description
 // vtkParticlePartitionFilter is a parallel load balancing/partitioning 
-// filter for particle datasets. It uses the Zoltan library from the Trilinos 
-// package to perform the redistribution.
+// filter for particle datasets. Halo regions may also be requested and particles
+// will be duplicated on bordering processes of these regions.
+// It uses the Zoltan library from the Trilinos package to perform the redistribution.
 
 #ifndef __vtkParticlePartitionFilter_h
 #define __vtkParticlePartitionFilter_h

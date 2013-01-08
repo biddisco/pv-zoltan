@@ -1,10 +1,6 @@
 /*=========================================================================
 
-  Project                 : pv-meshless
   Module                  : vtkMeshPartitionFilter.h
-  Revision of last commit : $Rev: 884 $
-  Author of last commit   : $Author: biddisco $
-  Date of last commit     : $Date:: 2010-04-06 12:03:55 +0200 #$
 
   Copyright (C) CSCS - Swiss National Supercomputing Centre.
   You may use modify and and distribute this code freely providing
@@ -18,11 +14,12 @@
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =========================================================================*/
-// .NAME vtkMeshPartitionFilter distribute particle datasets in parallel
+//
+// .NAME vtkMeshPartitionFilter Efficiently distribute PolyData or UnstructuredGrid datasets in parallel
 // .SECTION Description
 // vtkMeshPartitionFilter is a parallel load balancing/partitioning 
-// filter for particle datasets. It uses the Zoltan library from the Trilinos 
-// package to perform the redistribution.
+// filter for PolyData or UnstructuredGrid datasets. 
+// It uses the Zoltan library from the Trilinos package to perform the redistribution.
 
 #ifndef __vtkMeshPartitionFilter_h
 #define __vtkMeshPartitionFilter_h

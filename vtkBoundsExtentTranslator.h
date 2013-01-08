@@ -1,24 +1,28 @@
 /*=========================================================================
 
-  Program:   Visualization Toolkit
-  Module:    vtkBoundsExtentTranslator.h
+  Module                  : vtkBoundsExtentTranslator.h
 
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+  Copyright (C) CSCS - Swiss National Supercomputing Centre.
+  You may use modify and and distribute this code freely providing
+  1) This copyright notice appears on all copies of source code
+  2) An acknowledgment appears with any substantial usage of the code
+  3) If this code is contributed to any other open source project, it
+  must not be reformatted such that the indentation, bracketing or
+  overall style is modified significantly.
 
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
+  This software is distributed WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 =========================================================================*/
-// .NAME vtkBoundsExtentTranslator - Extent translation through lookup table.
+//
+// .NAME vtkBoundsExtentTranslator - Extent translation using bounding boxes of data partitions
 // .SECTION Description
 // vtkBoundsExtentTranslator provides a vtkExtentTranslator that is
-// programmed with a specific extent corresponding to each piece
-// number.  Readers can provide this to an application to allow the
-// pipeline to execute using the same piece breakdown that is provided
-// in the input file.
+// compute the structured extents of data using the bounding boxes stored
+// for each process piece. When using a partitioner such as Zoltan, each piece
+// had an independent size - based on the image resolution, the extents are computed
+// from the bounding boxes. The translator may also be used as a container
+// for bounding information for pieces.
 
 #ifndef __vtkBoundsExtentTranslator_h
 #define __vtkBoundsExtentTranslator_h
