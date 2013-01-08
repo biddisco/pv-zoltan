@@ -145,4 +145,13 @@ TARGET_LINK_LIBRARIES(${PLUGIN_NAME}
     ${Boost_DATE_TIME_LIBRARY}
 )
 
+#--------------------------------------------------
+# Testing
+#--------------------------------------------------
+IF (BUILD_TESTING)
+  SET(PLUGIN_TEST_DIR ${PROJECT_BINARY_DIR}/Testing/Temporary)
+  MAKE_DIRECTORY(${PLUGIN_TEST_DIR})
+  ADD_SUBDIRECTORY(testing)
+ENDIF (BUILD_TESTING)  
+
 
