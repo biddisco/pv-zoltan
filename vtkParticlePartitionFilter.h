@@ -29,7 +29,6 @@
 #include "vtkBoundingBox.h"
 #include <vector>
 #include "zoltan.h"
-#include "vtkSmartPointer.h"
 
 class vtkMultiProcessController;
 class vtkPoints;
@@ -72,7 +71,7 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
           vtkInformationVector** inputVector,
           vtkInformationVector* outputVector);
 
-    double GhostCellOverlap;
+    double                      GhostCellOverlap;
     vtkBoundingBox             *LocalBoxHalo;
     std::vector<vtkBoundingBox> BoxListWithHalo;
 

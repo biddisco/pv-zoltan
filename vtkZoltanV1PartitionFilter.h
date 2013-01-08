@@ -22,19 +22,19 @@
 //
 // .SECTION See Also
 // vtkParticlePartitionFilter, vtkMeshPartitionFilter
-
-
+//
 #ifndef __vtkZoltanV1PartitionFilter_h
 #define __vtkZoltanV1PartitionFilter_h
 //
-#include <vector>
-#include <map>
+#include <vector>                // std used throughout
+#include <map>                   // std used throughout
 //
 #include "vtkDataSetAlgorithm.h" // superclass
-#include "vtkBoundingBox.h"
-#include "vtkSmartPointer.h"
+#include "vtkBoundingBox.h"      // used as parameter
+#include "vtkSmartPointer.h"     // for memory safety
 //
-#include "zoltan.h"
+#include "zoltan.h"              // required for definitions
+
 // standard vtk classes
 class  vtkMultiProcessController;
 class  vtkPoints;
@@ -48,7 +48,7 @@ class  vtkTimerLog;
 class  vtkBoundsExtentTranslator;
 
 //----------------------------------------------------------------------------
-// #define JB_DEBUG__
+ #define JB_DEBUG__
 //----------------------------------------------------------------------------
 #ifdef EXTRA_ZOLTAN_DEBUG
   #define INC_PACK_COUNT pack_count++;
@@ -62,8 +62,6 @@ class  vtkBoundsExtentTranslator;
   #define CLEAR_ZOLTAN_DEBUG 
 #endif
 //----------------------------------------------------------------------------
-#define JB_DEBUG__
-
 #if defined JB_DEBUG__ && !defined VTK_WRAPPING_CXX
 #define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
 
@@ -108,11 +106,9 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     // Description:
     // Specify the name of a scalar array which will be used to fetch
-    // the index of each point. This is necessary only if the particles
-    // change position (Id order) on each time step. The Id can be used
-    // to identify particles at each step and hence track them properly.
-    // If this array is NULL, the global point ids are used.  If an Id
-    // array cannot otherwise be found, the point index is used as the ID.
+    // the local index of each point - required by zoltan.
+    // if unset, an array will be generated internally and may consume some small
+    // extra memory.
     vtkSetStringMacro(IdChannelArray);
     vtkGetStringMacro(IdChannelArray);
     
@@ -121,7 +117,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     vtkSetMacro(MaxAspectRatio, double);
     vtkGetMacro(MaxAspectRatio, double);
   
-//BTX
     // Description:
     // Return the Bounding Box for a partition
     vtkBoundingBox *GetPartitionBoundingBox(int partition);
@@ -129,7 +124,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     // Description:
     // Return the Bounding Box of all the data (uses MPI to collect all boxes)
     vtkBoundingBox GetGlobalBounds(vtkDataSet *input);
-//ETX
 
     //----------------------------------------------------------------------------
     // Structure to hold all the dataset/mesh/points related data we pass to
@@ -194,7 +188,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       std::vector<int> Procs;
     } PartitionInfo;
 
-//BTX
     // Description:
     // zoltan callback to return number of points participating in load/balance
     static int get_number_of_objects_points(void *data, int *ierr);
@@ -245,7 +238,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
       int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
       ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
-//ETX
 
     void        InitializeZoltanLoadBalance();
     static void add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID);
@@ -263,23 +255,22 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     virtual int FillInputPortInformation(int port, vtkInformation* info);
 
     // Override to specify different type of output
-    virtual int FillOutputPortInformation(int vtkNotUsed(port), 
-      vtkInformation* info);
+    virtual int FillOutputPortInformation(int port, vtkInformation* info);
 
     // Description:
     virtual int RequestInformation(vtkInformation*,
-                            vtkInformationVector**,
-                            vtkInformationVector*);
+                                   vtkInformationVector**,
+                                   vtkInformationVector*);
     // Description:
     virtual int RequestUpdateExtent(vtkInformation*, 
-                                   vtkInformationVector**, 
-                                   vtkInformationVector*);
+                                    vtkInformationVector**, 
+                                    vtkInformationVector*);
     
     // Description:
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
                             vtkInformationVector*);
-//BTX
+
     vtkSmartPointer<vtkIdTypeArray> GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, vtkIdTypeArray *ptIds);
 
     vtkSmartPointer<vtkIntArray> BuildCellToProcessList(
@@ -294,20 +285,19 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
 
     //
-    vtkBoundingBox             *LocalBox;
-    std::vector<vtkBoundingBox> BoxList;
-//ETX
+    vtkBoundingBox                             *LocalBox;
+    std::vector<vtkBoundingBox>                 BoxList;
     //
-    vtkMultiProcessController   *Controller;
+    vtkMultiProcessController                  *Controller;
      //
-    int                          UpdatePiece;
-    int                          UpdateNumPieces;
-    char                        *IdChannelArray;
-    double                       MaxAspectRatio;
-    vtkBoundsExtentTranslator   *ExtentTranslator;
-    vtkBoundsExtentTranslator   *InputExtentTranslator;
-    vtkSmartPointer<vtkTimerLog> Timer;
-    std::string                  IdsName;
+    int                                         UpdatePiece;
+    int                                         UpdateNumPieces;
+    char                                       *IdChannelArray;
+    double                                      MaxAspectRatio;
+    vtkSmartPointer<vtkBoundsExtentTranslator>  ExtentTranslator;
+    vtkSmartPointer<vtkBoundsExtentTranslator>  InputExtentTranslator;
+    vtkSmartPointer<vtkTimerLog>                Timer;
+    std::string                                 IdsName;
     //
     struct Zoltan_Struct       *ZoltanData;
     CallbackData                ZoltanCallbackData;

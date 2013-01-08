@@ -11,15 +11,14 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 //
-//
-// For VTK_USE_MPI 
-#include "vtkToolkits.h"     
-#ifdef VTK_USE_MPI
+// For PARAVIEW_USE_MPI
+#include "vtkPVConfig.h"
+#ifdef PARAVIEW_USE_MPI
   #include "vtkMPI.h"
   #include "vtkMPIController.h"
   #include "vtkMPICommunicator.h"
 #endif
-#include "vtkMultiProcessController.h"
+#include "vtkDummyController.h"
 //
 #include "vtkActor.h"
 #include "vtkAppendPolyData.h"
@@ -172,7 +171,8 @@ int main (int argc, char* argv[])
     //
     // Send all the data to process zero for display
     //
-    vtkPolyData *OutputData = vtkPolyData::SafeDownCast(sddp->GetOutputData(0)->NewInstance());
+    vtkSmartPointer<vtkPolyData> OutputData;
+    OutputData.TakeReference(vtkPolyData::SafeDownCast(sddp->GetOutputData(0)->NewInstance()));
     OutputData->ShallowCopy(sddp->GetOutputData(0));
     if (test.myRank>0) {
       test.controller->Send(OutputData, 0, DATA_SEND_TAG);

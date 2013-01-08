@@ -91,7 +91,6 @@ int vtkPartitionOutline::RequestData(vtkInformation *request,
   vtkSmartPointer<vtkIdTypeArray> quantity = vtkSmartPointer<vtkIdTypeArray>::New();
   quantity->SetName("Occupation");
   //
-  double bounds[6];
   vtkBoundingBox box;
   for (int i=0; i<boxes; i++) {
     for (int h=0; h<2; h++) {

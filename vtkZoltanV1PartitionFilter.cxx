@@ -266,7 +266,7 @@ vtkZoltanV1PartitionFilter::vtkZoltanV1PartitionFilter()
   this->UpdateNumPieces           = 1;
   this->IdChannelArray            = NULL;
   this->MaxAspectRatio            = 5.0;
-  this->ExtentTranslator          = vtkBoundsExtentTranslator::New();
+  this->ExtentTranslator          = vtkSmartPointer<vtkBoundsExtentTranslator>::New();
   this->InputExtentTranslator     = NULL;
   this->ZoltanData                = NULL;
   this->Controller                = NULL;
@@ -280,7 +280,6 @@ vtkZoltanV1PartitionFilter::~vtkZoltanV1PartitionFilter()
 {
   this->SetController(NULL);
   this->SetIdChannelArray(NULL);
-  this->ExtentTranslator->Delete();
 }
 //----------------------------------------------------------------------------
 void vtkZoltanV1PartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
@@ -334,7 +333,6 @@ vtkSmartPointer<vtkIdTypeArray> vtkZoltanV1PartitionFilter::GenerateGlobalIds(vt
   //
   if (!ptIds) {
     vtkSmartPointer<vtkIdTypeArray> newptIds = vtkSmartPointer<vtkIdTypeArray>::New();
-    newptIds = vtkIdTypeArray::New();
     newptIds->SetNumberOfValues(Npoints);
     for (vtkIdType id=0; id<Npoints; id++) {
       newptIds->SetValue(id, id + offset);
