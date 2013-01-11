@@ -44,7 +44,8 @@ class  vtkPointSet;
 class  vtkDataSetAttributes;
 class  vtkCellArray;
 class  vtkTimerLog;
-class vtkFieldData;
+class  vtkFieldData;
+class  vtkPKdTree;
 // our special extent translator
 class  vtkBoundsExtentTranslator;
 
@@ -125,6 +126,8 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     // Description:
     // Return the Bounding Box of all the data (uses MPI to collect all boxes)
     vtkBoundingBox GetGlobalBounds(vtkDataSet *input);
+
+    vtkSmartPointer<vtkPKdTree> GetKdtree() { return this->KdTree; }
 
     //----------------------------------------------------------------------------
     // Structure to hold all the dataset/mesh/points related data we pass to
@@ -286,6 +289,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     MPI_Comm GetMPIComm();
     int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
     int ManualPointMigrate(PartitionInfo &point_partitioninfo, bool useoutput);
+    vtkSmartPointer<vtkPKdTree> CreatePkdTree();
 
     //
     vtkBoundingBox                             *LocalBox;
@@ -299,6 +303,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     double                                      MaxAspectRatio;
     vtkSmartPointer<vtkBoundsExtentTranslator>  ExtentTranslator;
     vtkSmartPointer<vtkBoundsExtentTranslator>  InputExtentTranslator;
+    vtkSmartPointer<vtkPKdTree>                 KdTree;
     vtkSmartPointer<vtkTimerLog>                Timer;
     std::string                                 IdsName;
     //

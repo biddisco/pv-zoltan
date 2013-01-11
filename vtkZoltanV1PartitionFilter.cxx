@@ -31,6 +31,7 @@
 #include "vtkBoundingBox.h"
 #include "vtkMath.h"
 #include "vtkPointLocator.h"
+#include "vtkCubeSource.h"
 //
 // For PARAVIEW_USE_MPI
 #include "vtkPVConfig.h"
@@ -41,6 +42,9 @@
 #endif
 #include "vtkDummyController.h"
 //
+#include "vtkNew.h"
+#include "vtkHexahedron.h"
+#include "vtkPKdTree.h"
 #include "vtkBoundsExtentTranslator.h"
 #include "vtkZoltanV1PartitionFilter.h"
 //
@@ -1065,4 +1069,46 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo,
     &found_to_part);
 
   return num_found;
+}
+//----------------------------------------------------------------------------
+vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
+{
+  this->KdTree = vtkSmartPointer<vtkPKdTree>::New();
+  vtkNew<vtkUnstructuredGrid> grid; 
+  vtkBoundingBox *box = this->GetPartitionBoundingBox(this->UpdatePiece);
+  const double *minpt = box->GetMinPoint();
+  const double *maxpt = box->GetMaxPoint();
+  
+  double P0[3] = {minpt[0], minpt[1], minpt[2]};
+  double P1[3] = {maxpt[0], minpt[1], minpt[2]};
+  double P2[3] = {maxpt[0], maxpt[1], minpt[2]};
+  double P3[3] = {minpt[0], maxpt[1], minpt[2]};
+  double P4[3] = {minpt[0], minpt[1], maxpt[2]};
+  double P5[3] = {maxpt[0], minpt[1], maxpt[2]};
+  double P6[3] = {maxpt[0], maxpt[1], maxpt[2]};
+  double P7[3] = {minpt[0], maxpt[1], maxpt[2]};
+
+  vtkNew<vtkPoints> points;
+  points->InsertNextPoint(P0);
+  points->InsertNextPoint(P1);
+  points->InsertNextPoint(P2);
+  points->InsertNextPoint(P3);
+  points->InsertNextPoint(P4);
+  points->InsertNextPoint(P5);
+  points->InsertNextPoint(P6);
+  points->InsertNextPoint(P7);
+
+  vtkIdType pts[8] = { 0,1,2,3,4,5,6,7};
+
+  vtkNew<vtkCellArray> cells;
+  cells->InsertNextCell(8, pts);
+
+  grid->SetPoints(points.GetPointer());
+  grid->SetCells(VTK_HEXAHEDRON, cells.GetPointer());
+
+  KdTree->SetDataSet(grid.GetPointer());
+  KdTree->SetController(this->Controller);
+  KdTree->BuildLocator();
+
+  return KdTree;
 }

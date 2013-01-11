@@ -31,6 +31,7 @@
 #include "vtkBoundingBox.h"
 #include "vtkMath.h"
 #include "vtkPointLocator.h"
+#include "vtkPKdTree.h"
 //
 // For PARAVIEW_USE_MPI
 #include "vtkPVConfig.h"
@@ -297,6 +298,9 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   }
   Zoltan_Destroy(&this->ZoltanData);
 
+  this->CreatePkdTree();
+  this->ExtentTranslator->SetKdTree(this->GetKdtree());
+
   this->Controller->Barrier();
   this->Timer->StopTimer();
   vtkDebugMacro(<<"Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds");
@@ -456,7 +460,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   std::vector<unsigned char> process_flag(this->UpdateNumPieces,0);;
 
   //
-  // Some poits have been migrated already, but are still needed locally, so we
+  // Some points have been migrated already, but are still needed locally, so we
   // must monitor the points copied locally
   //
   vtkIdType   OutputPointCount = this->ZoltanCallbackData.Output->GetNumberOfPoints();
