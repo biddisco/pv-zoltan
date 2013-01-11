@@ -108,8 +108,8 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.cameraViewUp[2] = 1.0;
   test.windowSize[0] = test.windowSize[1] = 400;
 
-  // uncomment this to wait for debugger
-   DEBUG_WAIT
+  // uncomment this to wait for debugger attach
+  // DEBUG_WAIT
   //
   test.controller->Barrier();
 

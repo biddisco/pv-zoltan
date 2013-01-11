@@ -79,6 +79,7 @@ string(REPLACE " " ";" MPIEXEC_NUMPROC_FLAG ${MPIEXEC_NUMPROC_FLAG})
         ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
         $<TARGET_FILE:TestParticlePartitionFilter> 
         -testName ${test_name}
+        -T "${PLUGIN_TEST_DIR}"
         -generateParticles 1000
         -V ${PROJECT_SOURCE_DIR}/Testing/baseline/ParticlePartition.png
         -doRender 1
@@ -94,11 +95,16 @@ string(REPLACE " " ";" MPIEXEC_NUMPROC_FLAG ${MPIEXEC_NUMPROC_FLAG})
         ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
         $<TARGET_FILE:TestMeshPartitionFilter> 
         -testName ${test_name}
+        -T "${PLUGIN_TEST_DIR}"
         -F neuron-test.vtp
         -D ${PROJECT_SOURCE_DIR}/Testing/data
         -V ${PROJECT_SOURCE_DIR}/Testing/baseline/MeshPartition.png
         -doRender 1
-        -windowSize "400 400"
+        -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
+        -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
+        -cameraViewUp   "0 1 0"
+        -scalar "vtkProcessId"
+        -windowSize "1024 800"
     )
   ENDIF (processors)
  

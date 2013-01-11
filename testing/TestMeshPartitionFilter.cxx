@@ -144,7 +144,7 @@ int main (int argc, char* argv[])
       vtkSmartPointer<vtkRenderWindowInteractor> iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
       iren->SetRenderWindow(renWindow);
       ren->SetBackground(0.1, 0.1, 0.1);
-      renWindow->SetSize( 400+8, 400+8);
+      renWindow->SetSize(test.windowSize);
       renWindow->AddRenderer(ren);
       //
       for (int i=0; i<test.numProcs; i++) {
@@ -159,6 +159,7 @@ int main (int argc, char* argv[])
         vtkSmartPointer<vtkPolyDataMapper>       mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
         vtkSmartPointer<vtkActor>                 actor = vtkSmartPointer<vtkActor>::New();
         mapper->SetInputData(pd);
+        mapper->SetImmediateModeRendering(1);
         mapper->SetColorModeToMapScalars();
         mapper->SetScalarModeToUsePointFieldData();
         mapper->SetUseLookupTableScalarRange(0);
@@ -169,19 +170,15 @@ int main (int argc, char* argv[])
         actor->GetProperty()->SetPointSize(2);
         ren->AddActor(actor);
         //
-        vtkSmartPointer<vtkPolyDataMapper>       mapper2 = vtkSmartPointer<vtkPolyDataMapper>::New();
-        vtkSmartPointer<vtkActor>                 actor2 = vtkSmartPointer<vtkActor>::New();
-        mapper2->SetInputData(pd);
-        mapper2->SetColorModeToMapScalars();
-        mapper2->SetScalarModeToUsePointFieldData();
-        mapper2->SetUseLookupTableScalarRange(0);
-        mapper2->SetScalarRange(0,1);
-        mapper2->SetInterpolateScalarsBeforeMapping(0);
-        mapper2->SelectColorArray("vtkGhostLevels");
-        actor2->SetMapper(mapper2);
-        actor2->GetProperty()->SetPointSize(2);
-//        actor2->SetPosition(2.0*radius, 0.0, 0.0);
-        ren->AddActor(actor2);
+        if (test.cameraSet) {
+          ren->GetActiveCamera()->SetPosition(test.cameraPosition);
+          ren->GetActiveCamera()->SetFocalPoint(test.cameraFocus);
+          ren->GetActiveCamera()->SetViewUp(test.cameraViewUp);
+          ren->ResetCameraClippingRange();
+        }
+        else {
+          ren->ResetCamera();
+        }
       }
       //
       // Display boxes for each partition
@@ -199,10 +196,6 @@ int main (int argc, char* argv[])
         ren->AddActor(bactor);
       }
       
-//      ren->GetActiveCamera()->SetPosition(0,4*radius,0);
-      ren->GetActiveCamera()->SetFocalPoint(0,0,0);
-      ren->GetActiveCamera()->SetViewUp(0,0,-1);
-      ren->ResetCamera();
       testDebugMacro( "Process Id : " << test.myRank << " About to Render" );
       renWindow->Render();
 
