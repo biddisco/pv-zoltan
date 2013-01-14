@@ -28,6 +28,7 @@
 //
 #include <vector>                // std used throughout
 #include <map>                   // std used throughout
+#include <string>                // std used throughout
 //
 #include "vtkDataSetAlgorithm.h" // superclass
 #include "vtkBoundingBox.h"      // used as parameter

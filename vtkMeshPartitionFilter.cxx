@@ -206,7 +206,7 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
     memcpy(buf, newPts, sizeof(vtkIdType)*(npts+2));  
   }
   else if (udata) { 
-    throw std::exception("Implement this");
+    throw std::string("Implement this");
   }
 
   *ierr = ZOLTAN_OK;
@@ -248,7 +248,7 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
     pdata2->InsertNextCell(ctype, npts, newPts);
   }
   else if (udata) { 
-    throw std::exception("Implement this");
+    throw std::string("Implement this");
   }
 
   callbackdata->OutCellCount++;
@@ -511,7 +511,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         cellstatus = 4;
       }
       else {
-        throw std::exception("This should not be possible");
+        throw std::string("This should not be possible");
       }
     }
     //
@@ -568,7 +568,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     point_partitioninfo.GlobalIds.push_back(std::get<0>(x) + this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece]);
     point_partitioninfo.Procs.push_back(std::get<1>(x));
   }
-  copy(point_partitioninfo.LocalIds.begin(), point_partitioninfo.LocalIds.end(), std::ostream_iterator<vtkIdType>(temp2,", ") );
+//  copy(point_partitioninfo.LocalIds.begin(), point_partitioninfo.LocalIds.end(), std::ostream_iterator<vtkIdType>(temp2,", ") );
 //  std::cout << "Sorted " << point_partitioninfo.LocalIds.size() << std::endl;
 //  std::cout << temp2.str() << std::endl;
 
