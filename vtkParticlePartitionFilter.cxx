@@ -150,12 +150,14 @@ void vtkParticlePartitionFilter::FillPartitionBoundingBoxWithHalo()
     }
   }
   else {
+    this->ExtentTranslator->SetBoundsHalosPresent(1);
     // @todo : extend this to handle AMR ghost regions etc.
     std::vector<double> ghostOverlaps(this->UpdateNumPieces,this->GhostCellOverlap);
     for (int p=0; p<this->UpdateNumPieces; p++) {
       vtkBoundingBox box = this->BoxList[p];  
       box.Inflate(ghostOverlaps[p]);
       this->BoxListWithHalo.push_back(box);
+      this->ExtentTranslator->SetBoundsHaloForPiece(p, box);
     }
   }
 }
