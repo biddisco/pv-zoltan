@@ -106,7 +106,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.cameraViewUp[0] = 0.0;
   test.cameraViewUp[1] = 0.0;
   test.cameraViewUp[2] = 1.0;
-  test.windowSize[0] = test.windowSize[1] = 400;
+  test.windowSize[0] = test.windowSize[1] = 400+8;
 
   // uncomment this to wait for debugger attach
   // DEBUG_WAIT
@@ -189,6 +189,9 @@ int initTest(int argc, char* argv[], TestStruct &test)
   unused = GetArrayParameter<double>("-cameraFocus", "Camera Focus", test.cameraFocus, 3, argc, argv, test.myRank);
   unused = GetArrayParameter<double>("-cameraViewUp", "Camera ViewUp", test.cameraViewUp, 3, argc, argv, test.myRank);
   unused = GetArrayParameter<int>("-windowSize", "Window Size", test.windowSize, 2, argc, argv, test.myRank);
+  if (unused) {
+    test.windowSize[0]+=8; test.windowSize[1]+=8; 
+  }
   
   // bug fix for cmd line params on windows with debugger (only first read properly)
   test.gridSpacing[2] = test.gridSpacing[1] = test.gridSpacing[0];
