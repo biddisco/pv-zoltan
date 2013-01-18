@@ -346,12 +346,12 @@ vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBox(int partitio
   return NULL;
 }
 //----------------------------------------------------------------------------
-template<typename T>
-std::ostream& PrintVector(std::ostream& out, int width, std::vector<T> &vec) {
-  out << "[" << std::setprecision(1) << std::fixed;
-  for (auto & x : vec) out << std::setw(width) << x << ", ";
-  return out << "]";
-}
+//template<typename T>
+//std::ostream& PrintVector(std::ostream& out, int width, std::vector<T> &vec) {
+//  out << "[" << std::setprecision(1) << std::fixed;
+//  for (auto & x : vec) out << std::setw(width) << x << ", ";
+//  return out << "]";
+//}
 //----------------------------------------------------------------------------
 vtkSmartPointer<vtkIdTypeArray> vtkZoltanV1PartitionFilter::GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, vtkIdTypeArray *ptIds)
 {
@@ -371,8 +371,8 @@ vtkSmartPointer<vtkIdTypeArray> vtkZoltanV1PartitionFilter::GenerateGlobalIds(vt
   std::stringstream temp1, temp2;
 //  copy(this->ZoltanCallbackData.ProcessOffsetsPointId.begin(), this->ZoltanCallbackData.ProcessOffsetsPointId.end(), std::ostream_iterator<vtkIdType>(temp1,", ") );
 //  copy(this->ZoltanCallbackData.ProcessOffsetsCellId.begin(), this->ZoltanCallbackData.ProcessOffsetsCellId.end(), std::ostream_iterator<vtkIdType>(temp2,", ") );
-  PrintVector<int>(temp1, 6, this->ZoltanCallbackData.ProcessOffsetsPointId);
-  PrintVector<int>(temp2, 6, this->ZoltanCallbackData.ProcessOffsetsCellId);
+//  PrintVector<int>(temp1, 6, this->ZoltanCallbackData.ProcessOffsetsPointId);
+//  PrintVector<int>(temp2, 6, this->ZoltanCallbackData.ProcessOffsetsCellId);
   vtkDebugMacro(<< "Offsets generated { pts : " << temp1.str() << "} { cells : " << temp2.str() << "}" );
   //
   // Global point IDs generated here

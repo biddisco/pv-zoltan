@@ -563,10 +563,11 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   std::sort(process_vector.begin(), process_vector.end());
   process_vector.resize(std::unique(process_vector.begin(), process_vector.end()) - process_vector.begin());
 
-  for (auto x : process_vector) {
-    point_partitioninfo.LocalIds.push_back(std::get<0>(x));
-    point_partitioninfo.GlobalIds.push_back(std::get<0>(x) + this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece]);
-    point_partitioninfo.Procs.push_back(std::get<1>(x));
+  for (std::vector<process_tuple>::iterator x=process_vector.begin(); x!=process_vector.end(); ++x) 
+  {
+    point_partitioninfo.LocalIds.push_back(x->first);
+    point_partitioninfo.GlobalIds.push_back(x->first + this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece]);
+    point_partitioninfo.Procs.push_back(x->second);
   }
 //  copy(point_partitioninfo.LocalIds.begin(), point_partitioninfo.LocalIds.end(), std::ostream_iterator<vtkIdType>(temp2,", ") );
 //  std::cout << "Sorted " << point_partitioninfo.LocalIds.size() << std::endl;
