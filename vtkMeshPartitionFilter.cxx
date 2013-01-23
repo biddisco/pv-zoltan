@@ -52,7 +52,6 @@
 #include <float.h>
 #include <numeric>
 #include <algorithm>
-#include <tuple>
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkMeshPartitionFilter);
 //----------------------------------------------------------------------------

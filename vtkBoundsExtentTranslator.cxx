@@ -241,9 +241,9 @@ int vtkBoundsExtentTranslator::BoundsToExtentThreadSafe(
   wholebounds.GetLengths(lengths);
   const double *origin = wholebounds.GetMinPoint();
   double dims[3] = {
-    wholeExtent[1]-wholeExtent[0], 
-    wholeExtent[3]-wholeExtent[2], 
-    wholeExtent[5]-wholeExtent[4], 
+    (double)(wholeExtent[1]-wholeExtent[0]), 
+    (double)(wholeExtent[3]-wholeExtent[2]), 
+    (double)(wholeExtent[5]-wholeExtent[4]) 
   };
 
   for (int i=0; i<3; i++) {

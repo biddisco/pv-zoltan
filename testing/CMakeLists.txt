@@ -81,7 +81,7 @@ string(REPLACE " " ";" MPIEXEC_NUMPROC_FLAG ${MPIEXEC_NUMPROC_FLAG})
         -testName ${test_name}
         -T "${PLUGIN_TEST_DIR}"
         -generateParticles 1000
-        -V ${PROJECT_SOURCE_DIR}/Testing/baseline/ParticlePartition.png
+        -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition.png
         -doRender 1
         -windowSize "400 400"
     )
@@ -97,8 +97,8 @@ string(REPLACE " " ";" MPIEXEC_NUMPROC_FLAG ${MPIEXEC_NUMPROC_FLAG})
         -testName ${test_name}
         -T "${PLUGIN_TEST_DIR}"
         -F neuron-test.vtp
-        -D ${PROJECT_SOURCE_DIR}/Testing/data
-        -V ${PROJECT_SOURCE_DIR}/Testing/baseline/MeshPartition.png
+        -D ${PROJECT_SOURCE_DIR}/testing/data
+        -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition.png
         -doRender 1
         -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
         -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
