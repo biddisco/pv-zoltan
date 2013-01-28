@@ -46,8 +46,8 @@ PURPOSE.  See the above copyright notice for more information.
 #include "vtkMapper.h"
 //-----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkTwoScalarsToColorsPainter)
-  //-----------------------------------------------------------------------------
-  vtkTwoScalarsToColorsPainter::vtkTwoScalarsToColorsPainter()
+//-----------------------------------------------------------------------------
+vtkTwoScalarsToColorsPainter::vtkTwoScalarsToColorsPainter()
 {
   this->OpacityArrayName  = NULL;
   this->EnableOpacity     = false;

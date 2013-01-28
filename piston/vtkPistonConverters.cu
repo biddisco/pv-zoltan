@@ -5,6 +5,7 @@
 #include <piston/vtk_image3d.h>
 #include "vtkCellArray.h"
 #include "vtkFloatArray.h"
+#include "vtkDoubleArray.h"
 #include "vtkIdTypeArray.h"
 #include "vtkUnsignedCharArray.h"
 #include "vtkImageData.h"
@@ -338,31 +339,27 @@ namespace vtkpiston {
         newD->originalcells = NULL;
       }
 
-      vtkFloatArray *inscalars = vtkFloatArray::SafeDownCast(
-        id->GetPointData()->GetArray(scalarname)
-        );
-      if (inscalars)
-      {
+      vtkFloatArray *inscalarsF = vtkFloatArray::SafeDownCast(
+        id->GetPointData()->GetArray(scalarname));
+      vtkDoubleArray *inscalarsD = vtkDoubleArray::SafeDownCast(
+        id->GetPointData()->GetArray(scalarname));
+      if (inscalarsF || inscalarsD) {
         thrust::host_vector<float> hA(nPoints);
-        for (vtkIdType i = 0; i < nPoints; i++)
-        {
-          double *next = inscalars->GetTuple(i);
+        for (vtkIdType i = 0; i < nPoints; i++) {
+          double *next = inscalarsF ? inscalarsF->GetTuple(i) : inscalarsD->GetTuple(i);
           hA[i] = next[0];
         }
-        thrust::device_vector<float> *dA =
-          new thrust::device_vector<float>(nPoints);
+        thrust::device_vector<float> *dA = new thrust::device_vector<float>(nPoints);
         *dA = hA;
         newD->scalars = dA;
-        od->SetScalarsArrayName(inscalars->GetName());
+        od->SetScalarsArrayName(inscalarsF ? inscalarsF->GetName() : inscalarsD->GetName());
       }
-      else
-      {
+      else {
         newD->scalars = NULL;
       }
 
       vtkUnsignedCharArray *incolors = vtkUnsignedCharArray::SafeDownCast(
-        id->GetPointData()->GetArray("Color")
-        );
+        id->GetPointData()->GetArray("Color"));
       if (incolors)
       {
         thrust::host_vector<float4> hA(nPoints);
@@ -380,19 +377,19 @@ namespace vtkpiston {
         newD->colors = NULL;
       }
 
-      vtkFloatArray *inopacities = vtkFloatArray::SafeDownCast(
-        id->GetPointData()->GetArray(opacityname)
-        );
-      if (inopacities)
+      vtkFloatArray *inopacitiesF = vtkFloatArray::SafeDownCast(
+        id->GetPointData()->GetArray(opacityname));
+      vtkDoubleArray *inopacitiesD = vtkDoubleArray::SafeDownCast(
+        id->GetPointData()->GetArray(opacityname));
+      if (inopacitiesF || inopacitiesD)
       {
         thrust::host_vector<float> hA(nPoints);
         for (vtkIdType i = 0; i < nPoints; i++)
         {
-          double *next = inopacities->GetTuple(i);
+          double *next = inopacitiesF ? inopacitiesF->GetTuple(i) : inopacitiesD->GetTuple(i);
           hA[i] = next[0];
         }
-        thrust::device_vector<float> *dA =
-          new thrust::device_vector<float>(nPoints);
+        thrust::device_vector<float> *dA = new thrust::device_vector<float>(nPoints);
         *dA = hA;
         newD->opacities = dA;
       }
