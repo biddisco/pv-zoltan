@@ -26,6 +26,7 @@
 #define _vtkPartitionOutline_h
 
 #include "vtkPolyDataAlgorithm.h"
+class vtkPKdTree;
 
 class VTK_EXPORT vtkPartitionOutline : public vtkPolyDataAlgorithm {
   public:
@@ -50,7 +51,9 @@ class VTK_EXPORT vtkPartitionOutline : public vtkPolyDataAlgorithm {
     // the generated boxes by.
     vtkSetMacro(InflateFactor,double);
     vtkGetMacro(InflateFactor,double);
-    
+
+    void ShowPKdTree(vtkPKdTree *tree, vtkPolyData *output);
+
   protected:
      vtkPartitionOutline(void);
     ~vtkPartitionOutline();

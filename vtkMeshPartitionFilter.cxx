@@ -287,6 +287,9 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   //
   this->PartitionCells(info, inputVector, outputVector);
 
+  this->CreatePkdTree();
+  this->ExtentTranslator->SetKdTree(this->GetKdtree());
+
   //*****************************************************************
   // Free the arrays allocated by Zoltan_LB_Partition, and free
   // the storage allocated for the Zoltan structure.
@@ -297,8 +300,6 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   }
   Zoltan_Destroy(&this->ZoltanData);
 
-  this->CreatePkdTree();
-  this->ExtentTranslator->SetKdTree(this->GetKdtree());
 
   this->Controller->Barrier();
   this->Timer->StopTimer();

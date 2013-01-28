@@ -31,6 +31,7 @@
 #include "vtkBoundsExtentTranslator.h"
 #include "vtkAppendPolyData.h"
 #include "vtkOutlineSource.h"
+#include "vtkPKdTree.h"
 //
 #include <cmath>
 //---------------------------------------------------------------------------
@@ -79,6 +80,13 @@ int vtkPartitionOutline::RequestData(vtkInformation *request,
   if (bet && bet->GetNumberOfPieces()==0) {
     bet = NULL;
   }
+
+  if (bet) {
+    this->ShowPKdTree(bet->GetKdTree(), output);
+    return 1;
+  }
+
+
   //
   vtkSmartPointer<vtkAppendPolyData> polys = vtkSmartPointer<vtkAppendPolyData>::New();
   int piece = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER());
@@ -135,5 +143,9 @@ int vtkPartitionOutline::RequestData(vtkInformation *request,
   return 1;
 }
 //---------------------------------------------------------------------------
-
+void vtkPartitionOutline::ShowPKdTree(vtkPKdTree *tree, vtkPolyData *output)
+{
+  tree->GenerateRepresentation(tree->GetLevel(), output);
+}
+//----------------------------------------------------------------------------
 

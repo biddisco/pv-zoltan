@@ -52,62 +52,94 @@ string(REPLACE " " ";" MPIEXEC_NUMPROC_FLAG ${MPIEXEC_NUMPROC_FLAG})
 #--------------------------------------------------
 # Trilinos
 #--------------------------------------------------
-  ADD_EXECUTABLE(TestParticlePartitionFilter 
-    TestParticlePartitionFilter.cxx
-    TestUtils.cxx
-  )
-  TARGET_LINK_LIBRARIES(TestParticlePartitionFilter
-    pv_zoltan 
-    ${Trilinos_LIBRARIES}
-  )
+ADD_EXECUTABLE(TestParticlePartitionFilter 
+  TestParticlePartitionFilter.cxx
+  TestUtils.cxx
+)
+TARGET_LINK_LIBRARIES(TestParticlePartitionFilter
+  pv_zoltan 
+  ${Trilinos_LIBRARIES}
+)
   
-  ADD_EXECUTABLE(TestMeshPartitionFilter 
-    TestMeshPartitionFilter.cxx
-    TestUtils.cxx
-  )
-  TARGET_LINK_LIBRARIES(TestMeshPartitionFilter
-    pv_zoltan 
-    ${Trilinos_LIBRARIES}
-  )
+ADD_EXECUTABLE(TestMeshPartitionFilter 
+  TestMeshPartitionFilter.cxx
+  TestUtils.cxx
+)
+TARGET_LINK_LIBRARIES(TestMeshPartitionFilter
+  pv_zoltan 
+  ${Trilinos_LIBRARIES}
+)
   
-  greater_equal(${MPIEXEC_MAX_NUMPROCS} 4 processors)
-  SET(test_name "TestParticlePartitionFilter-P4")
-  IF (processors)
-    ADD_TEST(
-      NAME ${test_name}
-      COMMAND 
-        ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-        $<TARGET_FILE:TestParticlePartitionFilter> 
-        -testName ${test_name}
-        -T "${PLUGIN_TEST_DIR}"
-        -generateParticles 1000
-        -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition.png
-        -doRender 1
-        -windowSize "400 400"
-    )
-  ENDIF (processors)
+ADD_EXECUTABLE(TestPartitionCompositing
+  TestPartitionCompositing.cxx
+  TestUtils.cxx
+)
+TARGET_LINK_LIBRARIES(TestPartitionCompositing
+  pv_zoltan 
+  ${Trilinos_LIBRARIES}
+)
 
-  SET(test_name "TestMeshPartitionFilter-P4")
-  IF (processors)
-    ADD_TEST(
-      NAME ${test_name}
-      COMMAND 
-        ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-        $<TARGET_FILE:TestMeshPartitionFilter> 
-        -testName ${test_name}
-        -T "${PLUGIN_TEST_DIR}"
-        -F neuron-test.vtp
-        -D ${PROJECT_SOURCE_DIR}/testing/data
-        -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition.png
-        -doRender 1
-        -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
-        -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
-        -cameraViewUp   "0 1 0"
-        -scalar "vtkProcessId"
-        -windowSize "1024 800"
-    )
-  ENDIF (processors)
+# 
+# This test will only run if we have 4 processors
+#   
+greater_equal(${MPIEXEC_MAX_NUMPROCS} 4 processors)
+SET(test_name "TestParticlePartitionFilter-P4")
+IF (processors)
+  ADD_TEST(
+    NAME ${test_name}
+    COMMAND 
+      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestParticlePartitionFilter> 
+      -testName ${test_name}
+      -T "${PLUGIN_TEST_DIR}"
+      -generateParticles 1000
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition.png
+      -doRender 1
+      -windowSize "400 400"
+  )
+ENDIF (processors)
+
+SET(test_name "TestMeshPartitionFilter-P4")
+IF (processors)
+  ADD_TEST(
+    NAME ${test_name}
+    COMMAND 
+      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestMeshPartitionFilter> 
+      -testName ${test_name}
+      -T "${PLUGIN_TEST_DIR}"
+      -F neuron-test.vtp
+      -D ${PROJECT_SOURCE_DIR}/testing/data
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition.png
+      -doRender 1
+      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
+      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
+      -cameraViewUp   "0 1 0"
+      -scalar "vtkProcessId"
+      -windowSize "1024 800"
+  )
+ENDIF (processors)
  
+SET(test_name "TestPartitionCompositing-P4")
+IF (processors)
+  ADD_TEST(
+    NAME ${test_name}
+    COMMAND 
+      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestPartitionCompositing> 
+      -testName ${test_name}
+      -T "${PLUGIN_TEST_DIR}"
+      -F neuron-test.vtp
+      -D ${PROJECT_SOURCE_DIR}/testing/data
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition.png
+      -doRender 1
+      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
+      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
+      -cameraViewUp   "0 1 0"
+      -scalar "vtkProcessId"
+      -windowSize "1024 800"
+  )
+ENDIF (processors)
 
 #--------------------------------------------------
 #--------------------------------------------------

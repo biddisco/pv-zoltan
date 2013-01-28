@@ -45,6 +45,9 @@
 #include "vtkNew.h"
 #include "vtkHexahedron.h"
 #include "vtkPKdTree.h"
+#include "vtkBSPCuts.h"
+#include "vtkKdTreeGenerator.h"
+//
 #include "vtkBoundsExtentTranslator.h"
 #include "vtkZoltanV1PartitionFilter.h"
 //
@@ -54,8 +57,13 @@
 #include <algorithm>
 #include <map>
 #include <iostream>
+#include <ostream>
 #include <sstream>
+#include <iterator>
 //
+#include <stack>
+#include "zz_const.h"
+#include "rcb.h"
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkZoltanV1PartitionFilter);
 vtkCxxSetObjectMacro(vtkZoltanV1PartitionFilter, Controller, vtkMultiProcessController);
@@ -882,6 +890,7 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
         this->ExtentTranslator->SetBoundsForPiece(p, bounds);
       }
     }
+    this->ExtentTranslator->InitWholeBounds();
   }
   return 1;
 }
@@ -1070,10 +1079,141 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo,
 
   return num_found;
 }
+
+
+  // Description:
+  //   Initialize the cuts with arrays of information.  This type of
+  //   information would be obtained from a graph partitioning software
+  //   package like Zoltan.
+  //
+  //   bounds - the bounds (xmin, xmax, ymin, ymax, zmin, zmax) of the
+  //             space being partitioned
+  //   ncuts - the number cuts, also the size of the following arrays
+  //   dim   - the dimension along which the cut is made (x/y/z - 0/1/2)
+  //   coord - the location of the cut along the axis
+  //   lower - array index for the lower region bounded by the cut
+  //   upper - array index for the upper region bounded by the cut
+  //   lowerDataCoord - optional upper bound of the data in the lower region
+  //   upperDataCoord - optional lower bound of the data in the upper region
+  //   npoints - optional number of points in the spatial region
+
 //----------------------------------------------------------------------------
 vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
 {
+  vtkSmartPointer<vtkBSPCuts> cuts = vtkSmartPointer<vtkBSPCuts>::New();
+  //
+  RCB_STRUCT *rcb = (RCB_STRUCT *) (this->ZoltanData->LB.Data_Structure);
+  struct rcb_tree *treept = rcb->Tree_Ptr;
+  //
+  if (treept[0].dim < 0) {     /* RCB tree was never created. */
+    vtkErrorMacro(<<"RCB Tree invalid");
+    return NULL;
+  }
+  //
+  std::vector<int>    cut_axis;
+  std::vector<double> cut_position;
+  std::vector<int>    cut_lower;
+  std::vector<int>    cut_upper;
+  //
+  typedef std::pair<struct rcb_tree*, int> cutpair;
+  std::stack<cutpair> tree_stack;
+  struct rcb_tree *nodept = &treept[0];
+  if (nodept->right_leaf) {
+    tree_stack.push(cutpair(&treept[nodept->right_leaf],0));
+  }
+  int RegionId = 0;
+  while (!tree_stack.empty()) {
+    nodept = tree_stack.top().first;
+    int parent = tree_stack.top().second;
+    tree_stack.pop();
+    //
+    int cutindex = cut_position.size();
+    // when we pull a left child off the stack, put the correct index into the child ptr
+    if (parent<0 && cut_lower.size()>=parent) {
+      cut_lower[-parent] = cutindex;
+    }
+    // when we pull a right child off the stack, put the correct index into the child ptr
+    if (parent>=0 && cut_lower.size()>parent) {
+      cut_upper[parent] = cutindex;
+    }
+    // add this cut to the list
+    cut_position.push_back(nodept->cut);
+    cut_axis.push_back(nodept->dim);
+    //
+    if (nodept->right_leaf > 0) {
+      // to be completed with real index when known
+      cut_lower.push_back(-1); 
+      cut_upper.push_back(-1); 
+
+      // the index will be used to set the correct location
+      // of the child cut when it is pulled off the stack
+      tree_stack.push(cutpair(&(treept[nodept->right_leaf]),-cutindex));
+      tree_stack.push(cutpair(&(treept[nodept->left_leaf]), +cutindex));
+    }
+    else {
+      // the children are created now, so we know the index
+      cutindex = cut_position.size();
+      cut_lower.push_back(cutindex); 
+      cut_upper.push_back(cutindex+1); 
+      //
+      // two leaf nodes, in the BSPCuts code we must set the (region) Ids
+      //
+      cut_position.push_back(0.0);
+      cut_axis.push_back(0);
+      cut_lower.push_back(-RegionId); 
+      cut_upper.push_back(-1); 
+      RegionId++;
+      cut_position.push_back(0.0);
+      cut_axis.push_back(0);
+      cut_lower.push_back(-RegionId); 
+      cut_upper.push_back(-1); 
+      RegionId++;
+    }
+  };
+  //cut_position.push_back(0);
+  //cut_axis.push_back(0);
+  //cut_lower.push_back(0); 
+  //cut_upper.push_back(0); 
+
+  //for (int i=0; i<cut_position.size(); i++) {
+  //  if (cut_lower[i] == -1) cut_lower[i] = cut_position.size()-1;
+  //  if (cut_upper[i] == -1) cut_upper[i] = cut_position.size()-1;
+  //}
+/*
+  int extents[6] = { 0, 65535, 0, 65535, 0, 65535 };
+  double *bounds = this->ExtentTranslator->GetWholeBounds();
+  double origin[3] = {bounds[0],bounds[2],bounds[4]};
+  double spacing[3] = {
+    (bounds[1]-bounds[0])/65536,
+    (bounds[3]-bounds[2])/65536,
+    (bounds[5]-bounds[4])/65536
+  };
+  //
+  vtkSmartPointer<vtkKdTreeGenerator> tg = vtkSmartPointer<vtkKdTreeGenerator>::New();
+  tg->SetNumberOfPieces(this->UpdateNumPieces);
+  tg->BuildTree(
+    this->ExtentTranslator,
+    extents, 
+    origin, spacing);
+
+  this->KdTree = tg->GetKdTree();
+
+*/
+
+  cuts->CreateCuts(
+    this->ExtentTranslator->GetWholeBounds(),
+    cut_axis.size(),
+    &cut_axis[0],
+    &cut_position[0],
+    &cut_lower[0],
+    &cut_upper[0],
+    NULL,NULL,NULL);
+
   this->KdTree = vtkSmartPointer<vtkPKdTree>::New();
+  this->KdTree->SetCuts(cuts);
+
+//  this->KdTree->
+/*
   vtkNew<vtkUnstructuredGrid> grid; 
   vtkBoundingBox *box = this->GetPartitionBoundingBox(this->UpdatePiece);
   const double *minpt = box->GetMinPoint();
@@ -1109,6 +1249,6 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
   KdTree->SetDataSet(grid.GetPointer());
   KdTree->SetController(this->Controller);
   KdTree->BuildLocator();
-
+ */
   return KdTree;
 }
