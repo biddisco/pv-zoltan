@@ -40,7 +40,8 @@ vtkStandardNewMacro(vtkPartitionOutline);
 vtkPartitionOutline::vtkPartitionOutline(void)
 {
   this->AllBoxesOnAllProcesses = 0;
-  this->InflateFactor = 1.0;
+  this->ShowKdTreeBounds       = 0;
+  this->InflateFactor          = 1.0;
 }
 //---------------------------------------------------------------------------
 vtkPartitionOutline::~vtkPartitionOutline(void) {
@@ -81,7 +82,7 @@ int vtkPartitionOutline::RequestData(vtkInformation *request,
     bet = NULL;
   }
 
-  if (bet) {
+  if (bet && this->ShowKdTreeBounds) {
     this->ShowPKdTree(bet->GetKdTree(), output);
     return 1;
   }
@@ -116,13 +117,13 @@ int vtkPartitionOutline::RequestData(vtkInformation *request,
       }
       if (add) {
         double p1[3],p2[3];
-        box.GetMaxPoint(p1[0], p1[1], p1[2]);
-        box.GetMinPoint(p2[0], p2[1], p2[2]);
+        box.GetMinPoint(p1[0], p1[1], p1[2]);
+        box.GetMaxPoint(p2[0], p2[1], p2[2]);
         for (int j=0; j<3; j++) {
           double l = box.GetLength(j);
           double d = (l-l*this->InflateFactor);
-          p1[j] -= d/2.0; 
-          p2[j] += d/2.0; 
+          p1[j] += d/2.0; 
+          p2[j] -= d/2.0; 
         }
         vtkSmartPointer<vtkOutlineSource> cube = vtkSmartPointer<vtkOutlineSource>::New();
         cube->SetBounds(p1[0],p2[0],p1[1],p2[1],p1[2],p2[2]);
@@ -145,7 +146,8 @@ int vtkPartitionOutline::RequestData(vtkInformation *request,
 //---------------------------------------------------------------------------
 void vtkPartitionOutline::ShowPKdTree(vtkPKdTree *tree, vtkPolyData *output)
 {
-  tree->GenerateRepresentation(tree->GetLevel(), output);
+  tree->SetGenerateRepresentationUsingDataBounds(1);
+  tree->GenerateRepresentation(-1, output);
 }
 //----------------------------------------------------------------------------
 

@@ -52,6 +52,9 @@ class VTK_EXPORT vtkPartitionOutline : public vtkPolyDataAlgorithm {
     vtkSetMacro(InflateFactor,double);
     vtkGetMacro(InflateFactor,double);
 
+    vtkSetMacro(ShowKdTreeBounds,int);
+    vtkGetMacro(ShowKdTreeBounds,int);
+    vtkBooleanMacro(ShowKdTreeBounds,int);
     void ShowPKdTree(vtkPKdTree *tree, vtkPolyData *output);
 
   protected:
@@ -69,6 +72,7 @@ class VTK_EXPORT vtkPartitionOutline : public vtkPolyDataAlgorithm {
     virtual int FillInputPortInformation(int port, vtkInformation* info);
 
     int    AllBoxesOnAllProcesses;
+    int    ShowKdTreeBounds;
     double InflateFactor;
 private:
   // Not implemented.

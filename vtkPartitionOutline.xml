@@ -46,6 +46,19 @@
           When set, all boxes are generated on all processes instead of only the local box
         </Documentation>
       </IntVectorProperty>
+
+
+      <IntVectorProperty
+        name="ShowKdTreeBounds"
+        command="SetShowKdTreeBounds"
+        number_of_elements="1"
+        default_values="0" >
+        <BooleanDomain name="bool"/>
+        <Documentation>
+          When set, boxes are generated using the internal KdTree passed in from the partitioning (if present)
+        </Documentation>
+      </IntVectorProperty>
+      
     </SourceProxy>
 
   </ProxyGroup>
