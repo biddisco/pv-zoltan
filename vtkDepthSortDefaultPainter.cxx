@@ -55,6 +55,7 @@ vtkDepthSortDefaultPainter::vtkDepthSortDefaultPainter()
   this->TwoScalarsToColorsPainter = vtkTwoScalarsToColorsPainter::New();
   this->DepthSortPolygonsPainter  = vtkDepthSortPolygonsPainter::New();
   this->PistonPolygonsPainter     = vtkPistonPolygonsPainter::New();
+  this->SetDisplayListPainter(NULL);
   this->EnablePiston = false;
 }
 //----------------------------------------------------------------------------
