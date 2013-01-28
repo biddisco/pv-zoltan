@@ -1,0 +1,238 @@
+<ServerManagerConfiguration>
+
+  <!--======================================================================
+      Here we simply declare the DepthSort Representation extension
+      as an addition to the existing  GeometryRepresentation
+      ======================================================================-->
+
+  <ProxyGroup name="representations">
+
+    <!-- ================================================================= -->
+    <!-- Add to "GeometryRepresentation" -->
+    <Extension name="GeometryRepresentation">
+
+      <!-- this adds to what is already defined in PVRepresentationBase -->
+      <RepresentationType subproxy="DepthSortRepresentation"
+                          text="Depth Sort Polygons"
+                          subtype="Surface" />
+
+      <SubProxy>
+        <Proxy name="DepthSortRepresentation"
+               proxygroup="representations"
+               proxyname="DepthSortRepresentation" />
+
+        <ShareProperties subproxy="SurfaceRepresentation">
+          <Exception name="Input" />
+          <Exception name="Visibility" />
+          <Exception name="Representation" />
+        </ShareProperties>
+
+        <ExposedProperties>
+          <Property name="OpacityArray"/>
+          <Property name="EnableOpacity"/>
+          <!--<Property name="DepthSortEnableMode"/>-->
+          <Property name="DepthSortMode"/>
+          <Property name="UseCachedSortOrder"/>
+          <Property name="Direction"/>
+          <Property name="EnablePiston"/>
+        </ExposedProperties>
+      </SubProxy>
+    </Extension>
+
+    <!--======================================================================
+      This is the actual definition of the DepthSort Representation extension
+      ======================================================================-->
+
+    <RepresentationProxy class="vtkDepthSortRepresentation"
+                         name="DepthSortRepresentation"
+                         processes="client|renderserver|dataserver"
+                         base_proxygroup="representations"
+                         base_proxyname="SurfaceRepresentationBase" >
+      <Documentation>
+        Representation which uses a depth sort filter.
+      </Documentation>
+
+      <InputProperty command="SetInputConnection" name="Input">
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkDataSet" />
+        </DataTypeDomain>
+        <InputArrayDomain name="input_array_point" attribute_type="point">
+        </InputArrayDomain>
+      </InputProperty>
+
+      <!-- The painter chain is setup by our default painter -->
+      <!--<SubProxy>
+        <Proxy name="DepthSortDefaultPainter"
+          proxygroup="painters" proxyname="DepthSortDefaultPainter" />
+       </SubProxy>-->
+
+      <!-- Painter which depth sorts polygons --><!--
+      <SubProxy>
+        <Proxy name="DepthSortPainter"
+          proxygroup="painters" proxyname="DepthSortPainter" />
+      </SubProxy>
+
+      --><!-- Painter which applies opacity values to the lookup table --><!--
+      <SubProxy>
+        <Proxy name="ScalarsToColorsPainter"
+          proxygroup="painters" proxyname="TwoScalarsToColorsPainter" />
+      </SubProxy>-->
+
+      <StringVectorProperty command="SetOpacityArrayName"
+                            default_values=""
+                            name="OpacityArray"
+                            number_of_elements="1">
+        <Documentation>
+          Set the array name to color by. Set it to empty string
+          to use solid color.
+        </Documentation>
+        <ArrayListDomain attribute_type="Scalars"
+                         input_domain_name="input_array_point"
+                         name="array_list">
+          <RequiredProperties>
+            <Property function="Input" name="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+      </StringVectorProperty>
+
+      <IntVectorProperty
+         name="EnableOpacity"
+         command="SetEnableOpacity"
+         number_of_elements="1"
+         default_values="1" >
+        <BooleanDomain name="bool"/>
+      </IntVectorProperty>
+
+      <IntVectorProperty
+       name="DepthSortEnableMode"
+       command="SetDepthSortEnableMode"
+       default_values="1"
+       number_of_elements="1"
+       animateable="0">
+        <EnumerationDomain name="enum">
+          <Entry value="0" text="Always"/>
+          <Entry value="1" text="If No Depth Peeling"/>
+          <Entry value="2" text="Never"/>
+        </EnumerationDomain>
+      </IntVectorProperty>
+
+      <IntVectorProperty
+       name="DepthSortMode"
+       command="SetDepthSortMode"
+       default_values="1"
+       number_of_elements="1"
+       animateable="0">
+        <EnumerationDomain name="enum">
+          <Entry value="0" text="First Point"/>
+          <Entry value="1" text="Bounds Centre"/>
+          <Entry value="2" text="Parametric Centre (to be implemented)"/>
+        </EnumerationDomain>
+      </IntVectorProperty>
+
+      <IntVectorProperty
+       name="UseCachedSortOrder"
+       command="SetUseCachedSortOrder"
+       default_values="1"
+       number_of_elements="1"
+       animateable="0">
+        <BooleanDomain name="bool"/>
+      </IntVectorProperty>
+
+      <IntVectorProperty
+       name="Direction"
+       command="SetDirection"
+       label="Sort Direction"
+       default_values="0"
+       number_of_elements="1"
+       animateable="0">
+        <EnumerationDomain name="enum">
+          <Entry value="-1" text="Disabled"/>
+          <Entry value= "0" text="Back to Front"/>
+          <Entry value= "1" text="Front to Back"/>
+        </EnumerationDomain>
+      </IntVectorProperty>
+
+      <IntVectorProperty
+         name="EnablePiston"
+         command="SetEnablePiston"
+         number_of_elements="1"
+         default_values="0" >
+        <BooleanDomain name="bool"/>
+      </IntVectorProperty>
+
+      <!-- End of DepthSortRepresentation -->
+    </RepresentationProxy>
+
+    <!-- End of "representations" -->
+  </ProxyGroup>
+
+  <!--======================================================================-->
+
+  <ProxyGroup name="painters">
+
+    <Proxy name="DepthSortDefaultPainter" class="vtkDepthSortDefaultPainter">
+
+      <!--<ProxyProperty name="DepthSortPainter"
+        command="SetDepthSortPainter">
+      </ProxyProperty>
+
+      <ProxyProperty name="ScalarsToColorsPainter"
+        command="SetScalarsToColorsPainter">
+      </ProxyProperty>-->
+
+      
+    </Proxy>
+
+    <!--=======================================-->
+
+    <Proxy name="DepthSortPainter" class="vtkDepthSortPainter">
+
+      <IntVectorProperty
+        name="DepthSortEnableMode"
+        command="SetDepthSortEnableMode"
+        default_values="1"
+        number_of_elements="1"
+        animateable="0">
+        <EnumerationDomain name="enum">
+          <Entry value="0" text="Always"/>
+          <Entry value="1" text="If No Depth Peeling"/>
+          <Entry value="2" text="Never"/>
+        </EnumerationDomain>
+      </IntVectorProperty>
+
+      <IntVectorProperty
+       name="DepthSortMode"
+       command="SetDepthSortMode"
+       default_values="1"
+       number_of_elements="1"
+       animateable="0">
+        <EnumerationDomain name="enum">
+          <Entry value="0" text="First Point"/>
+          <Entry value="1" text="Bounds Centre"/>
+          <Entry value="2" text="Parametric Centre (to be implemented)"/>
+        </EnumerationDomain>
+      </IntVectorProperty>
+
+      <IntVectorProperty
+       name="UseCachedSortOrder"
+       command="SetUseCachedSortOrder"
+       default_values="1"
+       number_of_elements="1"
+       animateable="0">
+       <BooleanDomain name="bool"/>
+      </IntVectorProperty>
+
+    </Proxy>
+
+    <!--=======================================-->
+
+    <Proxy name="TwoScalarsToColorsPainter" 
+           class="vtkTwoScalarsToColorsPainter">
+    </Proxy>
+
+    <!-- End of "painters" -->
+  </ProxyGroup>
+
+  <!--======================================================================-->
+</ServerManagerConfiguration>
+

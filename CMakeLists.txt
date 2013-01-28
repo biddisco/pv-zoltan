@@ -29,12 +29,33 @@ ELSE (ParaView_SOURCE_DIR)
 ENDIF (ParaView_SOURCE_DIR)
 
 #--------------------------------------------------
+# setup module definitions we'll need for piston
+# compiler flags/cuda etc
+#--------------------------------------------------
+include(vtkModuleAPI)
+include(vtkModuleMacros)
+include(ParaViewMacros)
+
+#--------------------------------------------------
+# Find cuda
+#--------------------------------------------------
+find_package(CUDA REQUIRED)
+
+#--------------------------------------------------
+# Find piston header library
+#--------------------------------------------------
+find_path(PISTON_INCLUDE
+  PistonCodingStyle.xml
+  "/Source/PISTON/github/PISTON"
+  DOC "PISTON library's source directory")
+
+#--------------------------------------------------
 # Set project include directories 
-# pv-common is assumed to be checkout out too
 #--------------------------------------------------
 INCLUDE_DIRECTORIES(
   "${PROJECT_SOURCE_DIR}"
   "${PROJECT_BINARY_DIR}"
+  ${CMAKE_CURRENT_SOURCE_DIR}/piston
 )
 
 # --------------------------------------------------
@@ -89,6 +110,48 @@ ELSE(Trilinos_FOUND)
   message(FATAL_ERROR "pv-zoltan cannot be built unless Trilinos is correctly found")
 ENDIF(Trilinos_FOUND)
 
+#--------------------------------------------------
+# Define PISTON sources
+#--------------------------------------------------
+set(Module_SRCS
+  piston/vtkDataSetToPiston.cxx
+  piston/vtkPistonAlgorithm.cxx
+  piston/vtkPistonDataObject.cxx
+  piston/vtkPistonPolygonsPainter.cxx
+)
+
+set(Module_CUDA_SRCS
+  piston/vtkPistonConverters.cu
+  piston/vtkPistonMapper.cu
+)
+#--------------------------------------------------
+# Define CUDA sources
+#--------------------------------------------------
+if(BUILD_SHARED_LIBS)
+  set(GPGPU_BUILD_TYPE SHARED)
+endif()
+
+# set this, otherwise C_SOURCES is empty in VS
+set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF) 
+# generate the list of dependencies based on our module definition file
+vtk_module_impl()
+# remove a bunch of cruft that VTK adds in here about modules autoinit
+set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "")
+# shorten the include dirs so nvcc doesn't crumble under the entire VTK/ParaView/Qt path
+# first get the old setting and store it
+get_directory_property(TEMP_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES)
+# now set our shorter include dirs list
+set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${${vtk-module}_DEPENDS_INCLUDE_DIRS};${PISTON_INCLUDE}")
+# call the cuda wrapper
+cuda_compile(Module_CUDA_C_SRCS ${Module_CUDA_SRCS} ${GPGPU_BUILD_TYPE})
+# put the include dirs back to what they were
+set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${TEMP_INCLUDE_DIRECTORIES}")
+
+set_source_files_properties(
+  ${Module_CUDA_C_SRCS}
+  WRAP_EXCLUDE
+)
+
 # --------------------------------------------------
 # Plugin config
 # --------------------------------------------------
@@ -107,12 +170,23 @@ ADD_PARAVIEW_PLUGIN(
     ${TRILINOS_XML}
     ${XML_PATH}/vtkPartitionOutline.xml
 
+    ${XML_PATH}/vtkDepthSortRepresentation.xml
+
   SERVER_MANAGER_SOURCES
     ${TRILINOS_CXX}
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkBoundsExtentTranslator.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkPartitionOutline.cxx
 
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortRepresentation.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortDefaultPainter.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortPainter.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortPolyData2.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortPolygonsPainter.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkTwoScalarsToColorsPainter.cxx
+
   SERVER_SOURCES
+    ${Module_SRCS}
+    ${Module_CUDA_C_SRCS}
 
   GUI_INTERFACES 
     ${ZOLTAN_IFACE}
@@ -123,8 +197,6 @@ ADD_PARAVIEW_PLUGIN(
     ${ZOLTAN_UI_SOURCES}
 
   GUI_RESOURCE_FILES
-#    ${XML_PATH}/pv_ZOLTAN_Readers.xml
-#    ${XML_PATH}/pv_ZOLTAN_Sources.xml
     ${XML_PATH}/pv_zoltan_Filters.xml
 )
 
@@ -132,7 +204,6 @@ ADD_PARAVIEW_PLUGIN(
 # setup plugin linking
 #--------------------------------------------------
 TARGET_LINK_LIBRARIES(${PLUGIN_NAME} 
-#        vtkRenderingFreeTypeFontConfig
     ${ZOLTAN_SDK_LIBRARIES}
     ${TRILINOS_LIBS}
     ${HDF5_C_LIBRARY} 
@@ -145,6 +216,7 @@ TARGET_LINK_LIBRARIES(${PLUGIN_NAME}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
+    ${CUDA_LIBRARIES}
 )
 
 #--------------------------------------------------
