@@ -201,6 +201,11 @@ ADD_PARAVIEW_PLUGIN(
     ${XML_PATH}/pv_zoltan_Filters.xml
 )
 
+if(CMAKE_COMPILER_IS_GNUCXX)
+  message("Adding C++Ox flag for Depth Sort")
+  set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortPolyData2.cxx PROPERTIES COMPILE_FLAGS "-std=c++0x")
+endif(CMAKE_COMPILER_IS_GNUCXX)
+
 #--------------------------------------------------
 # setup plugin linking
 #--------------------------------------------------
