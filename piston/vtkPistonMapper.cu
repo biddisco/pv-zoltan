@@ -86,6 +86,7 @@ struct color_map : public thrust::unary_function<T, float4>
   template<typename element>
   __host__ __device__ float4 operator()(element t) { 
     // should throw ("Error - this function must be specialized for the type used");
+    return make_float4(1,1,1,1);
   }
 };
 //------------------------------------------------------------------------------
