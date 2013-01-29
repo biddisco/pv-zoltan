@@ -38,6 +38,10 @@ PURPOSE.  See the above copyright notice for more information.
 #include "vtkTwoScalarsToColorsPainter.h"
 #include "vtkBoundsExtentTranslator.h"
 #include "vtkPistonPolygonsPainter.h"
+//
+#include <vtksys/SystemTools.hxx>
+#include <vtksys/SystemInformation.hxx>
+#include <vtksys/RegularExpression.hxx>
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkDepthSortRepresentation);
 vtkCxxSetObjectMacro(vtkDepthSortRepresentation, Controller, vtkMultiProcessController);
@@ -82,8 +86,28 @@ void vtkDepthSortRepresentation::ReportReferences(vtkGarbageCollector *collector
 bool vtkDepthSortRepresentation::AddToView(vtkView* view)
 {
   vtkPVRenderView* rview = vtkPVRenderView::SafeDownCast(view);
-  if (rview) {
-    vtkPistonPolygonsPainter::InitCudaGL(rview->GetRenderWindow());
+  if (rview && !vtkPistonPolygonsPainter::IsEnabledCudaGL()) {
+    
+    // if we have no hints as to the display VAR, we'll use the rank (modulus GPU count)
+    vtkMultiProcessController *controller = vtkMultiProcessController::GetGlobalController();
+    int rank = controller->GetLocalProcessId();
+
+    // see if a DISPLAY env var was set for us to get the GPU from
+    // match DISPLAY vars of the form :0.0, :0.1, :0.2, :0.N - and get N
+    std::string display;
+    vtksys::SystemTools::GetEnv("DISPLAY", display);
+    vtksys::RegularExpression regex(".*:.*\\.([0-9]+)");
+    regex.find(display.c_str());
+    int displaynum = -1;
+    if (regex.match(1).size()>0) {
+      displaynum = atoi(regex.match(1).c_str());
+    }
+    // gather memory info about this host
+    vtksys::SystemInformation sysInfo;
+    std::string hostname = sysInfo.GetHostname();
+    std::cout <<"Rank " << std::setw(3) <<  rank << " Hostname " << hostname.c_str() << " Initializing CudaGL with GPU " << displaynum << std::endl;
+    //
+    vtkPistonPolygonsPainter::InitCudaGL(rview->GetRenderWindow(), rank, displaynum);
   }
   return this->Superclass::AddToView(view);
 }

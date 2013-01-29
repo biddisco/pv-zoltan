@@ -112,20 +112,27 @@ __host__ __device__ float4 color_map<float>::operator()<float>(float t)
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-void CudaGLInit()
+int GetCudaDeviceCount()
+{
+  int num;
+  cudaGetDeviceCount(&num);
+  return num;
+}
+
+void CudaGLInit(int device)
 {
   cudaDeviceProp prop;
-  int dev;
 
   // Fill it with zeros
   memset(&prop,0,sizeof(cudaDeviceProp));
 
   // Pick a GPU capable of 1.0 or better
   prop.major=1; prop.minor=0;
-  cudaChooseDevice(&dev,&prop);
+//  cudaChooseDevice(&dev,&prop);
+  cudaSetDevice(device);
 
   // Set OpenGL device
-  cudaError_t res = cudaGLSetGLDevice(dev);
+  cudaError_t res = cudaGLSetGLDevice(device);
 
   if (res != cudaSuccess)
     {

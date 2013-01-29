@@ -48,7 +48,8 @@ bool vtkPistonPolygonsPainter::CudaGLInitted = false;
 //-----------------------------------------------------------------------------
 namespace vtkpiston {
   // Forward declarations of methods defined in the cuda implementation
-  void CudaGLInit();
+  int  GetCudaDeviceCount();
+  void CudaGLInit(int device);
   int  QueryNumVerts(vtkPistonDataObject *id);
   int  QueryVertsPer(vtkPistonDataObject *id);
   int  QueryNumCells(vtkPistonDataObject *id);
@@ -115,7 +116,41 @@ void vtkPistonPolygonsPainter::SetScalarsToColors(vtkTwoScalarsToColorsPainter *
   this->ScalarsToColors = painter;
 }
 //-----------------------------------------------------------------------------
-void vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw)
+int device_binding(int mpi_rank)
+{
+  int local_rank = mpi_rank;
+  int dev_count, use_dev_count, my_dev_id;
+  char *str;
+
+  if ((str = getenv ("MV2_COMM_WORLD_LOCAL_RANK")) != NULL)
+  {
+    local_rank = atoi (str);
+    printf ("MV2_COMM_WORLD_LOCAL_RANK %s\n", str);
+  }
+
+  if ((str = getenv ("MPISPAWN_LOCAL_NPROCS")) != NULL)
+  {
+    //num_local_procs = atoi (str);
+    printf ("MPISPAWN_LOCAL_NPROCS %s\n", str);
+  }
+
+  dev_count = vtkpiston::GetCudaDeviceCount();
+  if ((str = getenv ("NUM_GPU_DEVICES")) != NULL)
+  {
+    use_dev_count = atoi (str);
+    printf ("NUM_GPU_DEVICES %s\n", str);
+  }
+  else
+  {
+    use_dev_count = dev_count;
+  }
+
+  my_dev_id = local_rank % use_dev_count;
+  printf ("local rank = %d dev id = %d\n", local_rank, my_dev_id);
+  return my_dev_id;
+}
+//-----------------------------------------------------------------------------
+void vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int displayId)
 {
   if (!vtkPistonPolygonsPainter::CudaGLInitted)
   {
@@ -123,15 +158,17 @@ void vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw)
     em->SetRenderWindow(rw);
     if (!em->LoadSupportedExtension("GL_VERSION_1_5"))
     {
-      cerr << "WARNING: Can not use direct piston rendering,"
-        << "reverting to CPU rendering path." << endl;
+      cerr << "WARNING: Can not use direct piston rendering, reverting to CPU rendering path." << endl;
       em->Delete();
       return;
     }
     em->Delete();
-
+    if (displayId<0 || displayId>=vtkpiston::GetCudaDeviceCount()) {
+      // try another method to get the device ID
+      displayId = device_binding(rank);
+    }
     vtkPistonPolygonsPainter::CudaGLInitted = true;
-    vtkpiston::CudaGLInit();
+    vtkpiston::CudaGLInit(displayId);
   }
 }
 //-----------------------------------------------------------------------------
