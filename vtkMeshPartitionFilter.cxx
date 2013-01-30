@@ -536,7 +536,10 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
           // add the point to the new output, but check for space first
           if (OutputPointCount>=ReservedPointCount) {
             // allow a small amount (try 5%) extra for duplicated boundary cell points
-            ReservedPointCount = OutputPointCount * 1.05;
+            // but if N is very small, double it
+            vtkIdType increment = OutputPointCount/20;
+            if (increment==0) increment = OutputPointCount;
+            ReservedPointCount = OutputPointCount + increment;
             this->ZoltanCallbackData.Output->GetPoints()->GetData()->Resize(ReservedPointCount);
             this->ZoltanCallbackData.OutputPointsData = this->ZoltanCallbackData.Output->GetPoints()->GetData()->GetVoidPointer(0);
           }

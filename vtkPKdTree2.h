@@ -55,6 +55,8 @@ public:
   vtkTypeMacro(vtkPKdTree2, vtkPKdTree);
   static vtkPKdTree2 *New();
 
+  void BuildLocator(double *bounds, int *remapping, int numregions);
+
   // Description:
   // Create a polydata representation of the boundaries of
   // the k-d tree regions.  If level equals GetLevel(), the
@@ -62,17 +64,17 @@ public:
   virtual void GenerateRepresentation(int level, vtkPolyData *pd);
   void GenerateBoxes(int level, vtkPolyData *pd);
 
-  void SetRank(int r) { this->Rank=r; }
-  void SetNumberOfRanks(int nr) { this->NumRanks=nr; }
+   vtkSetMacro(InflateFactor, double);
+   vtkGetMacro(InflateFactor, double);
+//  void SetRank(int r) { this->Rank=r; }
+//  void SetNumberOfRanks(int nr) { this->NumRanks=nr; }
 
 protected:
 
    vtkPKdTree2();
   ~vtkPKdTree2();
 
-  int Rank;
-  int NumRanks;
-
+  double InflateFactor;
 private:
 
   vtkPKdTree2(const vtkPKdTree2&); // Not implemented

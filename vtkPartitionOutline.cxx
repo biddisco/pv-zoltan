@@ -31,7 +31,7 @@
 #include "vtkBoundsExtentTranslator.h"
 #include "vtkAppendPolyData.h"
 #include "vtkOutlineSource.h"
-#include "vtkPKdTree.h"
+#include "vtkPKdTree2.h"
 //
 #include <cmath>
 //---------------------------------------------------------------------------
@@ -146,6 +146,9 @@ int vtkPartitionOutline::RequestData(vtkInformation *request,
 //---------------------------------------------------------------------------
 void vtkPartitionOutline::ShowPKdTree(vtkPKdTree *tree, vtkPolyData *output)
 {
+  if (vtkPKdTree2::SafeDownCast(tree)) {
+    vtkPKdTree2::SafeDownCast(tree)->SetInflateFactor(this->InflateFactor);
+  }
   tree->SetGenerateRepresentationUsingDataBounds(1);
   tree->GenerateRepresentation(-1, output);
 }

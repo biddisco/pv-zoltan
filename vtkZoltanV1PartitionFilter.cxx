@@ -48,6 +48,7 @@
 #include "vtkBSPCuts.h"
 #include "vtkKdTreeGenerator.h"
 //
+#include "vtkPKdTree2.h"
 #include "vtkBoundsExtentTranslator.h"
 #include "vtkZoltanV1PartitionFilter.h"
 //
@@ -1105,76 +1106,106 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
   RCB_STRUCT *rcb = (RCB_STRUCT *) (this->ZoltanData->LB.Data_Structure);
   struct rcb_tree *treept = rcb->Tree_Ptr;
   //
-  if (treept[0].dim < 0) {     /* RCB tree was never created. */
+  if (treept[0].dim < 0) {
     vtkErrorMacro(<<"RCB Tree invalid");
     return NULL;
   }
-  //
+
+  // Zoltan might have remapped the partitions from the default depth first ordering
+  std::vector<int> remapping(this->UpdateNumPieces, -1);
+  for (int i=0; i<this->ZoltanData->LB.Num_Global_Parts; i++) {
+    if (this->ZoltanData->LB.Remap) {
+      remapping[this->ZoltanData->LB.Remap[i]] = i;
+    }
+    else {
+      remapping[i] = i;
+    }
+  }
+
+  // list we will pass to CreateCuts
   std::vector<int>    cut_axis;
   std::vector<double> cut_position;
   std::vector<int>    cut_lower;
   std::vector<int>    cut_upper;
-  //
+
+  // use a stack to traverse the RCB cut tree
   typedef std::pair<struct rcb_tree*, int> cutpair;
   std::stack<cutpair> tree_stack;
   struct rcb_tree *nodept = &treept[0];
+  
+  // push the root onto the stack
   if (nodept->right_leaf) {
     tree_stack.push(cutpair(&treept[nodept->right_leaf],-1));
   }
+
+  // Traverse the RCB cut tree creating nodes for the the vtk cuts
   int RegionId = 0;
-  int Offset = 0;
   while (!tree_stack.empty()) {
-    nodept     = tree_stack.top().first;
-    int parent = tree_stack.top().second;
+    nodept = tree_stack.top().first;
+    int node_parent = tree_stack.top().second;
     tree_stack.pop();
 
-    // add this cut to the end of list
-    int cutindex = cut_position.size();
+    // create a node for this cut, append it to the list
     cut_position.push_back(nodept->cut);
     cut_axis.push_back(nodept->dim);
-    // it will have 2 children, but we don't know where they'll be in the list yet
+
+    // we don't know where child nodes will be in the list yet
     cut_lower.push_back(-1); 
     cut_upper.push_back(-1); 
 
-    // if the parent of this node had a missing child pointer, fill it in
-    if (parent>=0) {
+    // the new node we've just added to the list has this index
+    int new_node_index = cut_position.size()-1;
+
+    // if the parent of this node had a missing child pointer/index
+    // and this is the child required, set the child index
+    if (node_parent>=0) {
       // the left node will always be done first, so check it
-      if (cut_lower[parent] == -1) {
-        cut_lower[parent] = cutindex;
+      if (cut_lower[node_parent] == -1) {
+        cut_lower[node_parent] = new_node_index;
       }
       // if it has already been filled in, we must be the right node
-      else if (cut_upper[parent] == -1) {
-        cut_upper[parent] = cutindex;
+      else if (cut_upper[node_parent] == -1) {
+        cut_upper[node_parent] = new_node_index;
       }
     }
 
-    // if this is a parent node
+    // if this is a new 'normal' parent node with 2 children
     if (nodept->right_leaf > 0) {
-      // push child nodes onto stack always push right(upper) then left(lower) to make sure 
-      // left is processed first and the array offset/indexes are correct
-      // since we don't know the child locations when we create them, add the parent offset
-      // so that we can pfill in the missing info when the children are created
-      tree_stack.push(cutpair(&(treept[nodept->right_leaf]),cutindex));
-      tree_stack.push(cutpair(&(treept[nodept->left_leaf]), cutindex));
+      // push two new nodes onto the stack : always push right(upper) then left(lower) 
+      // to make sure the left is processed/popped first and the array offset/indexes are correct
+      // (since we don't know the child locations when we create them, save the parent ID
+      // so that we can fill in the missing info when the children are created)
+      tree_stack.push(cutpair(&(treept[nodept->right_leaf]),new_node_index));
+      tree_stack.push(cutpair(&(treept[nodept->left_leaf]), new_node_index));
+    }
+    // if the node is a leaf, hanging from an unbalanced node (e.g. 7 leaf tree)
+    else if (nodept->left_leaf > 0) {
+      // push the node which has more cuts
+      tree_stack.push(cutpair(&(treept[nodept->left_leaf]),new_node_index));
+      // create one leaf node, set the (region) Id for BSPCuts to use
+      cut_position.push_back(0.0);
+      cut_axis.push_back(0);
+      cut_lower.push_back(-remapping[RegionId]); 
+      cut_upper.push_back(-1); 
+      // point the parent node to this leaf
+      cut_upper[new_node_index] = new_node_index+1; 
+      RegionId++;
     }
     else {
-      // the children are created now, so we know what the index is
-      cutindex = cut_position.size();
-      cut_lower.back() = cutindex; 
-      cut_upper.back() = cutindex+1; 
-      //
-      // create the two leaf nodes, in the BSPCuts code we must set the (region) Ids
-      //
+      // create two leaf nodes, set the (region) Id for BSPCuts to use
       cut_position.push_back(0.0);
       cut_axis.push_back(0);
-      cut_lower.push_back(-RegionId); 
+      cut_lower.push_back(-remapping[RegionId]); 
       cut_upper.push_back(-1); 
       RegionId++;
       cut_position.push_back(0.0);
       cut_axis.push_back(0);
-      cut_lower.push_back(-RegionId); 
+      cut_lower.push_back(-remapping[RegionId]); 
       cut_upper.push_back(-1); 
       RegionId++;
+      // the children are created now, so we know what the indices are
+      cut_lower[new_node_index] = new_node_index+1; 
+      cut_upper[new_node_index] = new_node_index+2; 
     }
   };
  
@@ -1187,19 +1218,24 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
     &cut_upper[0],
     NULL,NULL,NULL);
 
-  this->KdTree = vtkSmartPointer<vtkPKdTree>::New();
+  this->KdTree = vtkSmartPointer<vtkPKdTree2>::New();
+  this->KdTree->SetController(this->Controller);
   this->KdTree->SetCuts(cuts);
+  vtkPKdTree2::SafeDownCast(this->KdTree)->BuildLocator(
+    this->ExtentTranslator->GetWholeBounds(), this->ZoltanData->LB.Remap /* &remapping[0]*/, this->UpdateNumPieces);
 
   // in order for the rest of paraview to work properly, we need to 'build' the locator internal
   // using some fake cells to ge things going. Each process will use its bounding box centre
   // as a single cell and partition it.
-
+/*
   vtkNew<vtkUnstructuredGrid> grid; 
   vtkBoundingBox *box = this->GetPartitionBoundingBox(this->UpdatePiece);
   box->Inflate( -box->GetDiagonalLength()/1000.0 );
 
   //
-/*
+  vtkNew<vtkCellArray> cells;
+#define HEXAHEDRON_CELLS
+#ifdef HEXAHEDRON_CELLS
   const double *minpt = box->GetMinPoint();
   const double *maxpt = box->GetMaxPoint();
   //
@@ -1223,23 +1259,28 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
   points->InsertNextPoint(P7);
 
   vtkIdType pts[8] = { 0,1,2,3,4,5,6,7};
-*/
+  cells->InsertNextCell(8, pts);
+  grid->SetCells(VTK_HEXAHEDRON, cells.GetPointer());
+#else
   double P0[3];
   box->GetCenter(P0);
   vtkNew<vtkPoints> points;
   points->InsertNextPoint(P0);
   vtkIdType pts[1] = { 0 };
-
-  vtkNew<vtkCellArray> cells;
   cells->InsertNextCell(1, pts);
+  grid->SetCells(VTK_VERTEX, cells.GetPointer());
+#endif
 
   grid->SetPoints(points.GetPointer());
-  grid->SetCells(VTK_VERTEX, cells.GetPointer());
-
+*/
 //  this->KdTree->AssignRegionsRoundRobin();
-  this->KdTree->SetController(this->Controller);
-  this->KdTree->SetDataSet(grid.GetPointer());
-  this->KdTree->BuildLocator();
+//  this->KdTree->SetDataSet(grid.GetPointer());
+//  this->KdTree->BuildLocator();
+
+
+//  const int *regionmap = this->KdTree->GetRegionAssignmentMap();
+//
+
 
   return KdTree;
 }
