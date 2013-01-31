@@ -270,8 +270,16 @@ void vtkPistonPolygonsPainter::RenderOnGPU(vtkCamera *cam, vtkActor *act)
     glNormalPointer(GL_FLOAT, 0, 0);
   }
 
-  if (1/*0 && hasColors*/)
+  if (hasColors)
   {
+//    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+//    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+//    glEnable(GL_BLEND);
+//    glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
+//    glEnable(GL_COLOR_MATERIAL);
+    /*
+    // because we have used premultiple_with_alpha
+    // otherwise we'd use glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
 
@@ -280,7 +288,7 @@ void vtkPistonPolygonsPainter::RenderOnGPU(vtkCamera *cam, vtkActor *act)
 
     glDepthFunc( GL_LEQUAL );
     glEnable( GL_DEPTH_TEST );
-
+*/
     glEnableClientState(GL_COLOR_ARRAY);
     vtkgl::BindBuffer(vtkgl::ARRAY_BUFFER, this->Internal->vboBuffers[2]);
     glColorPointer(4, GL_FLOAT, 0, 0);
@@ -292,9 +300,11 @@ void vtkPistonPolygonsPainter::RenderOnGPU(vtkCamera *cam, vtkActor *act)
     //    glEnable( GL_DEPTH_TEST );
     //    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     //    glEnable(GL_BLEND);
-    glEnableClientState(GL_COLOR_ARRAY);
-    vtkgl::BindBuffer(vtkgl::ARRAY_BUFFER, this->Internal->vboBuffers[2]);
-    glColorPointer(4, GL_FLOAT, 0, 0);
+    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    //glEnable(GL_BLEND);
+    //glEnableClientState(GL_COLOR_ARRAY);
+    //vtkgl::BindBuffer(vtkgl::ARRAY_BUFFER, this->Internal->vboBuffers[2]);
+    //glColorPointer(4, GL_FLOAT, 0, 0);
   }
 
   if (useindexbuffers) {

@@ -1,3 +1,4 @@
+#include <vector_types.h>
 #include <thrust/copy.h>
 #include <piston/piston_math.h>
 #include <piston/choose_container.h>
@@ -225,6 +226,30 @@ namespace vtkpiston {
   }
 
   //-----------------------------------------------------------------------------
+  // The dummy args are to allow the compiler to select the right specialization
+  // from the vtk template macro
+  template <typename vtkType, typename cudaType>
+  void dataArrayToThrust(
+    vtkDataArray *dataarray, thrust::device_vector<cudaType> *&result, vtkIdType maxN,
+    vtkType *dummy, cudaType *dummy2)
+  {
+    vtkType *dataptr = static_cast<vtkType*>(dataarray->GetVoidPointer(0));
+    vtkIdType Nt = dataarray->GetNumberOfTuples();
+    vtkIdType Nc = dataarray->GetNumberOfComponents();
+    // limit the size incase a vector array was passed instead of a scalar array
+    vtkIdType N = std::min(maxN, Nc*Nt);
+    // create a host array with vtkDataArray contents
+    thrust::host_vector<cudaType> hA(N);
+    for (vtkIdType i=0; i<N; i++) {
+      hA[i] = static_cast<cudaType>(dataptr[i]);
+    }
+    // create a device arrray
+    result = new thrust::device_vector<cudaType>(N);
+    // copy host array into device array
+    *result = hA;
+  }
+
+  //-----------------------------------------------------------------------------
   int QueryNumVerts(vtkPistonDataObject *id)
   {
     vtkPistonReference *tr = id->GetReference();
@@ -285,149 +310,139 @@ namespace vtkpiston {
   void CopyToGPU(vtkPolyData *id, vtkPistonDataObject *od, bool useindexbuffer, char *scalarname, char *opacityname)
   {
     vtkPistonReference *tr = od->GetReference();
-    if (CheckDirty(id, tr))
-    {
-      DeleteData(tr);
+    tr->type = VTK_POLY_DATA;
+    if (!CheckDirty(id, tr)) {
+      return;
+    }
+    //
+    // clean previous state
+    //
+    DeleteData(tr);
 
-      vtk_polydata *newD = new vtk_polydata;
-      tr->data = (void*)newD;
+    //
+    // allocate a new polydata device object
+    //
+    vtk_polydata *newD = new vtk_polydata;
+    tr->data = (void*)newD;
 
-      int nPoints = id->GetNumberOfPoints();
-      newD->nPoints = nPoints;
-      //cerr << nPoints << endl;
+    //
+    //
+    //
+    int nPoints = id->GetNumberOfPoints();
+    newD->nPoints = nPoints;
 
-      thrust::host_vector<float3> hG(nPoints);
-      for (vtkIdType i = 0; i < nPoints; i++) {
-        double *next = id->GetPoint(i);
-        hG[i].x = (float)next[0];
-        hG[i].y = (float)next[1];
-        hG[i].z = (float)next[2];
+    thrust::host_vector<float3> hG(nPoints);
+    for (vtkIdType i = 0; i < nPoints; i++) {
+      double *next = id->GetPoint(i);
+      hG[i].x = (float)next[0];
+      hG[i].y = (float)next[1];
+      hG[i].z = (float)next[2];
+    }
+    thrust::device_vector<float3> *dG = new thrust::device_vector<float3>(nPoints);
+    *dG = hG;
+    newD->points = dG;
+    //
+    newD->vertsPer = 3;
+
+    //
+    // This routine assumes that only triangles exist in the polydata
+    //
+    vtkCellArray *cellarray = vtkCellArray::SafeDownCast(id->GetPolys());
+    if (useindexbuffer && cellarray) {
+      vtkIdType ncells = cellarray->GetNumberOfCells();
+      newD->nCells = ncells;
+      thrust::host_vector<uint3> hA(ncells);
+      vtkIdType   npts = 0;
+      vtkIdType *index = 0;
+      int            i = 0;
+      for (cellarray->InitTraversal(); cellarray->GetNextCell(npts, index); i++) {
+        hA[i].x = index[0];
+        hA[i].y = index[1];
+        hA[i].z = index[2];
       }
-      thrust::device_vector<float3> *dG = new thrust::device_vector<float3>(nPoints);
-      *dG = hG;
-      newD->points = dG;
-
-      newD->vertsPer = 3;
-
+      thrust::device_vector<uint3> *dA1 = new thrust::device_vector<uint3>(ncells);
+      thrust::device_vector<uint3> *dA2 = new thrust::device_vector<uint3>(ncells);
+      *dA1 = hA; // copy contents
+      *dA2 = hA; // copy contents
+      newD->cells         = dA1;
+      newD->originalcells = dA2;
       //
-      // This routine assumes that only triangles exist in the polydata
-      //
-      vtkCellArray *cellarray = vtkCellArray::SafeDownCast(id->GetPolys());
-      if (useindexbuffer && cellarray) {
-        vtkIdType ncells = cellarray->GetNumberOfCells();
-        newD->nCells = ncells;
-        thrust::host_vector<uint3> hA(ncells);
-        vtkIdType   npts = 0;
-        vtkIdType *index = 0;
-        int            i = 0;
-        for (cellarray->InitTraversal(); cellarray->GetNextCell(npts, index); i++) {
-          hA[i].x = index[0];
-          hA[i].y = index[1];
-          hA[i].z = index[2];
-        }
-        thrust::device_vector<uint3> *dA1 = new thrust::device_vector<uint3>(ncells);
-        thrust::device_vector<uint3> *dA2 = new thrust::device_vector<uint3>(ncells);
-        *dA1 = hA; // copy contents
-        *dA2 = hA; // copy contents
-        newD->cells         = dA1;
-        newD->originalcells = dA2;
-        //
-      }
-      else {
-        newD->nCells = 0;
-        newD->cells = NULL;
-        newD->originalcells = NULL;
-      }
+    }
+    else {
+      newD->nCells = 0;
+      newD->cells = NULL;
+      newD->originalcells = NULL;
+    }
 
-      vtkFloatArray *inscalarsF = vtkFloatArray::SafeDownCast(
-        id->GetPointData()->GetArray(scalarname));
-      vtkDoubleArray *inscalarsD = vtkDoubleArray::SafeDownCast(
-        id->GetPointData()->GetArray(scalarname));
-      if (inscalarsF || inscalarsD) {
-        thrust::host_vector<float> hA(nPoints);
-        for (vtkIdType i = 0; i < nPoints; i++) {
-          double *next = inscalarsF ? inscalarsF->GetTuple(i) : inscalarsD->GetTuple(i);
-          hA[i] = next[0];
-        }
-        thrust::device_vector<float> *dA = new thrust::device_vector<float>(nPoints);
-        *dA = hA;
-        newD->scalars = dA;
-        od->SetScalarsArrayName(inscalarsF ? inscalarsF->GetName() : inscalarsD->GetName());
+    // Scalars
+    // Templated copy from vtkDataArray<any> into cuda float array
+    //
+    vtkDataArray *inscalars = id->GetPointData()->GetArray(scalarname);
+    if (inscalars) {
+      switch(inscalars->GetDataType()) {
+        vtkTemplateMacro(
+          dataArrayToThrust(inscalars, newD->scalars, nPoints,
+            static_cast<VTK_TT*>(0), static_cast<float *>(0)));
       }
-      else {
-        newD->scalars = NULL;
-      }
+      od->SetScalarsArrayName(inscalars->GetName());
+    }
+    else {
+      newD->scalars = NULL;
+    }
 
-      vtkUnsignedCharArray *incolors = vtkUnsignedCharArray::SafeDownCast(
-        id->GetPointData()->GetArray("Color"));
-      if (incolors)
-      {
-        thrust::host_vector<float4> hA(nPoints);
-        for (vtkIdType i=0; i<nPoints; i++) {
-          unsigned char *next = incolors->GetPointer(i);
-          hA[i] = make_float4( next[0]/255.0, next[1]/255.0, next[2]/255.0, next[3]/255.0 );
-        }
-        thrust::device_vector<float4> *dA =
-          new thrust::device_vector<float4>(nPoints);
-        *dA = hA;
-        newD->colors = dA;
-      }
-      else
-      {
-        newD->colors = NULL;
-      }
-
-      vtkFloatArray *inopacitiesF = vtkFloatArray::SafeDownCast(
-        id->GetPointData()->GetArray(opacityname));
-      vtkDoubleArray *inopacitiesD = vtkDoubleArray::SafeDownCast(
-        id->GetPointData()->GetArray(opacityname));
-      if (inopacitiesF || inopacitiesD)
-      {
-        thrust::host_vector<float> hA(nPoints);
-        for (vtkIdType i = 0; i < nPoints; i++)
-        {
-          double *next = inopacitiesF ? inopacitiesF->GetTuple(i) : inopacitiesD->GetTuple(i);
-          hA[i] = next[0];
-        }
-        thrust::device_vector<float> *dA = new thrust::device_vector<float>(nPoints);
-        *dA = hA;
-        newD->opacities = dA;
-      }
-      else
-      {
-        newD->opacities = NULL;
-      }
-
-      vtkFloatArray *innormals = vtkFloatArray::SafeDownCast(
-        id->GetPointData()->GetNormals()
-        );
-      if (!innormals)
-      {
-        innormals = vtkFloatArray::SafeDownCast(
-          id->GetPointData()->GetArray("Normals"));
-      }
-      if (innormals && innormals->GetNumberOfTuples())
-      {
-        thrust::host_vector<float> hA(nPoints*3);
-        for (vtkIdType i = 0; i < nPoints; i++)
-        {
-          double *next = innormals->GetTuple(i);
-          hA[i*3+0] = (float)next[0];
-          hA[i*3+1] = (float)next[1];
-          hA[i*3+2] = (float)next[2];
-        }
-        thrust::device_vector<float> *dA =
-          new thrust::device_vector<float>(nPoints*3);
-        *dA = hA;
-        newD->normals = dA;
-      }
-      else
-      {
-        newD->normals = NULL;
+    // Opacity
+    // Templated copy from vtkDataArray<any> into cuda float array
+    //
+    vtkDataArray *inopacities = id->GetPointData()->GetArray(opacityname);
+    if (inopacities) {
+      switch(inopacities->GetDataType()) {
+        vtkTemplateMacro(
+          dataArrayToThrust(inopacities, newD->opacities, nPoints,
+            static_cast<VTK_TT*>(0), static_cast<float *>(0)));
       }
     }
-    tr->type = VTK_POLY_DATA;
+    else {
+      newD->opacities = NULL;
+    }
 
+    // Normals
+    // Templated copy from vtkDataArray<any> into cuda float array
+    //
+    vtkDataArray *normals = id->GetPointData()->GetNormals();
+    if (!normals) {
+      normals = id->GetPointData()->GetArray("Normals");
+    }
+    if (normals) {
+      switch(normals->GetDataType()) {
+        vtkTemplateMacro(
+          dataArrayToThrust(normals, newD->normals, nPoints*3,
+            static_cast<VTK_TT*>(0), static_cast<float *>(0)));
+      }
+    }
+    else {
+      newD->normals = NULL;
+    }
+
+/*
+    vtkUnsignedCharArray *incolors = vtkUnsignedCharArray::SafeDownCast(
+      id->GetPointData()->GetArray("Color"));
+    if (incolors)
+    {
+      thrust::host_vector<float4> hA(nPoints);
+      for (vtkIdType i=0; i<nPoints; i++) {
+        unsigned char *next = incolors->GetPointer(i);
+        hA[i] = make_float4( next[0]/255.0, next[1]/255.0, next[2]/255.0, next[3]/255.0 );
+      }
+      thrust::device_vector<float4> *dA =
+        new thrust::device_vector<float4>(nPoints);
+      *dA = hA;
+      newD->colors = dA;
+    }
+    else
+*/
+    {
+      newD->colors = NULL;
+    }
   }
 
   //-----------------------------------------------------------------------------

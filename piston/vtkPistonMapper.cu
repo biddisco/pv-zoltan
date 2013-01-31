@@ -79,7 +79,7 @@ struct color_map : public thrust::unary_function<T, float4>
     if (index > size) index = size;
     // convert to RGB tuple index
     index *= 3; 
-    return make_float4(table[index], table[index + 1], table[index + 2], opac);
+    return make_float4(table[index]*opac, table[index + 1]*opac, table[index + 2]*opac, opac);
   };
 
   // declare an empty general templated functor operator which we will specialize later
@@ -118,17 +118,16 @@ int GetCudaDeviceCount()
   cudaGetDeviceCount(&num);
   return num;
 }
-
+//------------------------------------------------------------------------------
 void CudaGLInit(int device)
 {
-  cudaDeviceProp prop;
-
-  // Fill it with zeros
-  memset(&prop,0,sizeof(cudaDeviceProp));
-
-  // Pick a GPU capable of 1.0 or better
-  prop.major=1; prop.minor=0;
+//  cudaDeviceProp prop;
+    // Fill it with zeros
+//  memset(&prop,0,sizeof(cudaDeviceProp));
+    // Pick a GPU capable of 1.0 or better
+//  prop.major=1; prop.minor=0;
 //  cudaChooseDevice(&dev,&prop);
+ 
   cudaSetDevice(device);
 
   // Set OpenGL device
@@ -345,27 +344,7 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
   }
   else if (pD->scalars)
   {
-/*
-    double scalarRange[2];
-    id->GetScalarsRange(scalarRange);
-
     hasColors = true;
-
-    if(id->GetMTime() > dataObjectMTimeCache)
-      {
-      vtkPiston::minmax_pair<float> result = vtkPiston::find_min_max(
-                                              pD->scalars);
-
-      scalarRange[0] = static_cast<double>(result.min_val);
-      scalarRange[1] = static_cast<double>(result.max_val);
-
-      // Set parameters to compute scalars colors
-      const int numvalues = 256;
-      id->SetScalarsRange(scalarRange);
-      psc->SetTableRange(scalarRange[0], scalarRange[1]);
-      psc->SetNumberOfValues(numvalues);
-      }
-*/
 
     std::vector<float> *colors = psc->ComputeScalarsColorsf();
 
