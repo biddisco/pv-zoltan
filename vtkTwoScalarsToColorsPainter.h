@@ -79,7 +79,6 @@ public :
 
   //BTX
   std::vector<float>* ComputeScalarsColorsf();
-  void ComputeValues(float *values);
   void GetScalarRange(double range[2]);
   //ETX
 
@@ -126,9 +125,9 @@ protected :
   int           OpacityScalarMode;
   vtkTimeStamp  BlendTime;
 
-  vtkTimeStamp ComputeColorsfTime;
   //BTX
-  std::vector<float> ScalarsColorsf;
+  std::vector<float> GPUScalarsColors;
+  vtkTimeStamp       GPUColourTime;
   //ETX
 
 private:

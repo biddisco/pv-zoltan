@@ -364,78 +364,75 @@ void vtkTwoScalarsToColorsPainter::PrintSelf(ostream& os, vtkIndent indent)
 //-----------------------------------------------------------------------------
 std::vector<float>* vtkTwoScalarsToColorsPainter::ComputeScalarsColorsf()
 {
-  if(!this->LookupTable)
-    {
+  if (!this->LookupTable)
+  {
     vtkErrorMacro(<< "Invalid look up table");
     return NULL;
-    }
+  }
 
   if(!(this->LookupTable->GetMTime() > this->GetMTime() ||
-      this->ComputeColorsfTime.GetMTime() < this->GetMTime()))
-    {
-    return &this->ScalarsColorsf;
-    }
+       this->GPUColourTime.GetMTime() < this->GetMTime()))
+  {
+    return &this->GPUScalarsColors;
+  }
 
-  std::vector<float> values (256);
+  //
+  // generate scalar ramp from range[0] to range[1]
+  //
+  double range[2];
+  std::vector<float> values(256);
   float *valueptr = &values[0];
-  this->ComputeValues(valueptr);
-
-  // Point to the first element
-  valueptr = &values[0];
+  this->GetScalarRange(range);
+  for (int i=0; i<256; ++i) {
+    values[i] = range[0] + i * ((range[1] - range[0]) / 256.0);
+  }
 
   // Colors for those values;
-  this->ScalarsColorsf.clear();
+  this->GPUScalarsColors.clear();
 
-  unsigned char *scalarColors = new unsigned char[256 * 3];
-  unsigned char *colorptr = scalarColors;
+  std::vector<unsigned char> scalarColors(256 * 3);
+  unsigned char *colorptr = &scalarColors[0];
 
-  this->LookupTable->SetRange(this->ScalarRange);
+  //
+  // map the scalar ramp through RGB lookup to get the RGB table we pass to GPU
+  //
+  if (!this->UseLookupTableScalarRange)
+  {
+    this->LookupTable->SetRange(this->ScalarRange);
+  }
   this->LookupTable->Build();
   this->LookupTable->MapScalarsThroughTable(valueptr, colorptr, VTK_FLOAT, 256, 1, 3);
 
   // Convert unsigned char color to float color
-  this->ScalarsColorsf.resize(256 * 3);
+  this->GPUScalarsColors.resize(256 * 3);
   for (int i = 0, j = 0; i < 256; ++i, j += 3)
-    {
-      float r = (float)colorptr[i*3+0] / 256.0;
-      float g = (float)colorptr[i*3+1] / 256.0;
-      float b = (float)colorptr[i*3+2] / 256.0;
+  {
+    float r = (float)colorptr[i*3+0] / 256.0;
+    float g = (float)colorptr[i*3+1] / 256.0;
+    float b = (float)colorptr[i*3+2] / 256.0;
 
-      this->ScalarsColorsf[j] = r;
-      this->ScalarsColorsf[j+1] = g;
-      this->ScalarsColorsf[j+2] = b;
-    }
-
-  delete [] scalarColors;
+    this->GPUScalarsColors[j]   = r;
+    this->GPUScalarsColors[j+1] = g;
+    this->GPUScalarsColors[j+2] = b;
+  }
 
   this->Modified();
 
-  // Now update build time (should be done last)
-  this->ComputeColorsfTime.Modified();
+  // touch build time (should be done last)
+  this->GPUColourTime.Modified();
 
-  return &this->ScalarsColorsf;
-}
-
-//-----------------------------------------------------------------------------
-void vtkTwoScalarsToColorsPainter::ComputeValues(float *values)
-{
-  if(!values)
-    {
-    return;
-    }
-
-  for (int i = 0; i < 256; ++i)
-    {
-    *values = this->ScalarRange[0] +
-      i * ((this->ScalarRange[1] - this->ScalarRange[0]) / 256.0);
-    values++;
-    }
+  return &this->GPUScalarsColors;
 }
 
 //-----------------------------------------------------------------------------
 void vtkTwoScalarsToColorsPainter::GetScalarRange(double range[2])
 {
-  range[0] = this->ScalarRange[0];
-  range[1] = this->ScalarRange[1];
+  if (!this->UseLookupTableScalarRange) {
+    range[0] = this->ScalarRange[0];
+    range[1] = this->ScalarRange[1];
+    return;
+  }
+  range[0] = this->LookupTable->GetRange()[0];
+  range[1] = this->LookupTable->GetRange()[1];
 }
 
