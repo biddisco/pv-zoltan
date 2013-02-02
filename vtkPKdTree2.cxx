@@ -56,7 +56,12 @@ void vtkPKdTree2::BuildLocator(double *bounds, int *remapping, int numregions)
 {
   this->ProcessUserDefinedCuts(bounds);
   this->BuildRegionList();
-  this->AssignRegions(remapping, numregions);
+  if (remapping) {
+    this->AssignRegions(remapping, numregions);
+  }
+  else {
+    this->AssignRegionsRoundRobin();
+  }
 }
 //----------------------------------------------------------------------------
 void vtkPKdTree2::GenerateRepresentation(int level, vtkPolyData *pd)
