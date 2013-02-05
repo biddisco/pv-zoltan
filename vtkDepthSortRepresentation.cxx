@@ -32,6 +32,7 @@ PURPOSE.  See the above copyright notice for more information.
 #include "vtkMultiProcessController.h"
 #include "vtkDummyController.h"
 #include "vtkOutputWindow.h"
+#include "vtkPVGeometryFilter.h"
 //
 #include "vtkDepthSortPainter.h"
 #include "vtkDepthSortPolygonsPainter.h"
@@ -50,6 +51,8 @@ vtkDepthSortRepresentation::vtkDepthSortRepresentation()
 {
   vtkOutputWindow *win = vtkOutputWindow::GetInstance();
   win->SetPromptUser(0);
+  //
+  vtkPVGeometryFilter::SafeDownCast(this->GeometryFilter)->SetUseOutline(0);
   //
   this->UseDataPartitions         = 1;
   this->DepthSortDefaultPainter   = vtkDepthSortDefaultPainter::New();
