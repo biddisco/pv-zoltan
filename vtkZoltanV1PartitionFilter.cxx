@@ -905,13 +905,13 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
       exit(0);
     }
 
-#ifdef EXTRA_ZOLTAN_DEBUG
+//#ifdef EXTRA_ZOLTAN_DEBUG
     vtkDebugMacro(<<"Partitioning complete on " << this->UpdatePiece << 
       " pack_count : " << pack_count <<
       " size_count : " << size_count <<
       " unpack_count : " << unpack_count 
      );
-#endif
+//#endif
 
     //
     // Get bounding boxes from zoltan and set them in the ExtentTranslator

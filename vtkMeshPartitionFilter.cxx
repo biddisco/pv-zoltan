@@ -301,7 +301,8 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   Zoltan_Destroy(&this->ZoltanData);
 
 
-  this->Controller->Barrier();
+  vtkDebugMacro(<<"Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds - entering barrier");
+//  this->Controller->Barrier();
   this->Timer->StopTimer();
   vtkDebugMacro(<<"Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds");
   return 1;
