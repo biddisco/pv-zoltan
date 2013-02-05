@@ -187,7 +187,7 @@ int main (int argc, char* argv[])
       vtkSmartPointer<vtkRenderWindowInteractor> iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
       iren->SetRenderWindow(renWindow);
       ren->SetBackground(0.1, 0.1, 0.1);
-      renWindow->SetSize( 400+8, 400+8);
+      renWindow->SetSize(test.windowSize);
       renWindow->AddRenderer(ren);
       //
       for (int i=0; i<test.numProcs; i++) {

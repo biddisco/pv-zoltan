@@ -120,26 +120,26 @@ IF (processors)
   )
 ENDIF (processors)
  
-SET(test_name "TestPartitionCompositing-P4")
-IF (processors)
-  ADD_TEST(
-    NAME ${test_name}
-    COMMAND 
-      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-      $<TARGET_FILE:TestPartitionCompositing> 
-      -testName ${test_name}
-      -T "${PLUGIN_TEST_DIR}"
-      -F neuron-test.vtp
-      -D ${PROJECT_SOURCE_DIR}/testing/data
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition.png
-      -doRender 1
-      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
-      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
-      -cameraViewUp   "0 1 0"
-      -scalar "vtkProcessId"
-      -windowSize "1024 800"
-  )
-ENDIF (processors)
+#SET(test_name "TestPartitionCompositing-P4")
+#IF (processors)
+#  ADD_TEST(
+#    NAME ${test_name}
+#    COMMAND 
+#      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+#      $<TARGET_FILE:TestPartitionCompositing> 
+#      -testName ${test_name}
+#      -T "${PLUGIN_TEST_DIR}"
+#      -F neuron-test.vtp
+#      -D ${PROJECT_SOURCE_DIR}/testing/data
+#      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition.png
+#      -doRender 1
+#      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
+#      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
+#      -cameraViewUp   "0 1 0"
+#      -scalar "vtkProcessId"
+#      -windowSize "1024 800"
+#  )
+#ENDIF (processors)
 
 #--------------------------------------------------
 #--------------------------------------------------
