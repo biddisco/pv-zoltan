@@ -69,6 +69,55 @@ void vtkParticlePartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os,indent);
 }
 //----------------------------------------------------------------------------
+void vtkParticlePartitionFilter::SetupGlobalIds(vtkPointSet *ps) 
+{
+  //
+  // Global Ids : always do them after other point arrays are setup 
+  //
+  if (this->IdChannelArray) {
+    this->IdsName = this->IdChannelArray;
+  }
+  if (this->IdsName.empty() || this->IdsName==std::string("Not available")) {
+    this->IdsName = "ZPF_PointIds";
+  } 
+
+  vtkSmartPointer<vtkPointData> pd = ps->GetPointData();
+  vtkSmartPointer<vtkIdTypeArray> Ids = NULL;
+  //
+  Ids = vtkIdTypeArray::SafeDownCast(pd->GetArray(this->IdsName.c_str()));
+  if (!Ids) {
+    // Try loading the user supplied global ids.
+    Ids = vtkIdTypeArray::SafeDownCast(pd->GetGlobalIds());
+  }
+  if (!Ids) {
+    // and increment the callbackdata field count
+    this->ZoltanCallbackData.NumberOfFields++;
+  }
+  // Generate our own if none exist
+  vtkDebugMacro(<<"About to Init Global Ids");
+  vtkIdType numPoints = ps->GetNumberOfPoints();
+  vtkIdType  numCells = ps->GetNumberOfCells();
+  this->ComputeIdOffsets(numPoints, numCells);
+
+  //
+  // Global point IDs generated here
+  //
+  vtkIdType offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece];
+  //
+  if (!Ids) {
+    Ids = vtkSmartPointer<vtkIdTypeArray>::New();
+    Ids->SetNumberOfValues(numPoints);
+    for (vtkIdType id=0; id<numPoints; id++) {
+      Ids->SetValue(id, id + offset);
+    }
+    Ids->SetName(this->IdsName.c_str());
+    vtkDebugMacro(<< "Generated Ids with " << numPoints << " values");
+  }
+
+  ps->GetPointData()->AddArray(Ids);
+  vtkDebugMacro(<<"Global Ids Initialized");
+}
+//----------------------------------------------------------------------------
 int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
                                  vtkInformationVector** inputVector,
                                  vtkInformationVector* outputVector)

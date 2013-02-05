@@ -275,6 +275,8 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
     void AllocateFieldArrays(vtkDataSetAttributes *fields);
 
+    virtual void SetupGlobalIds(vtkPointSet *ps);
+
     // Override to specify support for vtkPointSet input type.
     virtual int FillInputPortInformation(int port, vtkInformation* info);
 
@@ -295,7 +297,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
                             vtkInformationVector**,
                             vtkInformationVector*);
 
-    vtkSmartPointer<vtkIdTypeArray> GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, vtkIdTypeArray *ptIds);
+    void ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells);
 
     MPI_Comm GetMPIComm();
     int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
@@ -316,7 +318,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     vtkSmartPointer<vtkBoundsExtentTranslator>  InputExtentTranslator;
     vtkSmartPointer<vtkPKdTree>                 KdTree;
     vtkSmartPointer<vtkTimerLog>                Timer;
-    std::string                                 IdsName;
     //
     struct Zoltan_Struct       *ZoltanData;
     CallbackData                ZoltanCallbackData;

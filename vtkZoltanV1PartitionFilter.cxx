@@ -400,7 +400,12 @@ vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBox(int partitio
 //  return out << "]";
 //}
 //----------------------------------------------------------------------------
-vtkSmartPointer<vtkIdTypeArray> vtkZoltanV1PartitionFilter::GenerateGlobalIds(vtkIdType Npoints, vtkIdType Ncells, const char *ptidname, vtkIdTypeArray *ptIds)
+void vtkZoltanV1PartitionFilter::SetupGlobalIds(vtkPointSet *ps)
+{
+  this->ComputeIdOffsets(ps->GetNumberOfPoints(), ps->GetNumberOfCells());
+}
+//----------------------------------------------------------------------------
+void vtkZoltanV1PartitionFilter::ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells)
 {
   // offset arrays
   std::vector<vtkIdType> PointsPerProcess(this->UpdateNumPieces);
@@ -421,22 +426,6 @@ vtkSmartPointer<vtkIdTypeArray> vtkZoltanV1PartitionFilter::GenerateGlobalIds(vt
 //  PrintVector<int>(temp1, 6, this->ZoltanCallbackData.ProcessOffsetsPointId);
 //  PrintVector<int>(temp2, 6, this->ZoltanCallbackData.ProcessOffsetsCellId);
   vtkDebugMacro(<< "Offsets generated { pts : " << temp1.str() << "} { cells : " << temp2.str() << "}" );
-  //
-  // Global point IDs generated here
-  //
-  vtkIdType offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece];
-  //
-  if (!ptIds) {
-    vtkSmartPointer<vtkIdTypeArray> newptIds = vtkSmartPointer<vtkIdTypeArray>::New();
-    newptIds->SetNumberOfValues(Npoints);
-    for (vtkIdType id=0; id<Npoints; id++) {
-      newptIds->SetValue(id, id + offset);
-    }
-    newptIds->SetName(ptidname);
-    vtkDebugMacro(<< "Generated Ids with " << Npoints << " values");
-    return newptIds;
-  }
-  return ptIds;
 }
 //----------------------------------------------------------------------------
 struct vtkZPF_datainfo {
@@ -796,37 +785,16 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   //
   // if a process has zero points, we need to make dummy data arrays to allow 
   // space for when data gets sent in from other processes in the zoltan unpack function 
-  // This also stops hangs during collective operations by ensuring all ranks participate
+  // This also stops hangs during collective operations by ensuring all ranks) participate
   //
   vtkSmartPointer<vtkPointData> PointDataCopy = inputCopy->GetPointData();
   this->AllocateFieldArrays(PointDataCopy);
   vtkDebugMacro(<<"FieldArrayPointers (point) Initialized");
 
   //
-  // Global Ids : always do them after other point arrays are setup 
-  //
-  if (this->IdChannelArray) {
-    this->IdsName = this->IdChannelArray;
-  }
-  if (this->IdsName.empty() || this->IdsName==std::string("Not available")) {
-    this->IdsName = "ZPF_PointIds";
-  } 
-
-  vtkSmartPointer<vtkIdTypeArray> Ids = NULL;
-  Ids = vtkIdTypeArray::SafeDownCast(PointDataCopy->GetArray(this->IdsName.c_str()));
-  if (!Ids) {
-    // Try loading the user supplied global ids.
-    Ids = vtkIdTypeArray::SafeDownCast(PointDataCopy->GetGlobalIds());
-  }
-  if (!Ids) {
-    // and increment the callbackdata field count
-    this->ZoltanCallbackData.NumberOfFields++;
-  }
-  // Generate our own if none exist
-  vtkDebugMacro(<<"About to Init Global Ids");
-  Ids = this->GenerateGlobalIds(numPoints, numCells, this->IdsName.c_str(), Ids);
-  inputCopy->GetPointData()->AddArray(Ids);
-  vtkDebugMacro(<<"Global Ids Initialized");
+  // When particle partitioning and exchanging halos, we need to track points
+  // by Id. Mesh partitioning only needs Id offsets per process (no halos yet)
+  this->SetupGlobalIds(inputCopy);
 
   // 
   // Set all the callbacks and user config parameters that will be used during the loadbalance

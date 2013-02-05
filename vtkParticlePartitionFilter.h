@@ -73,10 +73,14 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
      vtkParticlePartitionFilter();
     ~vtkParticlePartitionFilter();
 
+    virtual void SetupGlobalIds(vtkPointSet *ps);
+
     // Description:
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
                             vtkInformationVector*);
+
+    std::string IdsName;
 
   private:
     vtkParticlePartitionFilter(const vtkParticlePartitionFilter&);  // Not implemented.
