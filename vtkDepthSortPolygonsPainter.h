@@ -22,7 +22,6 @@
 
 #include "vtkPolygonsPainter.h"
 #include "vtkSmartPointer.h"
-#include "vtkDataSetToPiston.h"
 #include "vtkTwoScalarsToColorsPainter.h"
 
 class vtkPistonMapper;

@@ -51,8 +51,6 @@ class vtkDataObject;
 class vtkTexture;
 class vtkDepthSortPolyData2;
 class vtkUnsignedCharArray;
-class vtkDataSetToPiston;
-class vtkPistonDataObject;
 
 class VTK_EXPORT vtkDepthSortPainter : public vtkPainter
 {
