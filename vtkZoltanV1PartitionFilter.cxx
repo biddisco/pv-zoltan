@@ -96,6 +96,44 @@ void vtkZoltanV1PartitionFilter::get_object_list_points(void *data, int sizeGID,
   *ierr = ZOLTAN_OK;
 }
 //----------------------------------------------------------------------------
+// Zoltan callback which fills the Ids for each object in the exchange
+//----------------------------------------------------------------------------
+int vtkZoltanV1PartitionFilter::get_first_object_points(
+  void *data, int num_gid_entries, int num_lid_entries,
+  ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id,
+  int wdim, float *wgt, int *ierr)
+{
+  CallbackData *callbackdata = static_cast<CallbackData*>(data);
+
+  *ierr = ZOLTAN_OK;
+  vtkIdType N = callbackdata->Input->GetNumberOfPoints();
+  if (N>0) {
+    global_id[0] = 0 + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
+    local_id[0] = 0;
+    return 1;
+  }
+  return 0;
+}
+
+int vtkZoltanV1PartitionFilter::get_next_object_points(
+  void * data, int num_gid_entries, int num_lid_entries, 
+  ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, ZOLTAN_ID_PTR next_global_id, ZOLTAN_ID_PTR next_local_id, 
+  int wgt_dim, float *next_obj_wgt, int *ierr)
+{
+  CallbackData *callbackdata = static_cast<CallbackData*>(data);
+
+  *ierr = ZOLTAN_OK;
+  vtkIdType N = callbackdata->Input->GetNumberOfPoints();
+  if (local_id[0]<N) {
+    next_global_id[0] = local_id[0] + 1  + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
+    next_local_id[0] = local_id[0] + 1;
+    return 1;
+  }
+  return 0;
+}
+
+
+//----------------------------------------------------------------------------
 // Zoltan callback which returns the dimension of geometry (3D for us)
 //----------------------------------------------------------------------------
 int vtkZoltanV1PartitionFilter::get_num_geometry(void *data, int *ierr)
@@ -622,7 +660,10 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
   // Query functions, to provide geometry to Zoltan 
   //
   Zoltan_Set_Num_Obj_Fn(this->ZoltanData,    get_number_of_objects_points, &this->ZoltanCallbackData);
-  Zoltan_Set_Obj_List_Fn(this->ZoltanData,   get_object_list_points,       &this->ZoltanCallbackData);
+//  Zoltan_Set_Obj_List_Fn(this->ZoltanData,   get_object_list_points,       &this->ZoltanCallbackData);
+  Zoltan_Set_First_Obj_Fn(this->ZoltanData,  get_first_object_points,      &this->ZoltanCallbackData);
+  Zoltan_Set_Next_Obj_Fn(this->ZoltanData,   get_next_object_points,       &this->ZoltanCallbackData);
+
   Zoltan_Set_Num_Geom_Fn(this->ZoltanData,   get_num_geometry,             &this->ZoltanCallbackData);
   if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
     vtkDebugMacro(<<"Using float data pointers ");

@@ -197,6 +197,16 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     static void get_object_list_points(void *data, int sizeGID, int sizeLID,
       ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID, int wgt_dim, float *obj_wgts, int *ierr);
 
+    static int get_first_object_points(
+      void *data, int num_gid_entries, int num_lid_entries,
+      ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id,
+      int wdim, float *wgt, int *ierr);
+
+    static int get_next_object_points(
+      void * data, int num_gid_entries, int num_lid_entries, 
+      ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, ZOLTAN_ID_PTR next_global_id, ZOLTAN_ID_PTR next_local_id, 
+      int wgt_dim, float *next_obj_wgt, int *ierr);
+
     // Description:
     // Zoltan callback which returns the dimension of geometry (3D for us)
     static int get_num_geometry(void *data, int *ierr);
