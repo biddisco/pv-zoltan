@@ -525,7 +525,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     if (cellstatus>=3) {
       // The cell is going to be sent away, so add it to our send list
       cell_partitioninfo.Procs.push_back(destProcess); 
-//      cell_partitioninfo.LocalIds.push_back(cellId);
       cell_partitioninfo.GlobalIds.push_back(cellId + this->ZoltanCallbackData.ProcessOffsetsCellId[this->UpdatePiece]);
     }
 
@@ -569,9 +568,10 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   std::sort(process_vector.begin(), process_vector.end());
   process_vector.resize(std::unique(process_vector.begin(), process_vector.end()) - process_vector.begin());
 
+  point_partitioninfo.GlobalIds.reserve(process_vector.size());
+  point_partitioninfo.Procs.reserve(process_vector.size());
   for (std::vector<process_tuple>::iterator x=process_vector.begin(); x!=process_vector.end(); ++x) 
   {
-//    point_partitioninfo.LocalIds.push_back(x->first);
     point_partitioninfo.GlobalIds.push_back(x->first + this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece]);
     point_partitioninfo.Procs.push_back(x->second);
   }

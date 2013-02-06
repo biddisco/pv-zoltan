@@ -427,12 +427,12 @@ void vtkZoltanV1PartitionFilter::ComputeIdOffsets(vtkIdType Npoints, vtkIdType N
   std::partial_sum(PointsPerProcess.begin(), PointsPerProcess.end(), this->ZoltanCallbackData.ProcessOffsetsPointId.begin()+1);
   std::partial_sum(CellsPerProcess.begin(), CellsPerProcess.end(), this->ZoltanCallbackData.ProcessOffsetsCellId.begin()+1);
 #endif
-  std::stringstream temp1, temp2;
+//  std::stringstream temp1, temp2;
 //  copy(this->ZoltanCallbackData.ProcessOffsetsPointId.begin(), this->ZoltanCallbackData.ProcessOffsetsPointId.end(), std::ostream_iterator<vtkIdType>(temp1,", ") );
 //  copy(this->ZoltanCallbackData.ProcessOffsetsCellId.begin(), this->ZoltanCallbackData.ProcessOffsetsCellId.end(), std::ostream_iterator<vtkIdType>(temp2,", ") );
 //  PrintVector<int>(temp1, 6, this->ZoltanCallbackData.ProcessOffsetsPointId);
 //  PrintVector<int>(temp2, 6, this->ZoltanCallbackData.ProcessOffsetsCellId);
-  vtkDebugMacro(<< "Offsets generated { pts : " << temp1.str() << "} { cells : " << temp2.str() << "}" );
+//  vtkDebugMacro(<< "Offsets generated { pts : " << temp1.str() << "} { cells : " << temp2.str() << "}" );
 }
 //----------------------------------------------------------------------------
 struct vtkZPF_datainfo {
@@ -662,11 +662,11 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
 
   Zoltan_Set_Num_Geom_Fn(this->ZoltanData,   get_num_geometry,             &this->ZoltanCallbackData);
   if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
-    vtkDebugMacro(<<"Using float data pointers ");
+//    vtkDebugMacro(<<"Using float data pointers ");
     Zoltan_Set_Geom_Multi_Fn(this->ZoltanData, get_geometry_list<float>, &this->ZoltanCallbackData);
   }
   else if (this->ZoltanCallbackData.PointType==VTK_DOUBLE) {
-    vtkDebugMacro(<<"Using double data pointers ");
+//    vtkDebugMacro(<<"Using double data pointers ");
     Zoltan_Set_Geom_Multi_Fn(this->ZoltanData, get_geometry_list<double>, &this->ZoltanCallbackData);
   }
 
