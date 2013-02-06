@@ -341,7 +341,8 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
     Zoltan_LB_Free_Part(&this->LoadBalanceData.importGlobalGids, &this->LoadBalanceData.importLocalGids, &this->LoadBalanceData.importProcs, &this->LoadBalanceData.importToPart);
     Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
   }
-
+  // after deleting memory, add a barrier to let ranks free as much as possible before the next big allocation
+  this->Controller->Barrier();
 
   //
   // cells that were split over remote processes require another point migration
@@ -382,7 +383,6 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
     exit(0);
   }
 
-
   this->AllocateFieldArrays(this->ZoltanCallbackData.Output->GetCellData());
 
   //
@@ -418,11 +418,13 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
   //
   // Release the arrays allocated during Zoltan_Invert_Lists
   //
+  vtkDebugMacro(<<"About to Free Zoltan_Migrate (cells)");
   Zoltan_LB_Free_Part(
     &found_global_ids, 
     &found_local_ids, 
     &found_procs, 
     &found_to_part);
+  vtkDebugMacro(<<"Done Migration (cells)");
 
   return 1;
 }
