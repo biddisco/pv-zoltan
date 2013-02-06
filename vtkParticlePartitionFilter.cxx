@@ -71,6 +71,7 @@ void vtkParticlePartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
 //----------------------------------------------------------------------------
 void vtkParticlePartitionFilter::SetupGlobalIds(vtkPointSet *ps) 
 {
+  /*
   //
   // Global Ids : always do them after other point arrays are setup 
   //
@@ -80,7 +81,7 @@ void vtkParticlePartitionFilter::SetupGlobalIds(vtkPointSet *ps)
   if (this->IdsName.empty() || this->IdsName==std::string("Not available")) {
     this->IdsName = "ZPF_PointIds";
   } 
-
+*/
   vtkSmartPointer<vtkPointData> pd = ps->GetPointData();
   vtkSmartPointer<vtkIdTypeArray> Ids = NULL;
   //

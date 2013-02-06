@@ -739,8 +739,6 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   vtkBoundingBox globalBounds = this->GetGlobalBounds(input);
 
   //
-  // we make a temp copy of the input so we can add Ids if necessary
-  //
   vtkSmartPointer<vtkPoints>   outPoints;
   if (this->UpdateNumPieces>1) {
     // create a new output points array to be filled
@@ -790,8 +788,7 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   // space for when data gets sent in from other processes in the zoltan unpack function 
   // This also stops hangs during collective operations by ensuring all ranks) participate
   //
-  vtkSmartPointer<vtkPointData> PointDataCopy = vtkSmartPointer<vtkPointData>::New();
-  PointDataCopy->ShallowCopy(input->GetPointData());
+  vtkSmartPointer<vtkPointData> PointDataCopy = input->GetPointData();
   this->AllocateFieldArrays(PointDataCopy);
   vtkDebugMacro(<<"FieldArrayPointers (point) Initialized");
 

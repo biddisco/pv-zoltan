@@ -338,10 +338,10 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
   point_partitioninfo.GlobalIds.clear();
   point_partitioninfo.Procs.clear();
 
-  vtkDebugMacro(<<"Disposing of input points and point data");
   if (this->InputDisposable) {
-//    this->ZoltanCallbackData.Input->SetPoints(NULL);
-//    this->ZoltanCallbackData.Input->GetPointData()->Initialize();
+    vtkDebugMacro(<<"Disposing of input points and point data");
+    this->ZoltanCallbackData.Input->SetPoints(NULL);
+    this->ZoltanCallbackData.Input->GetPointData()->Initialize();
   }
 
   //

@@ -93,7 +93,7 @@ int main (int argc, char* argv[])
   //--------------------------------------------------------------
   test.CreatePartitioner_Mesh();
   test.partitioner->SetInputConnection(test.xmlreader->GetOutputPort());
-//  test.partitioner->SetIdChannelArray("PointIds");
+  test.partitioner->SetInputDisposable(1);
 //  test.partitioner->SetGhostCellOverlap(test.ghostOverlap);
   partition_elapsed = test.UpdatePartitioner();
 
