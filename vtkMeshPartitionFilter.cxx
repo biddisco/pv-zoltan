@@ -351,6 +351,10 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
   vtkDebugMacro(<<"Entering ManualPointMigrate");
   int num_found = this->ManualPointMigrate(point_partitioninfo, false);
 
+  vtkDebugMacro(<<"Release pre-invert arrays (points)");
+  point_partitioninfo.GlobalIds.clear();
+  point_partitioninfo.Procs.clear();
+
   //
   // now we have a map of cells to processId, so do a collective 'invert lists' 
   // operation to compute the global exchange map of who sends cells to who 
@@ -414,6 +418,10 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
     num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL,
     /*num_known>0 ? &cell_partitioninfo.Procs[0]     : */NULL
     );
+
+  vtkDebugMacro(<<"Release pre-invert arrays (cells)");
+  cell_partitioninfo.GlobalIds.clear();
+  cell_partitioninfo.Procs.clear();
 
   //
   // Release the arrays allocated during Zoltan_Invert_Lists
