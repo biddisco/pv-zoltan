@@ -343,6 +343,7 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
     this->ZoltanCallbackData.Input->SetPoints(NULL);
     this->ZoltanCallbackData.Input->GetPointData()->Initialize();
   }
+  this->Controller->Barrier();
 
   //
   // now we have a map of cells to processId, so do a collective 'invert lists' 
