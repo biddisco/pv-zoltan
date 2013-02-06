@@ -105,7 +105,7 @@ void vtkTwoScalarsToColorsPainter::PrepareForRendering(
   {
     if (this->OutputData)
     {
-      this->OutputData->Delete();
+      this->OutputData->FastDelete();
       this->OutputData = 0;
     }
     // Create a shallow-copied clone with no output scalars.
@@ -151,7 +151,7 @@ void vtkTwoScalarsToColorsPainter::PrepareForRendering(
       }
     }
 
-    iter->Delete();
+    iter->FastDelete();
   }
   else
   {
@@ -324,7 +324,7 @@ void vtkTwoScalarsToColorsPainter::MapScalars(vtkDataSet* output, double alpha,
   {
     // Since we will be changing the colors array
     // we create a copy.
-    colors->Delete();
+    colors->FastDelete();
     colors = scalars->NewInstance();
     colors->DeepCopy(scalars);
     colors->SetName("Color");
@@ -354,7 +354,7 @@ void vtkTwoScalarsToColorsPainter::MapScalars(vtkDataSet* output, double alpha,
     colors->SetName("Color");
     opfd->AddArray(colors);
   }
-  colors->Delete();
+  colors->FastDelete();
 }
 //-----------------------------------------------------------------------------
 void vtkTwoScalarsToColorsPainter::PrintSelf(ostream& os, vtkIndent indent)

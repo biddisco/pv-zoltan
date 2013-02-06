@@ -136,7 +136,7 @@ int vtkDataSetToPiston::RequestData(vtkInformation *request,
       vtkPolyData *triangulated = vtkPolyData::New();
       vtkPoints *tPts = vtkPoints::New();
       triangulated->SetPoints(tPts);
-      tPts->Delete();
+      tPts->FastDelete();
       triangulated->GetPointData()->CopyStructure(id->GetPointData());
       triangulated->GetPointData()->CopyAllocate(id->GetPointData());
       triangulated->GetPointData()->SetCopyNormals(1);
@@ -173,7 +173,7 @@ int vtkDataSetToPiston::RequestData(vtkInformation *request,
         }
       }
       vtkpiston::CopyToGPU(triangulated, od, false, this->ScalarArrayName, this->OpacityArrayName);
-      triangulated->Delete();
+      triangulated->FastDelete();
 #else
       vtkpiston::CopyToGPU(id, od, true, this->ScalarArrayName, this->OpacityArrayName);
 #endif

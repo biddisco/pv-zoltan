@@ -109,7 +109,7 @@ int vtkPistonAlgorithm::RequestDataObject(
   // do nothing let subclasses handle it
   vtkPistonDataObject *newobj = vtkPistonDataObject::New();
   this->GetExecutive()->SetOutputData(0, newobj);
-  newobj->Delete();
+  newobj->FastDelete();
   return 1;
 }
 

@@ -159,10 +159,10 @@ void vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int dis
     if (!em->LoadSupportedExtension("GL_VERSION_1_5"))
     {
       cerr << "WARNING: Can not use direct piston rendering, reverting to CPU rendering path." << endl;
-      em->Delete();
+      em->FastDelete();
       return;
     }
-    em->Delete();
+    em->FastDelete();
     if (displayId<0 || displayId>=vtkpiston::GetCudaDeviceCount()) {
       // try another method to get the device ID
       displayId = device_binding(rank);
@@ -408,7 +408,7 @@ void vtkPistonPolygonsPainter::PrepareForRendering(vtkRenderer* renderer, vtkAct
       }
     }
 
-    iter->Delete();
+    iter->FastDelete();
   }
   else
   {

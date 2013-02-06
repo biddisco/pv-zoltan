@@ -120,7 +120,7 @@ void vtkDepthSortPainter::PrepareForRendering(vtkRenderer* renderer, vtkActor* a
           this->Sort(pdOutput, pdInput, renderer, actor);
         }
       }
-      iter->Delete();
+      iter->FastDelete();
     }
     else {
       this->Sort(vtkDataSet::SafeDownCast(this->OutputData),

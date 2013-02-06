@@ -77,7 +77,7 @@ vtkDepthSortRepresentation::vtkDepthSortRepresentation()
 //----------------------------------------------------------------------------
 vtkDepthSortRepresentation::~vtkDepthSortRepresentation()
 {
-  this->DepthSortDefaultPainter->Delete();
+  this->DepthSortDefaultPainter->FastDelete();
   this->SetController(NULL);
 }
 //----------------------------------------------------------------------------
