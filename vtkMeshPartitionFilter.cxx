@@ -86,7 +86,7 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(void *data, int nu
 
   std::vector<bool> local(OutputNumberOfLocalCells, true);
   for (vtkIdType i=0; i<num_export; i++) {
-    local[export_local_ids[i]] = false;    
+    local[export_global_ids[i]-callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank]] = false;    
   }
   //
   vtkIdType npts, *pts, newpts[32];
@@ -357,7 +357,7 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
   int zoltan_error = Zoltan_Invert_Lists(this->ZoltanData, 
     (int)num_known,
     num_known>0 ? &cell_partitioninfo.GlobalIds[0] : NULL,
-    num_known>0 ? &cell_partitioninfo.LocalIds[0]  : NULL,
+    /*num_known>0 ? &cell_partitioninfo.LocalIds[0]  : */NULL,
     num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL,
     num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL,
     &num_found,
@@ -400,7 +400,7 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
     found_to_part,
     (int)num_known,
     num_known>0 ? &cell_partitioninfo.GlobalIds[0] : NULL,
-    num_known>0 ? &cell_partitioninfo.LocalIds[0]  : NULL,
+    /*num_known>0 ? &cell_partitioninfo.LocalIds[0]  : */NULL,
     num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL,
     num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL
     );
@@ -430,9 +430,9 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   vtkIdType j, cellId;
 
   // we will put the results of the cell tests in these arrays
-  cell_partitioninfo.Procs.reserve(numCells);
-  cell_partitioninfo.LocalIds.reserve(numCells);
-  cell_partitioninfo.GlobalIds.reserve(numCells);
+  cell_partitioninfo.Procs.reserve(numCells/this->UpdateNumPieces);
+//  cell_partitioninfo.LocalIds.reserve(numCells);
+  cell_partitioninfo.GlobalIds.reserve(numCells/this->UpdateNumPieces);
 
   // we know that some points on this process are being exported to remote processes
   // so build a point to process map to quickly lookup the process Id from the point Id
@@ -459,7 +459,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   // polydata requires a cell map (verts/lines/polys/strips) to be present before we traverse cells
   if (pdata) pdata->BuildCells();
 
-  // a simple bitmask with one entry per process, used for each cell to counts processes for the cell
+  // a simple bitmask with one entry per process, used for each cell to count processes for the cell
   std::vector<unsigned char> process_flag(this->UpdateNumPieces,0);;
 
   //
@@ -525,7 +525,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     if (cellstatus>=3) {
       // The cell is going to be sent away, so add it to our send list
       cell_partitioninfo.Procs.push_back(destProcess); 
-      cell_partitioninfo.LocalIds.push_back(cellId);
+//      cell_partitioninfo.LocalIds.push_back(cellId);
       cell_partitioninfo.GlobalIds.push_back(cellId + this->ZoltanCallbackData.ProcessOffsetsCellId[this->UpdatePiece]);
     }
 
@@ -571,7 +571,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 
   for (std::vector<process_tuple>::iterator x=process_vector.begin(); x!=process_vector.end(); ++x) 
   {
-    point_partitioninfo.LocalIds.push_back(x->first);
+//    point_partitioninfo.LocalIds.push_back(x->first);
     point_partitioninfo.GlobalIds.push_back(x->first + this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece]);
     point_partitioninfo.Procs.push_back(x->second);
   }

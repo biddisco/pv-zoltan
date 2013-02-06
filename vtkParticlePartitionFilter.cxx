@@ -238,7 +238,7 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(vtkPoints *pts, vtkIdTy
     {
       vtkBoundingBox *b = (it->first);
       if (b->ContainsPoint(pt)) {
-        ghostinfo.LocalIds.push_back(i);
+//        ghostinfo.LocalIds.push_back(i);
         ghostinfo.GlobalIds.push_back(IdArray->GetValue(i));
         ghostinfo.Procs.push_back(it->second);
       }

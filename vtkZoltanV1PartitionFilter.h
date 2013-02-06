@@ -184,7 +184,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     //----------------------------------------------------------------------------
     typedef struct {
       std::vector<ZOLTAN_ID_TYPE> GlobalIds;
-      std::vector<ZOLTAN_ID_TYPE> LocalIds;
+//      std::vector<ZOLTAN_ID_TYPE> LocalIds;
       std::vector<int> Procs;
     } PartitionInfo;
 
