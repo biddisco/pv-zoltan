@@ -281,14 +281,6 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   //
   this->PartitionPoints(info, inputVector, outputVector);
 
-  //*****************************************************************
-  // Free the arrays allocated by Zoltan_LB_Partition
-  //*****************************************************************
-  if (this->LoadBalanceData.importGlobalGids) {
-    Zoltan_LB_Free_Part(&this->LoadBalanceData.importGlobalGids, &this->LoadBalanceData.importLocalGids, &this->LoadBalanceData.importProcs, &this->LoadBalanceData.importToPart);
-    Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
-  }
-
   if (this->UpdateNumPieces==1) {
     // input has been copied to output 
     return 1;
@@ -340,6 +332,16 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
       this->LoadBalanceData.exportProcs           // Process to which I send each of the vertices
       );
   }
+
+  //*****************************************************************
+  // Free the arrays allocated by Zoltan_LB_Partition
+  // before we do a manual migration.
+  //*****************************************************************
+  if (this->LoadBalanceData.importGlobalGids) {
+    Zoltan_LB_Free_Part(&this->LoadBalanceData.importGlobalGids, &this->LoadBalanceData.importLocalGids, &this->LoadBalanceData.importProcs, &this->LoadBalanceData.importToPart);
+    Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
+  }
+
 
   //
   // cells that were split over remote processes require another point migration
