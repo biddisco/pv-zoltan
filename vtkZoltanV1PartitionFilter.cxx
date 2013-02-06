@@ -916,41 +916,7 @@ int vtkZoltanV1PartitionFilter::RequestData(vtkInformation* info,
                                  vtkInformationVector** inputVector,
                                  vtkInformationVector* outputVector)
 {
-/*
-    //
-    //
-    //
-    vtkDebugMacro(<<"Process " << this->UpdatePiece << " Points Output : " << this->ZoltanCallbackData.OutPointCount);
-    //  for (int i=0; i<this->ZoltanCallbackData.NumberOfFields; i++) {
-    //    vtkDataArray *darray = output->GetPointData()->GetArray(i);
-    //    vtkDebugMacro(<<"Process " << this->UpdatePiece << " Array Output : " << darray->GetNumberOfTuples());
-    //  }
-
-    //
-    // If polydata create Vertices for each point
-    //
-    if (vtkPolyData::SafeDownCast(output)) {
-      vtkIdType *arraydata = cells->WritePointer(this->ZoltanCallbackData.OutPointCount, 2*this->ZoltanCallbackData.OutPointCount);
-      for (int i=0; i<this->ZoltanCallbackData.OutPointCount; i++) {
-        arraydata[i*2]   = 1;
-        arraydata[i*2+1] = i;
-      }
-      vtkPolyData::SafeDownCast(output)->SetVerts(cells);
-    }
-    //
-    //*****************************************************************
-    // Free the arrays allocated by Zoltan_LB_Partition, and free
-    // the storage allocated for the Zoltan structure.
-    //*****************************************************************
-    //
-    Zoltan_Destroy(&this->ZoltanData);
-
-  }
-
-  this->Controller->Barrier();
-  Timer->StopTimer();
-  vtkDebugMacro(<<"Particle partitioning : " << Timer->GetElapsedTime() << " seconds");
-*/
+  // This is an abstract class and subclasses must override this function
   return 0;
 }
 //----------------------------------------------------------------------------

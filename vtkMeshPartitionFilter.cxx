@@ -280,6 +280,15 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   // Distribute points evenly across processes
   //
   this->PartitionPoints(info, inputVector, outputVector);
+
+  //*****************************************************************
+  // Free the arrays allocated by Zoltan_LB_Partition
+  //*****************************************************************
+  if (this->LoadBalanceData.importGlobalGids) {
+    Zoltan_LB_Free_Part(&this->LoadBalanceData.importGlobalGids, &this->LoadBalanceData.importLocalGids, &this->LoadBalanceData.importProcs, &this->LoadBalanceData.importToPart);
+    Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
+  }
+
   if (this->UpdateNumPieces==1) {
     // input has been copied to output 
     return 1;
@@ -293,13 +302,8 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   this->ExtentTranslator->SetKdTree(this->GetKdtree());
 
   //*****************************************************************
-  // Free the arrays allocated by Zoltan_LB_Partition, and free
-  // the storage allocated for the Zoltan structure.
+  // Free the storage allocated for the Zoltan structure.
   //*****************************************************************
-  if (this->LoadBalanceData.importGlobalGids) {
-    Zoltan_LB_Free_Part(&this->LoadBalanceData.importGlobalGids, &this->LoadBalanceData.importLocalGids, &this->LoadBalanceData.importProcs, &this->LoadBalanceData.importToPart);
-    Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
-  }
   Zoltan_Destroy(&this->ZoltanData);
 
 
