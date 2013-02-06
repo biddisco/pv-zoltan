@@ -110,24 +110,7 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(void *data, int nu
         for (int i=0; i<npts; i++) {
           if (callbackdata->LocalToLocalIdMap[pts[i]]!=-1) newpts[i] = callbackdata->LocalToLocalIdMap[pts[i]];
           else {
-/*
-            // a point which has been migrated has been referenced. 
-            // It can only happen on a boundary cell which has had some points sent away
-            // option 1. Make a local copy of the point we've already sent, 
-            // option 2. Send the other points too and make the cell remote. 
-            // easiest solution is 1 currently.
-            if (callbackdata->OutPointCount>=ReservedPointCount) {
-              // output points should have been resized to fit all existing and migrated points, 
-              // but we need to allow a small amount (try 5%) extra for duplicated boundary cell points
-              ReservedPointCount = callbackdata->OutPointCount * 1.05;
-              callbackdata->Output->GetPoints()->GetData()->Resize(ReservedPointCount);
-              callbackdata->OutputPointsData = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
-            }
-            callbackdata->Output->GetPointData()->CopyData(callbackdata->Input->GetPointData(), pts[i], callbackdata->OutPointCount);
-            newpts[i] = callbackdata->LocalToLocalIdMap[pts[i]] = callbackdata->OutPointCount;
-            memcpy(&((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3], &((T*)(callbackdata->InputPointsData))[pts[i]*3], sizeof(T)*3);
-            callbackdata->OutPointCount++;
-*/
+            // wtf?
           }
         }
         pdata2->InsertNextCell(ctype, npts, newpts);
@@ -354,6 +337,12 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
   vtkDebugMacro(<<"Release pre-invert arrays (points)");
   point_partitioninfo.GlobalIds.clear();
   point_partitioninfo.Procs.clear();
+
+  vtkDebugMacro(<<"Disposing of input points and point data");
+  if (this->InputDisposable) {
+//    this->ZoltanCallbackData.Input->SetPoints(NULL);
+//    this->ZoltanCallbackData.Input->GetPointData()->Initialize();
+  }
 
   //
   // now we have a map of cells to processId, so do a collective 'invert lists' 

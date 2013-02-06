@@ -108,17 +108,16 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     virtual void SetController(vtkMultiProcessController*);
 
     // Description:
-    // Specify the name of a scalar array which will be used to fetch
-    // the local index of each point - required by zoltan.
-    // if unset, an array will be generated internally and may consume some small
-    // extra memory.
-    vtkSetStringMacro(IdChannelArray);
-    vtkGetStringMacro(IdChannelArray);
-    
-    // Description:
     // Set the maximum aspect ratio allowed for any pair of axes when subdividing
     vtkSetMacro(MaxAspectRatio, double);
     vtkGetMacro(MaxAspectRatio, double);
+
+    // Description:
+    // If the input can be free during operation to make space for repartitioned data
+    // use with extreme care. Modifying the input is not normal practice in VTK
+    vtkSetMacro(InputDisposable, int);
+    vtkGetMacro(InputDisposable, int);
+    vtkBooleanMacro(InputDisposable, int);
   
     // Description:
     // Return the Bounding Box for a partition
@@ -312,8 +311,8 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
      //
     int                                         UpdatePiece;
     int                                         UpdateNumPieces;
-    char                                       *IdChannelArray;
     double                                      MaxAspectRatio;
+    int                                         InputDisposable;
     vtkSmartPointer<vtkBoundsExtentTranslator>  ExtentTranslator;
     vtkSmartPointer<vtkBoundsExtentTranslator>  InputExtentTranslator;
     vtkSmartPointer<vtkPKdTree>                 KdTree;

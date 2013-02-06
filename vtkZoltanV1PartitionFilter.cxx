@@ -353,11 +353,11 @@ vtkZoltanV1PartitionFilter::vtkZoltanV1PartitionFilter()
 {
   this->UpdatePiece               = 0;
   this->UpdateNumPieces           = 1;
-  this->IdChannelArray            = NULL;
   this->MaxAspectRatio            = 5.0;
   this->ExtentTranslator          = vtkSmartPointer<vtkBoundsExtentTranslator>::New();
   this->InputExtentTranslator     = NULL;
   this->ZoltanData                = NULL;
+  this->InputDisposable           = 0;
   this->Controller                = NULL;
   this->SetController(vtkMultiProcessController::GetGlobalController());
   if (this->Controller == NULL) {
@@ -368,7 +368,6 @@ vtkZoltanV1PartitionFilter::vtkZoltanV1PartitionFilter()
 vtkZoltanV1PartitionFilter::~vtkZoltanV1PartitionFilter()
 {
   this->SetController(NULL);
-  this->SetIdChannelArray(NULL);
 }
 //----------------------------------------------------------------------------
 void vtkZoltanV1PartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
@@ -742,11 +741,8 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   //
   // we make a temp copy of the input so we can add Ids if necessary
   //
-  vtkSmartPointer<vtkPointSet> inputCopy;
   vtkSmartPointer<vtkPoints>   outPoints;
   if (this->UpdateNumPieces>1) {
-    inputCopy.TakeReference(input->NewInstance());
-    inputCopy->ShallowCopy(input);
     // create a new output points array to be filled
     outPoints = vtkSmartPointer<vtkPoints>::New();
     // if input had 0 points, make sure output is still setup correctly (float/double?)
@@ -760,7 +756,6 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
     // if only one process, we can just pass data through
     output->ShallowCopy(input);
     // vertex generation will fail if we don't set certain values
-//    this->ZoltanCallbackData.OutPointCount = output->GetNumberOfPoints();
     this->ZoltanCallbackData.Output        = output;
     // make sure bounding boxes are set so that objects querying the output get the correct results
     this->BoxList.clear();
@@ -776,7 +771,7 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   // with partition info (H5Part reader can generate this)
   //
   this->ZoltanCallbackData.ProcessRank              = this->UpdatePiece;
-  this->ZoltanCallbackData.Input                    = inputCopy;
+  this->ZoltanCallbackData.Input                    = input;
   this->ZoltanCallbackData.Output                   = output;
   this->ZoltanCallbackData.InputPointsData          = inPoints ? inPoints->GetVoidPointer(0) : NULL;
 //  this->ZoltanCallbackData.OutPointCount            = 0;
@@ -795,14 +790,15 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   // space for when data gets sent in from other processes in the zoltan unpack function 
   // This also stops hangs during collective operations by ensuring all ranks) participate
   //
-  vtkSmartPointer<vtkPointData> PointDataCopy = inputCopy->GetPointData();
+  vtkSmartPointer<vtkPointData> PointDataCopy = vtkSmartPointer<vtkPointData>::New();
+  PointDataCopy->ShallowCopy(input->GetPointData());
   this->AllocateFieldArrays(PointDataCopy);
   vtkDebugMacro(<<"FieldArrayPointers (point) Initialized");
 
   //
   // When particle partitioning and exchanging halos, we need to track points
   // by Id. Mesh partitioning only needs Id offsets per process (no halos yet)
-  this->SetupGlobalIds(inputCopy);
+  this->SetupGlobalIds(input);
 
   // 
   // Set all the callbacks and user config parameters that will be used during the loadbalance
@@ -1006,9 +1002,9 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo,
   int zoltan_error = Zoltan_Invert_Lists(this->ZoltanData, 
     num_known,
     num_known>0 ? &partitioninfo.GlobalIds[0] : NULL,
-    /*num_known>0 ? &partitioninfo.LocalIds[0]  : */NULL,
+    NULL,
     num_known>0 ? &partitioninfo.Procs[0]     : NULL,
-    /*num_known>0 ? &partitioninfo.Procs[0]     : */NULL,
+    NULL,
     &num_found,
     &found_global_ids,
     &found_local_ids,
@@ -1047,9 +1043,9 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo,
     found_to_part,
     num_known,
     num_known>0 ? &partitioninfo.GlobalIds[0] : NULL,
-    /*num_known>0 ? &partitioninfo.LocalIds[0]  : */NULL,
+    NULL,
     num_known>0 ? &partitioninfo.Procs[0]     : NULL,
-    /*num_known>0 ? &partitioninfo.Procs[0]     : */NULL
+    NULL
     );
 
   //
