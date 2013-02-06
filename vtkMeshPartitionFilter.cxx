@@ -298,8 +298,6 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   //*****************************************************************
   Zoltan_Destroy(&this->ZoltanData);
 
-
-  vtkDebugMacro(<<"Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds - entering barrier");
 //  this->Controller->Barrier();
   this->Timer->StopTimer();
   vtkDebugMacro(<<"Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds");
@@ -312,6 +310,7 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
 {
   PartitionInfo cell_partitioninfo, point_partitioninfo;
 
+  vtkDebugMacro(<<"Entering BuildCellToProcessList");
   if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
     this->BuildCellToProcessList<float>(this->ZoltanCallbackData.Input, 
       cell_partitioninfo,  // lists of which cells to send to which process
@@ -333,6 +332,7 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
       );
   }
 
+  vtkDebugMacro(<<"Freeing Zoltan LB arrays");
   //*****************************************************************
   // Free the arrays allocated by Zoltan_LB_Partition
   // before we do a manual migration.
@@ -347,6 +347,7 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
   // cells that were split over remote processes require another point migration
   // to ensure all the points are available/complete
   //
+  vtkDebugMacro(<<"Entering ManualPointMigrate");
   int num_found = this->ManualPointMigrate(point_partitioninfo, false);
 
   //
@@ -360,12 +361,14 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
   int          *found_procs      = NULL;
   int          *found_to_part    = NULL;
   //
+
+  vtkDebugMacro(<<"About to invert lists (cell migration)");
   int zoltan_error = Zoltan_Invert_Lists(this->ZoltanData, 
     (int)num_known,
     num_known>0 ? &cell_partitioninfo.GlobalIds[0] : NULL,
     /*num_known>0 ? &cell_partitioninfo.LocalIds[0]  : */NULL,
     num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL,
-    num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL,
+    /*num_known>0 ? &cell_partitioninfo.Procs[0]     : */NULL,
     &num_found,
     &found_global_ids,
     &found_local_ids,
@@ -398,6 +401,7 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
   //
   // Perform the cell exchange
   //
+  vtkDebugMacro(<<"About to Zoltan_Migrate (cells)");
   zoltan_error = Zoltan_Migrate (this->ZoltanData,
     (int)num_found,
     found_global_ids,
@@ -408,8 +412,17 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
     num_known>0 ? &cell_partitioninfo.GlobalIds[0] : NULL,
     /*num_known>0 ? &cell_partitioninfo.LocalIds[0]  : */NULL,
     num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL,
-    num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL
+    /*num_known>0 ? &cell_partitioninfo.Procs[0]     : */NULL
     );
+
+  //
+  // Release the arrays allocated during Zoltan_Invert_Lists
+  //
+  Zoltan_LB_Free_Part(
+    &found_global_ids, 
+    &found_local_ids, 
+    &found_procs, 
+    &found_to_part);
 
   return 1;
 }

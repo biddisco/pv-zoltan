@@ -650,7 +650,8 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
 
   // Let Zoltan do the load balance step automatically
   // particles will be transferred as required between processes
-  Zoltan_Set_Param(this->ZoltanData, "AUTO_MIGRATE", "1");  
+  Zoltan_Set_Param(this->ZoltanData, "AUTO_MIGRATE", "1");
+  Zoltan_Set_Param(this->ZoltanData, "MIGRATE_ONLY_PROC_CHANGES", "1"); 
 
   //
   // Query functions, to provide geometry to Zoltan 
@@ -1007,7 +1008,7 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo,
     num_known>0 ? &partitioninfo.GlobalIds[0] : NULL,
     /*num_known>0 ? &partitioninfo.LocalIds[0]  : */NULL,
     num_known>0 ? &partitioninfo.Procs[0]     : NULL,
-    num_known>0 ? &partitioninfo.Procs[0]     : NULL,
+    /*num_known>0 ? &partitioninfo.Procs[0]     : */NULL,
     &num_found,
     &found_global_ids,
     &found_local_ids,
@@ -1048,7 +1049,7 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo,
     num_known>0 ? &partitioninfo.GlobalIds[0] : NULL,
     /*num_known>0 ? &partitioninfo.LocalIds[0]  : */NULL,
     num_known>0 ? &partitioninfo.Procs[0]     : NULL,
-    num_known>0 ? &partitioninfo.Procs[0]     : NULL
+    /*num_known>0 ? &partitioninfo.Procs[0]     : */NULL
     );
 
   //
