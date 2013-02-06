@@ -91,9 +91,9 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(void *data, int nu
   //
   vtkIdType npts, *pts, newpts[32];
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
-  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
+//  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
   vtkPolyData         *pdata2 = vtkPolyData::SafeDownCast(callbackdata->Output);
-  vtkUnstructuredGrid *udata2 = vtkUnstructuredGrid::SafeDownCast(callbackdata->Output);
+//  vtkUnstructuredGrid *udata2 = vtkUnstructuredGrid::SafeDownCast(callbackdata->Output);
   if (pdata2) {
     pdata2->SetPolys(callbackdata->OutputCellArray);
   }
@@ -132,11 +132,11 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(void *data, int nu
         }
         pdata2->InsertNextCell(ctype, npts, newpts);
       }
-      else if (udata) { 
-        int ctype = udata->GetCellType(cellId);
-        udata->GetCellPoints(cellId, npts, pts); 
-        udata2->InsertNextCell(ctype, npts, pts);
-      }
+      //else if (udata) { 
+      //  int ctype = udata->GetCellType(cellId);
+      //  udata->GetCellPoints(cellId, npts, pts); 
+      //  udata2->InsertNextCell(ctype, npts, pts);
+      //}
       callbackdata->OutCellCount++;
     }
   }
@@ -153,11 +153,12 @@ int vtkMeshPartitionFilter::zoltan_obj_size_function_cell(void *data, int num_gi
   vtkZoltanV1PartitionFilter::CallbackData *callbackdata = (vtkZoltanV1PartitionFilter::CallbackData*)data;
   *ierr = ZOLTAN_OK;
   // return the size of the cell data + number of points in cell + point Ids
-  vtkIdType LID = *local_id;
+  vtkIdType GID = *global_id;
+  vtkIdType LID = GID - callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank];
   //
   vtkIdType npts, *pts;
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
-  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
+//  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
   //
   int ctype = pdata->GetCellType(LID);
   pdata->GetCellPoints(LID,npts,pts);
@@ -173,12 +174,12 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
   INC_PACK_COUNT
   vtkZoltanV1PartitionFilter::CallbackData *callbackdata = (vtkZoltanV1PartitionFilter::CallbackData*)data;
   vtkIdType GID = *global_id;
-  vtkIdType LID = *local_id;
+  vtkIdType LID = GID - callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank];
   //
   //
   vtkIdType npts, *pts, newPts[32];
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
-  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
+//  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
   //
   // Copy all Cell data arrays into the buffer provided by zoltan
   //
@@ -204,9 +205,9 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
     }
     memcpy(buf, newPts, sizeof(vtkIdType)*(npts+2));  
   }
-  else if (udata) { 
-    throw std::string("Implement this");
-  }
+  //else if (udata) { 
+  //  throw std::string("Implement this");
+  //}
 
   *ierr = ZOLTAN_OK;
   return;
@@ -221,12 +222,13 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
   vtkZoltanV1PartitionFilter::CallbackData *callbackdata = (vtkZoltanV1PartitionFilter::CallbackData*)data;
   //
   vtkIdType GID = *global_id;
+//  vtkIdType LID = GID - callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank];
   //
   vtkIdType npts, *pts, ctype, newPts[32];
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
-  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
+//  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
   vtkPolyData         *pdata2 = vtkPolyData::SafeDownCast(callbackdata->Output);
-  vtkUnstructuredGrid *udata2 = vtkUnstructuredGrid::SafeDownCast(callbackdata->Output);
+//  vtkUnstructuredGrid *udata2 = vtkUnstructuredGrid::SafeDownCast(callbackdata->Output);
   //
   for (int i=0; i<callbackdata->NumberOfFields; i++) {
     int asize = callbackdata->MemoryPerTuple[i];
@@ -246,9 +248,9 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
   if (pdata) {
     pdata2->InsertNextCell(ctype, npts, newPts);
   }
-  else if (udata) { 
-    throw std::string("Implement this");
-  }
+  //else if (udata) { 
+  //  throw std::string("Implement this");
+  //}
 
   callbackdata->OutCellCount++;
   *ierr = ZOLTAN_OK;
@@ -438,7 +440,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   std::vector<int> localId_to_process_map(numPts, this->UpdatePiece); 
   // 2) loop over all to be exported and note the destination
   for (vtkIdType i=0; i<numExport; i++) {
-    vtkIdType id               = exportLocalGids[i];
+    vtkIdType id               = exportGlobalGids[i] - this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
     localId_to_process_map[id] = exportProcs[i];
   }
 

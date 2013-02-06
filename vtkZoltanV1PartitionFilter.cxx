@@ -91,7 +91,7 @@ void vtkZoltanV1PartitionFilter::get_object_list_points(void *data, int sizeGID,
   vtkIdType N = callbackdata->Input->GetNumberOfPoints();
   for (int i=0; i<N; i++){
     globalID[i] = i + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-    localID[i] = i;
+//    localID[i] = i;
   }
   *ierr = ZOLTAN_OK;
 }
@@ -109,7 +109,7 @@ int vtkZoltanV1PartitionFilter::get_first_object_points(
   vtkIdType N = callbackdata->Input->GetNumberOfPoints();
   if (N>0) {
     global_id[0] = 0 + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-    local_id[0] = 0;
+//    local_id[0] = 0;
     return 1;
   }
   return 0;
@@ -121,12 +121,15 @@ int vtkZoltanV1PartitionFilter::get_next_object_points(
   int wgt_dim, float *next_obj_wgt, int *ierr)
 {
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
+  //
+  vtkIdType GID = *global_id;
+  vtkIdType LID = GID - callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
 
   *ierr = ZOLTAN_OK;
   vtkIdType N = callbackdata->Input->GetNumberOfPoints();
-  if (local_id[0]<N) {
-    next_global_id[0] = local_id[0] + 1  + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-    next_local_id[0] = local_id[0] + 1;
+  if (LID<N) {
+    next_global_id[0] = LID + 1  + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
+//    next_local_id[0] = LID + 1;
     return 1;
   }
   return 0;
@@ -197,7 +200,7 @@ void vtkZoltanV1PartitionFilter::zoltan_pack_obj_function_points(void *data, int
   INC_PACK_COUNT
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
   vtkIdType GID = *global_id;
-  vtkIdType LID = *local_id;
+  vtkIdType LID = GID - callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
   //
   for (int i=0; i<callbackdata->NumberOfFields; i++) {
     int asize = callbackdata->MemoryPerTuple[i];
@@ -205,7 +208,7 @@ void vtkZoltanV1PartitionFilter::zoltan_pack_obj_function_points(void *data, int
     memcpy(buf, dataptr, asize);
     buf += asize;
   }
-  memcpy(buf, &((T*)(callbackdata->InputPointsData))[(*local_id)*3], sizeof(T)*3);  
+  memcpy(buf, &((T*)(callbackdata->InputPointsData))[LID*3], sizeof(T)*3);  
   *ierr = ZOLTAN_OK;
   return;
 }
@@ -284,8 +287,12 @@ void vtkZoltanV1PartitionFilter::zoltan_pre_migrate_function_points(
   // the ones that are not moving from the input to the output.
   // Mark points so we know which local points will still be local after the exchange
   callbackdata->LocalToLocalIdMap.assign(N, 0);
-  for (vtkIdType i=0; i<num_export; i++) callbackdata->LocalToLocalIdMap[export_local_ids[i]] = -1;    
-  
+  for (vtkIdType i=0; i<num_export; i++) {
+    vtkIdType GID = export_global_ids[i];
+    vtkIdType LID = GID - callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];    
+    callbackdata->LocalToLocalIdMap[LID] = -1;    
+  }
+
   // Loop over each local point and copy it to the output.
   // WARNING: point Ids are changing so any cells referencing the points
   // must have their Ids updated to the new index - create an IdMap to hold this info.
@@ -608,7 +615,7 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
 
   // Global and local Ids are a single integer
   Zoltan_Set_Param(this->ZoltanData, "NUM_GID_ENTRIES", "1"); 
-  Zoltan_Set_Param(this->ZoltanData, "NUM_LID_ENTRIES", "1");
+  Zoltan_Set_Param(this->ZoltanData, "NUM_LID_ENTRIES", "0");
 
   // divide into N global and M local partitions
   std::stringstream global;
