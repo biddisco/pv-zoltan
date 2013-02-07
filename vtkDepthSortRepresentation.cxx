@@ -105,12 +105,17 @@ bool vtkDepthSortRepresentation::AddToView(vtkView* view)
     if (regex.match(1).size()>0) {
       displaynum = atoi(regex.match(1).c_str());
     }
-    // gather memory info about this host
+    //
+    bool ok = vtkPistonPolygonsPainter::InitCudaGL(rview->GetRenderWindow(), rank, displaynum);
+    // 
     vtksys::SystemInformation sysInfo;
     std::string hostname = sysInfo.GetHostname();
-    std::cout <<"Rank " << std::setw(3) <<  rank << " Hostname " << hostname.c_str() << " Initializing CudaGL with GPU " << displaynum << std::endl;
-    //
-    vtkPistonPolygonsPainter::InitCudaGL(rview->GetRenderWindow(), rank, displaynum);
+    if (ok) {
+      std::cout <<"Rank " << std::setw(3) <<  rank << " Hostname " << hostname.c_str() << " Initialized CudaGL with GPU " << displaynum << std::endl;
+    }
+    else {
+      std::cout <<"Rank " << std::setw(3) <<  rank << " Hostname " << hostname.c_str() << " CudaGL Failed " << std::endl;
+    }
   }
   return this->Superclass::AddToView(view);
 }
@@ -146,6 +151,9 @@ int vtkDepthSortRepresentation::GetEnableOpacity()
 //----------------------------------------------------------------------------
 void vtkDepthSortRepresentation::SetEnablePiston(int mode)
 {
+  if (!vtkPistonPolygonsPainter::IsEnabledCudaGL()) {
+    mode = 0;
+  }
   this->DepthSortDefaultPainter->SetEnablePiston(mode);
   if (mode) {
     this->PistonPolygonsPainter->SetScalarsToColors(this->TwoScalarsToColorsPainter);

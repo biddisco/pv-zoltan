@@ -150,7 +150,7 @@ int device_binding(int mpi_rank)
   return my_dev_id;
 }
 //-----------------------------------------------------------------------------
-void vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int displayId)
+int vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int displayId)
 {
   if (!vtkPistonPolygonsPainter::CudaGLInitted)
   {
@@ -158,9 +158,9 @@ void vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int dis
     em->SetRenderWindow(rw);
     if (!em->LoadSupportedExtension("GL_VERSION_1_5"))
     {
-      cerr << "WARNING: Can not use direct piston rendering, reverting to CPU rendering path." << endl;
+      cerr << "WARNING: Can not use direct piston rendering" << endl;
       em->FastDelete();
-      return;
+      return 0;
     }
     em->FastDelete();
     if (displayId<0 || displayId>=vtkpiston::GetCudaDeviceCount()) {
@@ -170,6 +170,7 @@ void vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int dis
     vtkPistonPolygonsPainter::CudaGLInitted = true;
     vtkpiston::CudaGLInit(displayId);
   }
+  return 1;
 }
 //-----------------------------------------------------------------------------
 void vtkPistonPolygonsPainter::PrepareDirectRenderBuffers(int nPoints, int nCells)
