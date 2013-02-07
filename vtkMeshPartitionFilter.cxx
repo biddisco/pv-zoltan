@@ -361,9 +361,9 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
   int zoltan_error = Zoltan_Invert_Lists(this->ZoltanData, 
     (int)num_known,
     num_known>0 ? &cell_partitioninfo.GlobalIds[0] : NULL,
-    /*num_known>0 ? &cell_partitioninfo.LocalIds[0]  : */NULL,
+    NULL,
     num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL,
-    /*num_known>0 ? &cell_partitioninfo.Procs[0]     : */NULL,
+    NULL,
     &num_found,
     &found_global_ids,
     &found_local_ids,
@@ -404,14 +404,10 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
     found_to_part,
     (int)num_known,
     num_known>0 ? &cell_partitioninfo.GlobalIds[0] : NULL,
-    /*num_known>0 ? &cell_partitioninfo.LocalIds[0]  : */NULL,
+    NULL,
     num_known>0 ? &cell_partitioninfo.Procs[0]     : NULL,
-    /*num_known>0 ? &cell_partitioninfo.Procs[0]     : */NULL
+    NULL
     );
-
-  vtkDebugMacro(<<"Release pre-invert arrays (cells)");
-  cell_partitioninfo.GlobalIds.clear();
-  cell_partitioninfo.Procs.clear();
 
   //
   // Release the arrays allocated during Zoltan_Invert_Lists
@@ -423,6 +419,10 @@ int vtkMeshPartitionFilter::PartitionCells(vtkInformation* info,
     &found_procs, 
     &found_to_part);
   vtkDebugMacro(<<"Done Migration (cells)");
+
+  vtkDebugMacro(<<"Release pre-invert arrays (cells)");
+  cell_partitioninfo.GlobalIds.clear();
+  cell_partitioninfo.Procs.clear();
 
   return 1;
 }
@@ -450,7 +450,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 
   // we will put the results of the cell tests in these arrays
   cell_partitioninfo.Procs.reserve(numCells/this->UpdateNumPieces);
-//  cell_partitioninfo.LocalIds.reserve(numCells);
   cell_partitioninfo.GlobalIds.reserve(numCells/this->UpdateNumPieces);
 
   // we know that some points on this process are being exported to remote processes
@@ -582,8 +581,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   // make sure final point count is actual point count, not the reserved amount
   this->ZoltanCallbackData.Output->GetPoints()->SetNumberOfPoints(OutputPointCount);
     
-  std::stringstream temp1, temp2;
-
   std::sort(process_vector.begin(), process_vector.end());
   process_vector.resize(std::unique(process_vector.begin(), process_vector.end()) - process_vector.begin());
 
@@ -594,6 +591,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     point_partitioninfo.GlobalIds.push_back(x->first + this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece]);
     point_partitioninfo.Procs.push_back(x->second);
   }
+
+//  std::stringstream temp1, temp2;
 //  copy(point_partitioninfo.LocalIds.begin(), point_partitioninfo.LocalIds.end(), std::ostream_iterator<vtkIdType>(temp2,", ") );
 //  std::cout << "Sorted " << point_partitioninfo.LocalIds.size() << std::endl;
 //  std::cout << temp2.str() << std::endl;
