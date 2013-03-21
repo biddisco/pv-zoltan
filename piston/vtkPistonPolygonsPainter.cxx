@@ -158,7 +158,7 @@ int vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int disp
     em->SetRenderWindow(rw);
     if (!em->LoadSupportedExtension("GL_VERSION_1_5"))
     {
-      cerr << "WARNING: Can not use direct piston rendering" << endl;
+      // cerr << "WARNING: Can not use direct piston rendering" << endl;
       em->FastDelete();
       return 0;
     }
