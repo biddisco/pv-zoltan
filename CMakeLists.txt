@@ -58,14 +58,21 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_CURRENT_SOURCE_DIR}/piston
 )
 
+#------------------------------------------------------
+# MPI support
+#------------------------------------------------------
+IF (PARAVIEW_USE_MPI)
+  FIND_PACKAGE(MPI)   
+  INCLUDE_DIRECTORIES(${MPI_INCLUDE_PATH})
+ELSE (PARAVIEW_USE_MPI)
+  SET(USE_TRILINOS OFF CACHE BOOL "Use Trilinos library" FORCE)
+  message(FATAL_ERROR "pv-zoltan requires an MPI enabled ParaView")
+ENDIF (PARAVIEW_USE_MPI)
+
 # --------------------------------------------------
 # Trilinos support 
 # --------------------------------------------------
 SET(TRILINOS_ENABLED 0)
-IF (NOT PARAVIEW_USE_MPI)
-  SET(USE_TRILINOS OFF CACHE BOOL "Use Trilinos library" FORCE)
-  message(FATAL_ERROR "pv-zoltan cannot be built against a non MPI enabled ParaView")
-ENDIF (NOT PARAVIEW_USE_MPI)
 
 OPTION(USE_SYSTEM_TRILINOS "Use System Trilinos library" OFF)
 IF(USE_SYSTEM_TRILINOS)
