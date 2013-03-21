@@ -85,8 +85,7 @@
                             name="OpacityArray"
                             number_of_elements="1">
         <Documentation>
-          Set the array name to color by. Set it to empty string
-          to use solid color.
+          Set the array name to use for opacity
         </Documentation>
         <ArrayListDomain attribute_type="Scalars"
                          input_domain_name="input_array_point"
@@ -173,16 +172,6 @@
   <ProxyGroup name="painters">
 
     <Proxy name="DepthSortDefaultPainter" class="vtkDepthSortDefaultPainter">
-
-      <!--<ProxyProperty name="DepthSortPainter"
-        command="SetDepthSortPainter">
-      </ProxyProperty>
-
-      <ProxyProperty name="ScalarsToColorsPainter"
-        command="SetScalarsToColorsPainter">
-      </ProxyProperty>-->
-
-      
     </Proxy>
 
     <!--=======================================-->
@@ -231,10 +220,30 @@
     <Proxy name="TwoScalarsToColorsPainter" 
            class="vtkTwoScalarsToColorsPainter">
     </Proxy>
-
-    <!-- End of "painters" -->
   </ProxyGroup>
 
   <!--======================================================================-->
-</ServerManagerConfiguration>
 
+
+<!-- The painter chain is setup by our default painter -->
+<!--<SubProxy>
+        <Proxy name="DepthSortDefaultPainter"
+          proxygroup="painters" proxyname="DepthSortDefaultPainter" />
+       </SubProxy>-->
+
+<!-- Painter which depth sorts polygons -->
+<!--
+      <SubProxy>
+        <Proxy name="DepthSortPainter"
+          proxygroup="painters" proxyname="DepthSortPainter" />
+      </SubProxy>
+
+      -->
+<!-- Painter which applies opacity values to the lookup table -->
+<!--
+      <SubProxy>
+        <Proxy name="ScalarsToColorsPainter"
+          proxygroup="painters" proxyname="TwoScalarsToColorsPainter" />
+      </SubProxy>-->
+
+</ServerManagerConfiguration>
