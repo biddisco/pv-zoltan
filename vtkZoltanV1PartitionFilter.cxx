@@ -81,7 +81,7 @@ int vtkZoltanV1PartitionFilter::get_number_of_objects_points(void *data, int *ie
 // Zoltan callback which fills the Ids for each object in the exchange
 //----------------------------------------------------------------------------
 void vtkZoltanV1PartitionFilter::get_object_list_points(void *data, int sizeGID, int sizeLID,
-  ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID, int wgt_dim, float *obj_wgts, int *ierr)
+  ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int wgt_dim, float *obj_wgts, int *ierr)
 {
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
   //
@@ -90,13 +90,12 @@ void vtkZoltanV1PartitionFilter::get_object_list_points(void *data, int sizeGID,
   //
   vtkIdType N = callbackdata->Input->GetNumberOfPoints();
   for (int i=0; i<N; i++){
-    globalID[i] = i + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-//    localID[i] = i;
+    global_id[i] = i + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
   }
   *ierr = ZOLTAN_OK;
 }
 //----------------------------------------------------------------------------
-// Zoltan callback which fills the Ids for each object in the exchange
+// Zoltan callback which fills the first Id for each object in the exchange
 //----------------------------------------------------------------------------
 int vtkZoltanV1PartitionFilter::get_first_object_points(
   void *data, int num_gid_entries, int num_lid_entries,
@@ -109,12 +108,14 @@ int vtkZoltanV1PartitionFilter::get_first_object_points(
   vtkIdType N = callbackdata->Input->GetNumberOfPoints();
   if (N>0) {
     global_id[0] = 0 + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-//    local_id[0] = 0;
     return 1;
   }
   return 0;
 }
 
+//----------------------------------------------------------------------------
+// Zoltan callback which fills the next Ids for each object in the exchange
+//----------------------------------------------------------------------------
 int vtkZoltanV1PartitionFilter::get_next_object_points(
   void * data, int num_gid_entries, int num_lid_entries, 
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, ZOLTAN_ID_PTR next_global_id, ZOLTAN_ID_PTR next_local_id, 
@@ -135,7 +136,6 @@ int vtkZoltanV1PartitionFilter::get_next_object_points(
   return 0;
 }
 
-
 //----------------------------------------------------------------------------
 // Zoltan callback which returns the dimension of geometry (3D for us)
 //----------------------------------------------------------------------------
@@ -151,7 +151,7 @@ int vtkZoltanV1PartitionFilter::get_num_geometry(void *data, int *ierr)
 template<typename T>
 void vtkZoltanV1PartitionFilter::get_geometry_list(
   void *data, int sizeGID, int sizeLID, int num_obj, 
-  ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
+  ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id,
   int num_dim, double *geom_vec, int *ierr)
 {
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
@@ -449,7 +449,7 @@ bool vtkZoltanV1PartitionFilter::GatherDataArrayInfo(vtkDataArray *data,
   if (data) {
     ((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->datatype = data->GetDataType();
     ((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->numC     = data->GetNumberOfComponents();
-    strncpy(((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->name, data->GetName(), 64);
+    strncpy_s(((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->name, data->GetName(), 64);
   }
   vtkMPICommunicator* com = vtkMPICommunicator::SafeDownCast(
     this->Controller->GetCommunicator()); 
@@ -772,7 +772,6 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   this->ZoltanCallbackData.Input                    = input;
   this->ZoltanCallbackData.Output                   = output;
   this->ZoltanCallbackData.InputPointsData          = inPoints ? inPoints->GetVoidPointer(0) : NULL;
-//  this->ZoltanCallbackData.OutPointCount            = 0;
   this->ZoltanCallbackData.self                     = this;
 
   float ver;
@@ -989,7 +988,7 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo,
   //
   // Ask zoltan to create the inverse map of whos sends/receives from who
   //
-  int           num_known        = partitioninfo.GlobalIds.size(); 
+  int           num_known        = static_cast<int>(partitioninfo.GlobalIds.size()); 
   int           num_found        = 0;
   ZOLTAN_ID_PTR found_global_ids = NULL;
   ZOLTAN_ID_PTR found_local_ids  = NULL;
@@ -1130,7 +1129,7 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
     cut_upper.push_back(-1); 
 
     // the new node we've just added to the list has this index
-    int new_node_index = cut_position.size()-1;
+    int new_node_index = static_cast<int>(cut_position.size()-1);
 
     // if the parent of this node had a missing child pointer/index
     // and this is the child required, set the child index
