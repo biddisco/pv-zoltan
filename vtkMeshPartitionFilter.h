@@ -61,18 +61,14 @@ class VTK_EXPORT vtkMeshPartitionFilter : public vtkZoltanV1PartitionFilter
     static void zoltan_unpack_obj_function_cell(void *data, int num_gid_entries,
       ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr);
 
-    int PartitionCells(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
+    int PartitionCells(PartitionInfo &cell_partitioninfo);
 
     template <typename T>
     void BuildCellToProcessList(
       vtkDataSet *data, 
       PartitionInfo &cell_partitioninfo, 
       PartitionInfo &point_partitioninfo, 
-      int numExport,
-      ZOLTAN_ID_PTR exportGlobalGids ,
-      ZOLTAN_ID_PTR exportLocalGids,
-      int *exportProcs);
-
+      ZoltanLoadBalanceData &loadBalanceData);
 
   protected:
      vtkMeshPartitionFilter();

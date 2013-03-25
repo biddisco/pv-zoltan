@@ -51,7 +51,8 @@ class  vtkPKdTree;
 class  vtkBoundsExtentTranslator;
 
 //----------------------------------------------------------------------------
- #define JB_DEBUG__
+#define JB_DEBUG__
+//#define EXTRA_ZOLTAN_DEBUG 1
 //----------------------------------------------------------------------------
 #ifdef EXTRA_ZOLTAN_DEBUG
   #define INC_PACK_COUNT pack_count++;
@@ -131,7 +132,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     //----------------------------------------------------------------------------
     // Structure to hold all the dataset/mesh/points related data we pass to
-    // and from zoltan during the calbacks
+    // and from zoltan during points/cell migration callbacks
     //----------------------------------------------------------------------------
     typedef struct CallbackData {
       vtkZoltanV1PartitionFilter   *self;
@@ -178,13 +179,17 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     } ZoltanLoadBalanceData;
 
     //----------------------------------------------------------------------------
-    // Structure we use as a temp storage for 
-    // to processors etc
+    // Structure we use as a temp storage for info about sending points to remote
+    // processors. 
+    // GlobalIds is the list of local Ids we are sending away, converted to Global Ids
+    // Procs is the list of destination ranks, must be same size as Ids
+    // LocalIdsToKeep is a (usually) small subset of Ids which need to be copied 
+    // locally as well as sent remotely.
     //----------------------------------------------------------------------------
     typedef struct {
       std::vector<ZOLTAN_ID_TYPE> GlobalIds;
-//      std::vector<ZOLTAN_ID_TYPE> LocalIds;
-      std::vector<int> Procs;
+      std::vector<int>            Procs;
+      std::vector<int>            LocalIdsToKeep;
     } PartitionInfo;
 
     // Description:
@@ -266,6 +271,14 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     static void add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID);
     vtkIdType   global_to_local_Id(vtkIdType GID);
 
+    template<typename T>
+    void CopyPointsToSelf(
+      std::vector<int> &LocalPointsToKeep,
+      void *data, int num_gid_entries, int num_lid_entries,
+      int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
+      int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
+      ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
+
   protected:
      vtkZoltanV1PartitionFilter();
     ~vtkZoltanV1PartitionFilter();
@@ -300,7 +313,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     MPI_Comm GetMPIComm();
     int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
-    int ManualPointMigrate(PartitionInfo &point_partitioninfo, bool useoutput);
+    int ManualPointMigrate(PartitionInfo &point_partitioninfo, bool append, bool useoutput);
     vtkSmartPointer<vtkPKdTree> CreatePkdTree();
 
     //
@@ -322,12 +335,14 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     CallbackData                ZoltanCallbackData;
     ZoltanLoadBalanceData       LoadBalanceData;
 
+#ifdef EXTRA_ZOLTAN_DEBUG
     //
     // For debugging
     //
-    int pack_count;
-    int unpack_count;
-    int size_count;
+    static int pack_count;
+    static int unpack_count;
+    static int size_count;
+#endif
 
   private:
     vtkZoltanV1PartitionFilter(const vtkZoltanV1PartitionFilter&);  // Not implemented.

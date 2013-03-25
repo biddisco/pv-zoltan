@@ -69,6 +69,12 @@
 vtkStandardNewMacro(vtkZoltanV1PartitionFilter);
 vtkCxxSetObjectMacro(vtkZoltanV1PartitionFilter, Controller, vtkMultiProcessController);
 //----------------------------------------------------------------------------
+#ifdef EXTRA_ZOLTAN_DEBUG
+  int vtkZoltanV1PartitionFilter::pack_count = 0;
+  int vtkZoltanV1PartitionFilter::unpack_count = 0;
+  int vtkZoltanV1PartitionFilter::size_count = 0;
+#endif
+//----------------------------------------------------------------------------
 // Zoltan callback which returns number of objects participating in exchange
 //----------------------------------------------------------------------------
 int vtkZoltanV1PartitionFilter::get_number_of_objects_points(void *data, int *ierr)
@@ -81,7 +87,7 @@ int vtkZoltanV1PartitionFilter::get_number_of_objects_points(void *data, int *ie
 // Zoltan callback which fills the Ids for each object in the exchange
 //----------------------------------------------------------------------------
 void vtkZoltanV1PartitionFilter::get_object_list_points(void *data, int sizeGID, int sizeLID,
-  ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int wgt_dim, float *obj_wgts, int *ierr)
+  ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID, int wgt_dim, float *obj_wgts, int *ierr)
 {
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
   //
@@ -90,12 +96,12 @@ void vtkZoltanV1PartitionFilter::get_object_list_points(void *data, int sizeGID,
   //
   vtkIdType N = callbackdata->Input->GetNumberOfPoints();
   for (int i=0; i<N; i++){
-    global_id[i] = i + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
+    globalID[i] = i + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
   }
   *ierr = ZOLTAN_OK;
 }
 //----------------------------------------------------------------------------
-// Zoltan callback which fills the first Id for each object in the exchange
+// Zoltan callback which fills the Ids for each object in the exchange
 //----------------------------------------------------------------------------
 int vtkZoltanV1PartitionFilter::get_first_object_points(
   void *data, int num_gid_entries, int num_lid_entries,
@@ -113,9 +119,6 @@ int vtkZoltanV1PartitionFilter::get_first_object_points(
   return 0;
 }
 
-//----------------------------------------------------------------------------
-// Zoltan callback which fills the next Ids for each object in the exchange
-//----------------------------------------------------------------------------
 int vtkZoltanV1PartitionFilter::get_next_object_points(
   void * data, int num_gid_entries, int num_lid_entries, 
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, ZOLTAN_ID_PTR next_global_id, ZOLTAN_ID_PTR next_local_id, 
@@ -130,11 +133,11 @@ int vtkZoltanV1PartitionFilter::get_next_object_points(
   vtkIdType N = callbackdata->Input->GetNumberOfPoints();
   if (LID<N) {
     next_global_id[0] = LID + 1  + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-//    next_local_id[0] = LID + 1;
     return 1;
   }
   return 0;
 }
+
 
 //----------------------------------------------------------------------------
 // Zoltan callback which returns the dimension of geometry (3D for us)
@@ -151,7 +154,7 @@ int vtkZoltanV1PartitionFilter::get_num_geometry(void *data, int *ierr)
 template<typename T>
 void vtkZoltanV1PartitionFilter::get_geometry_list(
   void *data, int sizeGID, int sizeLID, int num_obj, 
-  ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id,
+  ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
   int num_dim, double *geom_vec, int *ierr)
 {
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
@@ -300,11 +303,23 @@ void vtkZoltanV1PartitionFilter::zoltan_pre_migrate_function_points(
   for (vtkIdType i=0; i<N; i++) {
     if (callbackdata->LocalToLocalIdMap[i]==0) {
       outPD->CopyData(inPD, i, callbackdata->OutPointCount);
+//why here ?
       memcpy(&((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3], &((T*)(callbackdata->InputPointsData))[i*3], sizeof(T)*3);
       callbackdata->LocalToLocalIdMap[i] = callbackdata->OutPointCount;
       callbackdata->OutPointCount++;
     }
   }
+  *ierr = ZOLTAN_OK;
+}
+
+template<typename T>
+void zoltan_pre_migrate_function_null(
+  void *data, int num_gid_entries, int num_lid_entries,
+  int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
+  int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
+  ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr)
+{
+  *ierr = ZOLTAN_OK;
 }
 //----------------------------------------------------------------------------
 // Function Type: Pre migration callback for halo/other particle exchange
@@ -449,7 +464,7 @@ bool vtkZoltanV1PartitionFilter::GatherDataArrayInfo(vtkDataArray *data,
   if (data) {
     ((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->datatype = data->GetDataType();
     ((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->numC     = data->GetNumberOfComponents();
-    strncpy_s(((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->name, data->GetName(), 64);
+    strncpy(((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->name, data->GetName(), 64);
   }
   vtkMPICommunicator* com = vtkMPICommunicator::SafeDownCast(
     this->Controller->GetCommunicator()); 
@@ -519,6 +534,7 @@ vtkBoundingBox vtkZoltanV1PartitionFilter::GetGlobalBounds(vtkDataSet *input)
   }
   return globalBounds;
 }
+
 //-------------------------------------------------------------------------
 void vtkZoltanV1PartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fields) 
 {
@@ -623,12 +639,12 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
   std::stringstream local;
   local << 1 << ends;
   //
-  Zoltan_Set_Param(this->ZoltanData, "NUM_GLOBAL_PARTS", global.str().c_str());
-  Zoltan_Set_Param(this->ZoltanData, "NUM_LOCAL_PARTS",  local.str().c_str());
+//  Zoltan_Set_Param(this->ZoltanData, "NUM_GLOBAL_PARTS", global.str().c_str());
+//  Zoltan_Set_Param(this->ZoltanData, "NUM_LOCAL_PARTS",  local.str().c_str());
 
   // All points have the same weight
   Zoltan_Set_Param(this->ZoltanData, "OBJ_WEIGHT_DIM", "0");
-  Zoltan_Set_Param(this->ZoltanData, "RETURN_LISTS", "ALL");
+  Zoltan_Set_Param(this->ZoltanData, "RETURN_LISTS", "IMPORT AND EXPORT");
 
   // RCB parameters
   // Zoltan_Set_Param(this->ZoltanData, "PARMETIS_METHOD", "PARTKWAY");
@@ -649,7 +665,7 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
 
   // Let Zoltan do the load balance step automatically
   // particles will be transferred as required between processes
-  Zoltan_Set_Param(this->ZoltanData, "AUTO_MIGRATE", "1");
+  Zoltan_Set_Param(this->ZoltanData, "AUTO_MIGRATE", "0");
   Zoltan_Set_Param(this->ZoltanData, "MIGRATE_ONLY_PROC_CHANGES", "1"); 
 
   //
@@ -671,8 +687,10 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
   }
 
   //
-  // Register functions for packing and unpacking data
-  // by migration tools.  
+  // Register functions for packing and unpacking data by migration tools.  
+  // Not used just yet here as we are disabling auto-migration
+  //
+/*
   if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
     zsize_fn  f1 = zoltan_obj_size_function_points<float>;
     zpack_fn  f2 = zoltan_pack_obj_function_points<float>;
@@ -693,6 +711,7 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
     Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_UNPACK_OBJ_FN_TYPE,     (void (*)()) f3, &this->ZoltanCallbackData);
     Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &this->ZoltanCallbackData);
   }
+*/
 }
 //----------------------------------------------------------------------------
 int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
@@ -754,7 +773,7 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
     // if only one process, we can just pass data through
     output->ShallowCopy(input);
     // vertex generation will fail if we don't set certain values
-    this->ZoltanCallbackData.Output        = output;
+    this->ZoltanCallbackData.Output = output;
     // make sure bounding boxes are set so that objects querying the output get the correct results
     this->BoxList.clear();
     this->BoxList.push_back(globalBounds);
@@ -873,13 +892,11 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
       exit(0);
     }
 
-//#ifdef EXTRA_ZOLTAN_DEBUG
-    vtkDebugMacro(<<"Partitioning complete on " << this->UpdatePiece << 
-      " pack_count : " << pack_count <<
-      " size_count : " << size_count <<
-      " unpack_count : " << unpack_count 
+    vtkDebugMacro(<<"Partitioning "  << 
+      " numImport : " << this->LoadBalanceData.numImport <<
+      " numExport : " << this->LoadBalanceData.numExport 
      );
-//#endif
+
 
     //
     // Get bounding boxes from zoltan and set them in the ExtentTranslator
@@ -983,12 +1000,12 @@ void vtkZoltanV1PartitionFilter::InitializeFieldDataArrayPointers(
   }
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo, bool useoutput)
+int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo, bool append, bool useoutput)
 {
   //
-  // Ask zoltan to create the inverse map of whos sends/receives from who
+  // Ask zoltan to create the inverse map of who sends/receives from who
   //
-  int           num_known        = static_cast<int>(partitioninfo.GlobalIds.size()); 
+  int           num_known        = partitioninfo.GlobalIds.size(); 
   int           num_found        = 0;
   ZOLTAN_ID_PTR found_global_ids = NULL;
   ZOLTAN_ID_PTR found_local_ids  = NULL;
@@ -1014,19 +1031,70 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo,
     exit(0);
   }
 
-  this->ZoltanCallbackData.CopyFromOutput = useoutput;
+  vtkDebugMacro(<<"ManualPointMigrate (Invert) "  << 
+    " numImport : " << num_found <<
+    " numExport : " << partitioninfo.GlobalIds.size()
+    );
+
   //
-  // Before sending, set the pre-migrate function to the add function
-  // which assumes we are receiving new points, but not removing any existing ones
-  //
+  // After invert lists is called, we know 
+  // 1) how many points we are sending
+  // 2) how many points we are receiving
+  // 3) how many points we are sending - but also keeping locally (computed locally earlier)
+  // so now we can allocate just once the whole set of final arrays
+  // instead of using pre_migrate callback, we'll manually do it here
+  // because we can use some local info and then delete some lists prior to the main exchange
+  // 
+
+  int err;
   if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
-    zprem_fn f4 = zoltan_pre_migrate_function_points_add<float>;
-    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &this->ZoltanCallbackData);
+    this->CopyPointsToSelf<float>(
+      partitioninfo.LocalIdsToKeep,
+      &this->ZoltanCallbackData, 0, 0,
+      num_found, found_global_ids, found_local_ids,
+      found_procs, found_to_part, 
+      num_known, (num_known>0 ? &partitioninfo.GlobalIds[0] : NULL),
+      NULL, (num_known>0 ? &partitioninfo.Procs[0] : NULL), NULL, &err);
   }
   else if (this->ZoltanCallbackData.PointType==VTK_DOUBLE) {
-    zprem_fn f4 = zoltan_pre_migrate_function_points_add<double>;
+    this->CopyPointsToSelf<double>(
+      partitioninfo.LocalIdsToKeep,
+      &this->ZoltanCallbackData, 0, 0,
+      num_found, found_global_ids, found_local_ids,
+      found_procs, found_to_part, 
+      num_known, (num_known>0 ? &partitioninfo.GlobalIds[0] : NULL),
+      NULL, (num_known>0 ? &partitioninfo.Procs[0] : NULL), NULL, &err);
+  }
+
+  vtkDebugMacro(<<"ManualPointMigrate (CopyPointsToSelf) ");
+
+  this->ZoltanCallbackData.CopyFromOutput = useoutput;
+
+  //
+  // Register functions for packing and unpacking data by migration tools.  
+  //
+  if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
+    zsize_fn  f1 = zoltan_obj_size_function_points<float>;
+    zpack_fn  f2 = zoltan_pack_obj_function_points<float>;
+    zupack_fn f3 = zoltan_unpack_obj_function_points<float>;
+    zprem_fn  f4 = zoltan_pre_migrate_function_null<float>;
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_OBJ_SIZE_FN_TYPE,       (void (*)()) f1, &this->ZoltanCallbackData); 
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PACK_OBJ_FN_TYPE,       (void (*)()) f2, &this->ZoltanCallbackData); 
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_UNPACK_OBJ_FN_TYPE,     (void (*)()) f3, &this->ZoltanCallbackData); 
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &this->ZoltanCallbackData); 
+  }
+  else if (this->ZoltanCallbackData.PointType==VTK_DOUBLE) {
+    zsize_fn  f1 = zoltan_obj_size_function_points<double>;
+    zpack_fn  f2 = zoltan_pack_obj_function_points<double>;
+    zupack_fn f3 = zoltan_unpack_obj_function_points<double>;
+    zprem_fn  f4 = zoltan_pre_migrate_function_null<double>;
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_OBJ_SIZE_FN_TYPE,       (void (*)()) f1, &this->ZoltanCallbackData);
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PACK_OBJ_FN_TYPE,       (void (*)()) f2, &this->ZoltanCallbackData);
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_UNPACK_OBJ_FN_TYPE,     (void (*)()) f3, &this->ZoltanCallbackData);
     Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &this->ZoltanCallbackData);
   }
+
+  CLEAR_ZOLTAN_DEBUG
 
   //
   // Now let zoltan perform the send/receive exchange of particles
@@ -1043,6 +1111,14 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(PartitionInfo &partitioninfo,
     num_known>0 ? &partitioninfo.Procs[0]     : NULL,
     NULL
     );
+
+#ifdef EXTRA_ZOLTAN_DEBUG
+    vtkDebugMacro(<<"Partitioning complete on " << this->UpdatePiece << 
+      " pack_count : " << pack_count <<
+      " size_count : " << size_count <<
+      " unpack_count : " << unpack_count 
+     );
+#endif
 
   //
   // Release the arrays allocated during Zoltan_Invert_Lists
@@ -1129,7 +1205,7 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
     cut_upper.push_back(-1); 
 
     // the new node we've just added to the list has this index
-    int new_node_index = static_cast<int>(cut_position.size()-1);
+    int new_node_index = cut_position.size()-1;
 
     // if the parent of this node had a missing child pointer/index
     // and this is the child required, set the child index
@@ -1258,4 +1334,80 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
 
 
   return KdTree;
+}
+//----------------------------------------------------------------------------
+template<typename T>
+void vtkZoltanV1PartitionFilter::CopyPointsToSelf(
+  std::vector<int> &LocalPointsToKeep,
+  void *data, int num_gid_entries, int num_lid_entries,
+  int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
+  int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
+  ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr)
+{
+  CallbackData *callbackdata = static_cast<CallbackData*>(data);
+  // newTotal = original points - sent away + received
+  vtkIdType N  = callbackdata->Input->GetNumberOfPoints();
+  //
+  // our size estimates of the final number of points can be messed up because the list of points being sent away
+  // contains some point which are sent to multiple remote processes. We can't therefore use the size of this list
+  // to subtract away from the original points to get final point list size.
+  // We  therefore first need to count the number of unique points being sent away
+  // We will do that whilst we ...
+  // Mark points to be moved with -1 so we know which local points will still be local after the exchange
+  callbackdata->LocalToLocalIdMap.assign(N, 0);
+  vtkIdType uniqueSends = 0;
+  for (vtkIdType i=0; i<num_export; i++) {
+    vtkIdType GID = export_global_ids[i];
+    vtkIdType LID = GID - callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];    
+    if (callbackdata->LocalToLocalIdMap[LID]==0) {
+      callbackdata->LocalToLocalIdMap[LID] = -1;
+      uniqueSends++;
+    }
+  }
+  // now compute the final number of points we'll have 
+  vtkIdType N2 = N + num_import - (uniqueSends - LocalPointsToKeep.size());
+  callbackdata->Output->GetPoints()->SetNumberOfPoints(N2);
+  callbackdata->OutputPointsData = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
+  vtkPointData    *inPD  = callbackdata->Input->GetPointData();
+  vtkPointData    *outPD = callbackdata->Output->GetPointData();
+  outPD->CopyAllocate(inPD, N2);
+  //
+  // prepare for copying data by setting up pointers to field arrays
+  //
+  callbackdata->self->InitializeFieldDataArrayPointers(callbackdata, inPD, outPD, N2);
+
+  // Loop over each local point and copy it to the output.
+  // WARNING: point Ids are changing so any cells referencing the points
+  // must have their Ids updated to the new index - create an IdMap to hold this info.
+  callbackdata->OutPointCount = 0;
+  for (vtkIdType i=0; i<N; i++) {
+    // for each point that is staying on this process
+    if (callbackdata->LocalToLocalIdMap[i]==0) { 
+      outPD->CopyData(inPD, i, callbackdata->OutPointCount);
+      memcpy(&((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3], &((T*)(callbackdata->InputPointsData))[i*3], sizeof(T)*3);
+      callbackdata->LocalToLocalIdMap[i] = callbackdata->OutPointCount;
+      callbackdata->OutPointCount++;
+    }
+  }
+  vtkIdType maxInitialId = callbackdata->OutPointCount;
+  // ...and the points marked for sending which we also need a local copy of 
+  for (vtkIdType i=0; i<LocalPointsToKeep.size(); i++) {
+    vtkIdType LID = LocalPointsToKeep[i];
+    if (callbackdata->LocalToLocalIdMap[LID]==-1) { // the point was marked as moving, but we need it here too
+      outPD->CopyData(inPD, LID, callbackdata->OutPointCount);
+      memcpy(&((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3], &((T*)(callbackdata->InputPointsData))[LID*3], sizeof(T)*3);
+      callbackdata->LocalToLocalIdMap[LID] = callbackdata->OutPointCount;
+      callbackdata->OutPointCount++;
+    }
+    else if (callbackdata->LocalToLocalIdMap[LID]>=maxInitialId) {
+      vtkErrorMacro(<<"Point already mapped from " << LID << " to " << callbackdata->LocalToLocalIdMap[LID]);
+    }
+    else {
+      vtkErrorMacro(<<"Serious Error : Point already mapped from " << LID << " to " << callbackdata->LocalToLocalIdMap[LID]);
+    }
+  }
+  // callbackdata->OutPointCount<N2 is allowed as we may receive points, but > is forbidden
+  if (callbackdata->OutPointCount>N2) {
+    vtkErrorMacro(<<"Serious Error : Point allocation N2 " << N2 << " greater than " << callbackdata->OutPointCount);
+  }
 }

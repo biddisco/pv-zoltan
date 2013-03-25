@@ -273,7 +273,7 @@ int vtkParticlePartitionFilter::ExchangeHaloPoints(vtkInformation* info,
   PartitionInfo GhostIds;
   this->FindPointsInHaloRegions(this->ZoltanCallbackData.Output->GetPoints(), newIds, GhostIds);
 
-  int num_found = this->ManualPointMigrate(GhostIds, true);
+  int num_found = this->ManualPointMigrate(GhostIds, false, true);
 
   //
   // Ghost information : Paraview doesn't let us visualize an array called vtkGhostLevels
