@@ -273,21 +273,21 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   // based on the point partition, decide which cells need to be sent away
   // sending some cells may imply sending a few extra points too
   //
-  PartitionInfo cell_partitioninfo, point_partitioninfo;
+  PartitionInfo cell_partitioninfo;
 
   vtkDebugMacro(<<"Entering BuildCellToProcessList");
   if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
     this->BuildCellToProcessList<float>(this->ZoltanCallbackData.Input, 
-      cell_partitioninfo,    // lists of which cells to send to which process
-      point_partitioninfo,   // list of which points to send to which process
-      this->LoadBalanceData  // the partition information generated during PartitionPoints
+      cell_partitioninfo,       // lists of which cells to send to which process
+      this->MigrateLists.known, // list of which points to send to which process
+      this->LoadBalanceData     // the partition information generated during PartitionPoints
     );
   }
   else if (this->ZoltanCallbackData.PointType==VTK_DOUBLE) {
     this->BuildCellToProcessList<double>(this->ZoltanCallbackData.Input, 
-      cell_partitioninfo,  // lists of which cells to send to which process
-      point_partitioninfo, // list of which points to send to which process
-      this->LoadBalanceData
+      cell_partitioninfo,       // lists of which cells to send to which process
+      this->MigrateLists.known, // list of which points to send to which process
+      this->LoadBalanceData     // the partition information generated during PartitionPoints
     );
   }
 
@@ -301,21 +301,22 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
 
   //
   // Based on the original partition and our extra cell point allocations
-  // perform the main point excahge between all processes
+  // perform the main point exchange between all processes
   //
-  this->ManualPointMigrate(point_partitioninfo, false, false);
+  this->ManualPointMigrate(this->MigrateLists, false, this->KeepInversePointLists);
   
-  vtkDebugMacro(<<"Release point exchange data");
-  point_partitioninfo.GlobalIds.clear();
-  point_partitioninfo.Procs.clear();
-  point_partitioninfo.LocalIdsToKeep.clear();
+  if (!this->KeepInversePointLists) {
+    vtkDebugMacro(<<"Release point exchange data");
+    this->MigrateLists.known.GlobalIds.clear();
+    this->MigrateLists.known.Procs.clear();
+    this->MigrateLists.known.LocalIdsToKeep.clear();
+  }
 
   if (this->InputDisposable) {
     vtkDebugMacro(<<"Disposing of input points and point data");
     this->ZoltanCallbackData.Input->SetPoints(NULL);
     this->ZoltanCallbackData.Input->GetPointData()->Initialize();
   }
-  this->Controller->Barrier();
 
   // after deleting memory, add a barrier to let ranks free as much as possible before the next big allocation
   this->Controller->Barrier();
@@ -377,6 +378,9 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
     exit(0);
   }
 
+  //
+  //  make sure field arrays are setup and ready for migration/copying
+  //
   this->AllocateFieldArrays(this->ZoltanCallbackData.Output->GetCellData());
 
   //

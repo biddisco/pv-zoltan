@@ -114,12 +114,21 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     vtkGetMacro(MaxAspectRatio, double);
 
     // Description:
+    // When reading time dependent data (for example), it may be necessary
+    // to partition once, but send scalar fields at each time step.
+    // In this case we need to keep the (Invert Lists) Partition info so that migration
+    // steps may be performed after the initial partition
+    vtkSetMacro(KeepInversePointLists, int);
+    vtkGetMacro(KeepInversePointLists, int);
+    vtkBooleanMacro(KeepInversePointLists, int);   
+  
+    // Description:
     // If the input can be free during operation to make space for repartitioned data
     // use with extreme care. Modifying the input is not normal practice in VTK
     vtkSetMacro(InputDisposable, int);
     vtkGetMacro(InputDisposable, int);
     vtkBooleanMacro(InputDisposable, int);
-  
+
     // Description:
     // Return the Bounding Box for a partition
     vtkBoundingBox *GetPartitionBoundingBox(int partition);
@@ -191,6 +200,15 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       std::vector<int>            Procs;
       std::vector<int>            LocalIdsToKeep;
     } PartitionInfo;
+
+    typedef struct {
+      PartitionInfo               known;
+      int                         num_found;
+      ZOLTAN_ID_PTR               found_global_ids;
+      ZOLTAN_ID_PTR               found_local_ids;
+      int                        *found_procs;
+      int                        *found_to_part;
+    } MigrationLists;
 
     // Description:
     // zoltan callback to return number of points participating in load/balance
@@ -279,6 +297,29 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
       ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
 
+    //
+    // for migration of point data without geometry etc
+    //
+    static int zoltan_obj_size_function_pointdata(void *data, 
+      int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id, 
+      ZOLTAN_ID_PTR local_id, int *ierr);
+    static void zoltan_pack_obj_function_pointdata(void *data, int num_gid_entries, int num_lid_entries,
+      ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr);
+    static void zoltan_unpack_obj_function_pointdata(void *data, int num_gid_entries,
+      ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr);
+    static void zoltan_pre_migrate_function_pointdata(
+      void *data, int num_gid_entries, int num_lid_entries,
+      int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
+      int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
+      ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
+
+  // Description:
+  // After an initial partitioning has taken place, this function can be used to partition
+  // additional filed arrays such as scalar data at t>0.
+  // to make use of this function, the KeepInversePointLists must be enabled when
+  // initial partitioning takes place.
+  bool MigratePointData(vtkDataSetAttributes *inPointData, vtkDataSetAttributes *outPointData);
+
   protected:
      vtkZoltanV1PartitionFilter();
     ~vtkZoltanV1PartitionFilter();
@@ -313,7 +354,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     MPI_Comm GetMPIComm();
     int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
-    int ManualPointMigrate(PartitionInfo &point_partitioninfo, bool append, bool useoutput);
+    int ManualPointMigrate(MigrationLists &migrationLists, bool useoutput, bool keepinformation);
     vtkSmartPointer<vtkPKdTree> CreatePkdTree();
 
     //
@@ -325,11 +366,14 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     int                                         UpdatePiece;
     int                                         UpdateNumPieces;
     double                                      MaxAspectRatio;
+    int                                         KeepInversePointLists;
     int                                         InputDisposable;
     vtkSmartPointer<vtkBoundsExtentTranslator>  ExtentTranslator;
     vtkSmartPointer<vtkBoundsExtentTranslator>  InputExtentTranslator;
     vtkSmartPointer<vtkPKdTree>                 KdTree;
     vtkSmartPointer<vtkTimerLog>                Timer;
+    MigrationLists                              MigrateLists;
+
     //
     struct Zoltan_Struct       *ZoltanData;
     CallbackData                ZoltanCallbackData;
