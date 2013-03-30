@@ -1294,7 +1294,7 @@ void vtkZoltanV1PartitionFilter::CopyPointsToSelf(
   vtkIdType N  = callbackdata->Input->GetNumberOfPoints();
   //
   // our size estimates of the final number of points can be messed up because the list of points being sent away
-  // contains some point which are sent to multiple remote processes. We can't therefore use the size of this list
+  // contains some points which are sent to multiple remote processes. We can't therefore use the size of this list
   // to subtract away from the original points to get final point list size.
   // We therefore first need to count the number of unique points being sent away
   // We will do that whilst we ...

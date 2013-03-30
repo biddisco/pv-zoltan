@@ -590,9 +590,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   point_partitioninfo.Procs.reserve(loadBalanceData.numExport + process_vector.size());
   
   // 1) add the points from zoltan load balance to send list
-  int globaloffset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece];
   for (int i=0; i<loadBalanceData.numExport; ++i) {
-    point_partitioninfo.GlobalIds.push_back(loadBalanceData.exportGlobalGids[i] + globaloffset);
+    point_partitioninfo.GlobalIds.push_back(loadBalanceData.exportGlobalGids[i]);
     point_partitioninfo.Procs.push_back(loadBalanceData.exportProcs[i]);
   }
 
