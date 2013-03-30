@@ -226,9 +226,6 @@ void vtkZoltanV1PartitionFilter::zoltan_unpack_obj_function_points(void *data, i
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
   vtkIdType GID = *global_id;
   //
-  vtkPointData *inPD  = callbackdata->Input->GetPointData();
-  vtkPointData *outPD = callbackdata->Output->GetPointData();
-  //
   for (int i=0; i<callbackdata->NumberOfFields; i++) {
     int asize = callbackdata->MemoryPerTuple[i];
     char *dataptr = (char*)(callbackdata->OutputArrayPointers[i]) + asize*(callbackdata->OutPointCount);
@@ -1404,10 +1401,11 @@ void vtkZoltanV1PartitionFilter::zoltan_unpack_obj_function_pointdata(void *data
   //
   for (int i=0; i<callbackdata->NumberOfFields; i++) {
     int asize = callbackdata->MemoryPerTuple[i];
-    char *dataptr = (char*)(callbackdata->OutputArrayPointers[i]) + asize*LID;
+    char *dataptr = (char*)(callbackdata->OutputArrayPointers[i]) + asize*(callbackdata->MigrationPointCount);
     memcpy(dataptr, buf, asize);
     buf += asize;
   }
+  callbackdata->MigrationPointCount++;
   *ierr = ZOLTAN_OK;
   return;
 }
@@ -1449,21 +1447,25 @@ bool vtkZoltanV1PartitionFilter::MigratePointData(vtkDataSetAttributes *inPointD
 
   vtkIdType N2 = inPointData->GetNumberOfTuples();
 
-      //
-      // Pointdata for points which are not moving or being duplicated needs to be preserved
-      // before the migration step
-      //
-      // Loop over each local point and copy it to the output.
-      // WARNING: point Ids are changing so any cells referencing the points
-      // must have their Ids updated to the new index - create an IdMap to hold this info.
-      vtkIdType points_ok = 0;
-      for (vtkIdType i=0; i<N2; i++) {
-        // for each point that is staying on this process
-        if (this->ZoltanCallbackData.LocalToLocalIdMap[i]>=0) { 
-          outPointData->CopyData(inPointData, i, this->ZoltanCallbackData.LocalToLocalIdMap[i]);
-          points_ok++;
-        }
-      }
+  this->ZoltanCallbackData.MigrationPointCount = 0;
+
+  //
+  // Pointdata for points which are not moving or being duplicated need to be preserved
+  // before the migration step
+  //
+  vtkIdType maxID = 0, points_ok = 0;
+  for (vtkIdType i=0; i<N2; i++) {
+    // for each point that is staying on this process
+    if (this->ZoltanCallbackData.LocalToLocalIdMap[i]>=0) { 
+      vtkIdType newID = this->ZoltanCallbackData.LocalToLocalIdMap[i];
+      outPointData->CopyData(inPointData, i, newID);
+      this->ZoltanCallbackData.MigrationPointCount++;
+      maxID = std::max(maxID, newID);
+    }
+  }
+  if (maxID>this->ZoltanCallbackData.MigrationPointCount) {
+    vtkErrorMacro(<<"Local ID mapped to new ID outside of permitted range");
+  }
 
   //
   // perform a migration
@@ -1471,7 +1473,7 @@ bool vtkZoltanV1PartitionFilter::MigratePointData(vtkDataSetAttributes *inPointD
   CLEAR_ZOLTAN_DEBUG
 
   //
-  // Now let zoltan perform the send/receive exchange of data
+  // Now let zoltan perform the send/receive exchange of data between processes
   //
   int num_known = this->MigrateLists.known.GlobalIds.size();
   int zoltan_error = Zoltan_Migrate (this->ZoltanData,
@@ -1488,12 +1490,14 @@ bool vtkZoltanV1PartitionFilter::MigratePointData(vtkDataSetAttributes *inPointD
     );
 
 #ifdef EXTRA_ZOLTAN_DEBUG
-    vtkDebugMacro(<<"Partitioning complete on " << this->UpdatePiece << 
+    vtkDebugMacro(<<"MigratePointData complete on " << this->UpdatePiece << 
       " pack_count : " << pack_count <<
       " size_count : " << size_count <<
       " unpack_count : " << unpack_count 
      );
 #endif
 
-   return true;
+  vtkDebugMacro(<< "Expected " << N1 << " Points , found " << this->ZoltanCallbackData.MigrationPointCount);
+
+  return true;
 }

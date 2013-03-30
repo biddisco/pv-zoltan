@@ -110,6 +110,7 @@ class TestStruct {
   bool        benchmarkPartition;
   //
   void    CreateXMLPolyDataReader();
+  void    DeleteXMLPolyDataReader();
   void    CreatePartitioner_Particles();
   void    CreatePartitioner_Mesh();
   double  UpdatePartitioner();
@@ -164,6 +165,12 @@ void DisplayParameter(const char *prefix1, const char *prefix2, T *data, int com
     (i==(components-1)) ? std::cout << "}" : std::cout << ",";
   }
   std::cout << std::endl;
+}
+//----------------------------------------------------------------------------
+template <typename T>
+void DisplayParameter(const char *prefix1, const char *prefix2, T data, int rank)
+{
+  DisplayParameter<T>(prefix1, prefix2, &data, 1, rank);
 }
 //----------------------------------------------------------------------------
 template <typename T>

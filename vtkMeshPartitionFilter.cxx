@@ -248,6 +248,9 @@ vtkMeshPartitionFilter::vtkMeshPartitionFilter()
 //----------------------------------------------------------------------------
 vtkMeshPartitionFilter::~vtkMeshPartitionFilter()
 {
+  if (this->ZoltanData) {
+    Zoltan_Destroy(&this->ZoltanData);
+  }
 }
 //----------------------------------------------------------------------------
 void vtkMeshPartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
@@ -335,7 +338,9 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   //*****************************************************************
   // Free the storage allocated for the Zoltan structure.
   //*****************************************************************
-  Zoltan_Destroy(&this->ZoltanData);
+  if (!this->KeepInversePointLists) {
+    Zoltan_Destroy(&this->ZoltanData);
+  }
 
   this->Timer->StopTimer();
   vtkDebugMacro(<<"Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds");

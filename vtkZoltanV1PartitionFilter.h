@@ -157,6 +157,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       int                           NumberOfFields;
       int                           MaxCellSize;
       vtkIdType                     OutPointCount;
+      vtkIdType                     MigrationPointCount;
       vtkIdType                     OutCellCount;
       vtkSmartPointer<vtkCellArray> OutputCellArray;
       std::vector<vtkIdType>        LocalToLocalIdMap;

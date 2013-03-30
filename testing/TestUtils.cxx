@@ -109,7 +109,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.windowSize[0] = test.windowSize[1] = 400+8;
 
   // uncomment this to wait for debugger attach
-  // DEBUG_WAIT
+   DEBUG_WAIT
   //
   test.controller->Barrier();
 
@@ -209,6 +209,12 @@ void TestStruct::CreateXMLPolyDataReader()
 {
   this->xmlreader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
   this->xmlreader->SetFileName(this->fullName.c_str());
+}
+//----------------------------------------------------------------------------
+void TestStruct::DeleteXMLPolyDataReader()
+{
+  this->xmlreader->SetFileName(NULL);
+  this->xmlreader = NULL;
 }
 //----------------------------------------------------------------------------
 void TestStruct::CreatePartitioner_Particles()

@@ -86,7 +86,32 @@ int main (int argc, char* argv[])
   vtkIdType totalParticles = 0;
 
   test.CreateXMLPolyDataReader();
-  test.xmlreader->Update();
+
+  vtkStreamingDemandDrivenPipeline *xsddp = vtkStreamingDemandDrivenPipeline::SafeDownCast(test.xmlreader->GetExecutive());
+  // no piece info set yet, assumes info is not piece dependent
+  xsddp->UpdateInformation();
+  // now set piece info and update
+  xsddp->SetUpdateExtent(0, test.myRank, test.numProcs, 0);
+  xsddp->Update();
+
+  vtkPointSet *neurons = vtkPointSet::SafeDownCast(test.xmlreader->GetOutput());
+  vtkDataArray *opac = neurons->GetPointData()->GetArray("RTNeuron Opacity");
+  vtkSmartPointer<vtkDataArray> o_copy;
+  if (opac) {
+    o_copy.TakeReference(opac->NewInstance());
+    o_copy->DeepCopy(opac);
+    o_copy->SetName(opac->GetName());
+  }
+  else {
+    o_copy = vtkSmartPointer<vtkFloatArray>::New();
+    o_copy->SetName("RTNeuron Opacity");
+  }
+  std::stringstream temp;
+  temp << test.myRank << std::ends;
+  DisplayParameter<char *>   ("====================", "", &empty, 1, test.myRank);
+  DisplayParameter<char *>   ("Scalar test name ", temp.str().c_str(), o_copy->GetName(), test.myRank);
+  DisplayParameter<vtkIdType>("Scalar test name ", temp.str().c_str(), o_copy->GetNumberOfTuples(), test.myRank);
+  DisplayParameter<char *>   ("====================", "", &empty, 1, test.myRank);
 
   //--------------------------------------------------------------
   // Parallel partition
@@ -95,7 +120,6 @@ int main (int argc, char* argv[])
   test.partitioner->SetInputConnection(test.xmlreader->GetOutputPort());
   test.partitioner->SetInputDisposable(1);
   test.partitioner->SetKeepInversePointLists(1);
-//  test.partitioner->SetGhostCellOverlap(test.ghostOverlap);
   partition_elapsed = test.UpdatePartitioner();
 
   //--------------------------------------------------------------
@@ -125,6 +149,15 @@ int main (int argc, char* argv[])
   sddp->SetUpdateExtent(0, test.myRank, test.numProcs, 0);
   sddp->Update();
 
+  vtkSmartPointer<vtkPointData> input_scalars = vtkSmartPointer<vtkPointData>::New();
+  vtkSmartPointer<vtkPointData> partitioned_scalars = vtkSmartPointer<vtkPointData>::New();
+  vtkSmartPointer<vtkFloatArray> p_copy = vtkSmartPointer<vtkFloatArray>::New();
+  p_copy->SetName(o_copy->GetName());
+  input_scalars->AddArray(o_copy);
+  partitioned_scalars->AddArray(p_copy);
+
+  test.partitioner->MigratePointData(input_scalars, partitioned_scalars);
+  //
   if (test.doRender) {
     //
     // Send all the data to process zero for display
@@ -132,6 +165,8 @@ int main (int argc, char* argv[])
     vtkSmartPointer<vtkPolyData> OutputData;
     OutputData.TakeReference(vtkPolyData::SafeDownCast(sddp->GetOutputData(0)->NewInstance()));
     OutputData->ShallowCopy(sddp->GetOutputData(0));
+    OutputData->GetPointData()->ShallowCopy(partitioned_scalars);
+
     if (test.myRank>0) {
       test.controller->Send(OutputData, 0, DATA_SEND_TAG);
     }
@@ -164,9 +199,9 @@ int main (int argc, char* argv[])
         mapper->SetColorModeToMapScalars();
         mapper->SetScalarModeToUsePointFieldData();
         mapper->SetUseLookupTableScalarRange(0);
-        mapper->SetScalarRange(0,test.numProcs-1);
+        mapper->SetScalarRange(0.0,0.4);
         mapper->SetInterpolateScalarsBeforeMapping(0);
-        mapper->SelectColorArray("ProcessId");
+        mapper->SelectColorArray("RTNeuron Opacity");
         actor->SetMapper(mapper);
         actor->GetProperty()->SetPointSize(2);
         ren->AddActor(actor);
@@ -226,6 +261,7 @@ int main (int argc, char* argv[])
   //
   test.controller->Finalize();
   //
+
   return !retVal;
 }
 //----------------------------------------------------------------------------
