@@ -68,6 +68,7 @@ public :
   void SetDepthSortPolygonsPainter(vtkDepthSortPolygonsPainter*);
   vtkGetObjectMacro(DepthSortPolygonsPainter, vtkDepthSortPolygonsPainter);
 
+#ifdef PV_ZOLTAN_USE_PISTON
   // Description:
   // Get/Set the PistonPolygonsPainter. 
   // The PistonPolygonsPainter is a primitive painter which paints
@@ -80,6 +81,7 @@ public :
   // Enable/disble the use of GPU rendering with Piston
   vtkSetMacro(EnablePiston, int);
   vtkGetMacro(EnablePiston, int);
+#endif
 
 protected:
   // Description:
@@ -93,7 +95,9 @@ protected:
   vtkDepthSortPainter          *DepthSortPainter;
   vtkTwoScalarsToColorsPainter *TwoScalarsToColorsPainter;
   vtkDepthSortPolygonsPainter  *DepthSortPolygonsPainter;
+#ifdef PV_ZOLTAN_USE_PISTON
   vtkPistonPolygonsPainter     *PistonPolygonsPainter;
+#endif
   int EnablePiston;
 
 protected:

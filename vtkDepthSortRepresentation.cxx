@@ -38,7 +38,10 @@ PURPOSE.  See the above copyright notice for more information.
 #include "vtkDepthSortPolygonsPainter.h"
 #include "vtkTwoScalarsToColorsPainter.h"
 #include "vtkBoundsExtentTranslator.h"
-#include "vtkPistonPolygonsPainter.h"
+
+#ifdef PV_ZOLTAN_USE_PISTON
+ #include "vtkPistonPolygonsPainter.h"
+#endif
 //
 #include <vtksys/SystemTools.hxx>
 #include <vtksys/SystemInformation.hxx>
@@ -59,8 +62,9 @@ vtkDepthSortRepresentation::vtkDepthSortRepresentation()
   this->DepthSortPainter          = this->DepthSortDefaultPainter->GetDepthSortPainter();
   this->TwoScalarsToColorsPainter = this->DepthSortDefaultPainter->GetTwoScalarsToColorsPainter();
   this->DepthSortPolygonsPainter  = this->DepthSortDefaultPainter->GetDepthSortPolygonsPainter();
+#ifdef PV_ZOLTAN_USE_PISTON
   this->PistonPolygonsPainter     = this->DepthSortDefaultPainter->GetPistonPolygonsPainter();
-
+#endif
   //
   vtkMath::UninitializeBounds(this->GlobalDataBounds);
   //
@@ -89,7 +93,8 @@ void vtkDepthSortRepresentation::ReportReferences(vtkGarbageCollector *collector
 bool vtkDepthSortRepresentation::AddToView(vtkView* view)
 {
   vtkPVRenderView* rview = vtkPVRenderView::SafeDownCast(view);
-  if (rview && !vtkPistonPolygonsPainter::IsEnabledCudaGL()) {
+#ifdef PV_ZOLTAN_USE_PISTON
+  if (0 && rview && !vtkPistonPolygonsPainter::IsEnabledCudaGL()) {
     
     // if we have no hints as to the display VAR, we'll use the rank (modulus GPU count)
     vtkMultiProcessController *controller = vtkMultiProcessController::GetGlobalController();
@@ -117,6 +122,7 @@ bool vtkDepthSortRepresentation::AddToView(vtkView* view)
       std::cout <<"Rank " << std::setw(3) <<  rank << " Hostname " << hostname.c_str() << " CudaGL Failed " << std::endl;
     }
   }
+#endif
   return this->Superclass::AddToView(view);
 }
 //----------------------------------------------------------------------------
@@ -132,7 +138,9 @@ void vtkDepthSortRepresentation::SetUseDataPartitions(bool val)
 void vtkDepthSortRepresentation::SetOpacityArrayName(const char* opacity)
 {
   this->TwoScalarsToColorsPainter->SetOpacityArrayName(opacity);
+#ifdef PV_ZOLTAN_USE_PISTON
   this->PistonPolygonsPainter->SetOpacityArrayName(opacity);
+#endif
   this->MarkModified();
 }
 //----------------------------------------------------------------------------
@@ -140,7 +148,9 @@ void vtkDepthSortRepresentation::SetEnableOpacity(int enable)
 {
   this->TwoScalarsToColorsPainter->SetEnableOpacity(enable);
   this->DepthSortPainter->SetDepthSortRequired(enable);
+#ifdef PV_ZOLTAN_USE_PISTON
   this->PistonPolygonsPainter->SetEnableOpacity(enable);
+#endif
   this->MarkModified();
 }
 //----------------------------------------------------------------------------
@@ -151,6 +161,7 @@ int vtkDepthSortRepresentation::GetEnableOpacity()
 //----------------------------------------------------------------------------
 void vtkDepthSortRepresentation::SetEnablePiston(int mode)
 {
+#ifdef PV_ZOLTAN_USE_PISTON
   if (!vtkPistonPolygonsPainter::IsEnabledCudaGL()) {
     mode = 0;
   }
@@ -160,6 +171,7 @@ void vtkDepthSortRepresentation::SetEnablePiston(int mode)
     // swap the painter chain
   }
   this->MarkModified();
+#endif
 }
 //----------------------------------------------------------------------------
 void vtkDepthSortRepresentation::SetDepthSortEnableMode(int mode)
@@ -189,7 +201,9 @@ void vtkDepthSortRepresentation::SetDirection(int dir)
   else {
     this->DepthSortPainter->SetDepthSortEnableMode(2); // never
   }
+#ifdef PV_ZOLTAN_USE_PISTON
   this->PistonPolygonsPainter->SetDirection(dir);
+#endif
   this->MarkModified();
 }
 //----------------------------------------------------------------------------

@@ -89,9 +89,11 @@ protected:
   vtkSmartPointer<vtkDepthSortPainter>          DepthSortPainter;
   vtkSmartPointer<vtkDepthSortPolygonsPainter>  DepthSortPolygonsPainter;
   vtkSmartPointer<vtkTwoScalarsToColorsPainter> TwoScalarsToColorsPainter;
-  vtkSmartPointer<vtkPistonPolygonsPainter>     PistonPolygonsPainter;
   vtkSmartPointer<vtkBoundsExtentTranslator>    BoundsTranslator;
-
+#ifdef PV_ZOLTAN_USE_PISTON
+  vtkSmartPointer<vtkPistonPolygonsPainter>     PistonPolygonsPainter;
+#endif
+ 
   int UseDataPartitions;
   //
   vtkMultiProcessController *Controller;
