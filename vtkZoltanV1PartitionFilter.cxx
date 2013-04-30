@@ -426,11 +426,6 @@ vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBox(int partitio
 //  return out << "]";
 //}
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::SetupGlobalIds(vtkPointSet *ps)
-{
-  this->ComputeIdOffsets(ps->GetNumberOfPoints(), ps->GetNumberOfCells());
-}
-//----------------------------------------------------------------------------
 void vtkZoltanV1PartitionFilter::ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells)
 {
   // offset arrays
@@ -713,6 +708,11 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
 */
 }
 //----------------------------------------------------------------------------
+void vtkZoltanV1PartitionFilter::InitializeGhostFlags(vtkPointSet *input)
+{
+  // default class does nothing
+}
+//----------------------------------------------------------------------------
 int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
                                  vtkInformationVector** inputVector,
                                  vtkInformationVector* outputVector)
@@ -801,18 +801,25 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   vtkDebugMacro(<<"Zoltan Initialized");
 
   //
+  // If we are handling ghost transfers, we may need to add flags
+  // on a per point/cell basis
+  //
+  this->InitializeGhostFlags(input);
+
+  //
   // if a process has zero points, we need to make dummy data arrays to allow 
   // space for when data gets sent in from other processes in the zoltan unpack function 
-  // This also stops hangs during collective operations by ensuring all ranks) participate
+  // This also stops hangs during collective operations by ensuring all ranks participate
   //
   vtkSmartPointer<vtkPointData> PointDataCopy = input->GetPointData();
   this->AllocateFieldArrays(PointDataCopy);
   vtkDebugMacro(<<"FieldArrayPointers (point) Initialized");
 
   //
-  // When particle partitioning and exchanging halos, we need to track points
-  // by Id. Mesh partitioning only needs Id offsets per process (no halos yet)
-  this->SetupGlobalIds(input);
+  // To convert Global to Local IDs we need to know the offsets of points/cells
+  // relative to a zero based index on rank 0
+  //
+  this->ComputeIdOffsets(input->GetNumberOfPoints(), input->GetNumberOfCells());
 
   // 
   // Set all the callbacks and user config parameters that will be used during the loadbalance
@@ -1004,7 +1011,7 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(MigrationLists &migrationList
   //
   // Ask zoltan to create the inverse map of who sends/receives from who
   //
-  int num_known  = migrationLists.known.GlobalIds.size(); 
+  int num_known  = static_cast<int>(migrationLists.known.GlobalIds.size());
   migrationLists.num_found        = 0;
   migrationLists.found_global_ids = NULL;
   migrationLists.found_local_ids  = NULL;
@@ -1119,7 +1126,8 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(MigrationLists &migrationList
      );
 #endif
 
-    int number_found = migrationLists.num_found;
+  int number_found = migrationLists.num_found;
+
   //
   // Release the arrays allocated during Zoltan_Invert_Lists
   //
@@ -1283,7 +1291,7 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
 //----------------------------------------------------------------------------
 template<typename T>
 void vtkZoltanV1PartitionFilter::CopyPointsToSelf(
-  std::vector<int> &LocalPointsToKeep,
+  std::vector<vtkIdType> &LocalPointsToKeep,
   void *data, int num_gid_entries, int num_lid_entries,
   int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,

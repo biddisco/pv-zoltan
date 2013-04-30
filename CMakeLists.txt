@@ -10,6 +10,9 @@ if(COMMAND cmake_policy)
   cmake_policy(SET CMP0017 NEW)
 endif(COMMAND cmake_policy)
 
+add_definitions(-DCMAKE_IS_BROKEN)
+
+
 #--------------------------------------------------
 # Find and Use ParaView
 #--------------------------------------------------
@@ -42,8 +45,6 @@ INCLUDE_DIRECTORIES(
 option(PV_ZOLTAN_USE_CUDA "Use CUDA rendering" OFF)
 
 if(PV_ZOLTAN_USE_CUDA)
-  find_package(CUDA REQUIRED)
-  add_definitions(PV_ZOLTAN_USE_PISTON)
 
   #--------------------------------------------------
   # setup module definitions we'll need for piston
@@ -54,7 +55,6 @@ if(PV_ZOLTAN_USE_CUDA)
   include(ParaViewMacros)
 
   find_package(CUDA REQUIRED)
-
   #--------------------------------------------------
   # Find piston header library
   #--------------------------------------------------
@@ -63,9 +63,14 @@ if(PV_ZOLTAN_USE_CUDA)
     "/Source/PISTON/github/PISTON"
     DOC "PISTON library's source directory")
 
-  INCLUDE_DIRECTORIES(
-    ${CMAKE_CURRENT_SOURCE_DIR}/piston
-  )
+  if(PISTON_INCLUDE)
+    add_definitions(-DPV_ZOLTAN_USE_PISTON)
+
+    INCLUDE_DIRECTORIES(
+      ${CMAKE_CURRENT_SOURCE_DIR}/piston
+    )
+  endif(PISTON_INCLUDE)
+
 endif(PV_ZOLTAN_USE_CUDA)
 
 #------------------------------------------------------
@@ -155,16 +160,18 @@ if(PV_ZOLTAN_USE_CUDA)
   # generate the list of dependencies based on our module definition file
   vtk_module_impl()
   # remove a bunch of cruft that VTK adds in here about modules autoinit
-  set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "")
-  # shorten the include dirs so nvcc doesn't crumble under the entire VTK/ParaView/Qt path
   # first get the old setting and store it
   get_directory_property(TEMP_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES)
-  # now set our shorter include dirs list
+  get_directory_property(TEMP_COMPILE_DEFINITIONS COMPILE_DEFINITIONS)
+  # clear compile defs 
+  set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "")
+  # shorten the include dirs so nvcc doesn't crumble under the entire VTK/ParaView/Qt path
   set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${${vtk-module}_DEPENDS_INCLUDE_DIRS};${PISTON_INCLUDE}")
   # call the cuda wrapper
   cuda_compile(Module_CUDA_C_SRCS ${Module_CUDA_SRCS} ${GPGPU_BUILD_TYPE})
   # put the include dirs back to what they were
   set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${TEMP_INCLUDE_DIRECTORIES}")
+  set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "${TEMP_COMPILE_DEFINITIONS}")
 
   set_source_files_properties(
     ${Module_CUDA_C_SRCS}

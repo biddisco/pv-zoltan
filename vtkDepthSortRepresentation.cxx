@@ -94,7 +94,7 @@ bool vtkDepthSortRepresentation::AddToView(vtkView* view)
 {
   vtkPVRenderView* rview = vtkPVRenderView::SafeDownCast(view);
 #ifdef PV_ZOLTAN_USE_PISTON
-  if (0 && rview && !vtkPistonPolygonsPainter::IsEnabledCudaGL()) {
+  if (rview && !vtkPistonPolygonsPainter::IsEnabledCudaGL()) {
     
     // if we have no hints as to the display VAR, we'll use the rank (modulus GPU count)
     vtkMultiProcessController *controller = vtkMultiProcessController::GetGlobalController();

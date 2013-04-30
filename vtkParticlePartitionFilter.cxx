@@ -64,59 +64,18 @@ vtkParticlePartitionFilter::~vtkParticlePartitionFilter()
 {
 }
 //----------------------------------------------------------------------------
-void vtkParticlePartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
+void vtkParticlePartitionFilter::InitializeGhostFlags(vtkPointSet *input)
 {
-  this->Superclass::PrintSelf(os,indent);
-}
-//----------------------------------------------------------------------------
-void vtkParticlePartitionFilter::SetupGlobalIds(vtkPointSet *ps) 
-{
-  /*
-  //
-  // Global Ids : always do them after other point arrays are setup 
-  //
-  if (this->IdChannelArray) {
-    this->IdsName = this->IdChannelArray;
+  vtkSmartPointer<vtkUnsignedCharArray> GhostArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
+  vtkIdType N = input->GetNumberOfPoints();
+  GhostArray->SetName("vtkGhostLevels");
+  GhostArray->SetNumberOfComponents(1);
+  GhostArray->SetNumberOfTuples(N);
+  unsigned char *ghost = GhostArray->GetPointer(0);
+  for (vtkIdType i=0; i<N; i++) {
+    ghost[i]  = 0;
   }
-  if (this->IdsName.empty() || this->IdsName==std::string("Not available")) {
-    this->IdsName = "ZPF_PointIds";
-  } 
-*/
-  vtkSmartPointer<vtkPointData> pd = ps->GetPointData();
-  vtkSmartPointer<vtkIdTypeArray> Ids = NULL;
-  //
-  Ids = vtkIdTypeArray::SafeDownCast(pd->GetArray(this->IdsName.c_str()));
-  if (!Ids) {
-    // Try loading the user supplied global ids.
-    Ids = vtkIdTypeArray::SafeDownCast(pd->GetGlobalIds());
-  }
-  if (!Ids) {
-    // and increment the callbackdata field count
-    this->ZoltanCallbackData.NumberOfFields++;
-  }
-  // Generate our own if none exist
-  vtkDebugMacro(<<"About to Init Global Ids");
-  vtkIdType numPoints = ps->GetNumberOfPoints();
-  vtkIdType  numCells = ps->GetNumberOfCells();
-  this->ComputeIdOffsets(numPoints, numCells);
-
-  //
-  // Global point IDs generated here
-  //
-  vtkIdType offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece];
-  //
-  if (!Ids) {
-    Ids = vtkSmartPointer<vtkIdTypeArray>::New();
-    Ids->SetNumberOfValues(numPoints);
-    for (vtkIdType id=0; id<numPoints; id++) {
-      Ids->SetValue(id, id + offset);
-    }
-    Ids->SetName(this->IdsName.c_str());
-    vtkDebugMacro(<< "Generated Ids with " << numPoints << " values");
-  }
-
-  ps->GetPointData()->AddArray(Ids);
-  vtkDebugMacro(<<"Global Ids Initialized");
+  input->GetPointData()->AddArray(GhostArray);
 }
 //----------------------------------------------------------------------------
 int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
@@ -124,9 +83,57 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
                                  vtkInformationVector* outputVector)
 {
   //
-  // Distribute points evenly across processes
+  // Calculate even distribution of points across processes
+  // This step only performs the load balance analysis, 
+  // no actual sending of data takes place yet.
   //
   this->PartitionPoints(info, inputVector, outputVector);
+
+  if (this->UpdateNumPieces==1) {
+    // input has been copied to output during PartitionPoints
+    return 1;
+  }
+
+  //
+  // Initialize the halo regions around the computed bounding boxes of the distribution
+  //
+  this->AddHaloToBoundingBoxes();
+
+  //
+  // based on the point partition, decide which particles are ghost particles
+  // and need to be sent/kept in addition to the default load balance
+  //
+  this->FindPointsInHaloRegions(this->ZoltanCallbackData.Input->GetPoints(), this->MigrateLists.known, this->LoadBalanceData);
+
+  //
+  // Based on the original partition and our extra ghost allocations
+  // perform the main point exchange between all processes
+  //
+  this->ManualPointMigrate(this->MigrateLists, false, this->KeepInversePointLists==1);
+  
+
+  // add the ghost points to the original points
+/*
+  vtkDebugMacro(<<"Entering BuildCellToProcessList");
+  if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
+    this->BuildCellToProcessList<float>(this->ZoltanCallbackData.Input, 
+      cell_partitioninfo,       // lists of which cells to send to which process
+      this->MigrateLists.known, // list of which points to send to which process
+      this->LoadBalanceData     // the partition information generated during PartitionPoints
+    );
+  }
+  else if (this->ZoltanCallbackData.PointType==VTK_DOUBLE) {
+    this->BuildCellToProcessList<double>(this->ZoltanCallbackData.Input, 
+      cell_partitioninfo,       // lists of which cells to send to which process
+      this->MigrateLists.known, // list of which points to send to which process
+      this->LoadBalanceData     // the partition information generated during PartitionPoints
+    );
+  }
+
+*/
+
+
+
 
   //
   // clean up arrays that zoltan passed back to us
@@ -137,16 +144,11 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   }
   
   //
-  // Initialize the halo regions based on our redistribution
-  //
-  this->FillPartitionBoundingBoxWithHalo();
-
-  //
   // Find points in halo regions and sent them to remote processes
   //
-  if (this->UpdateNumPieces>1) {
-    this->ExchangeHaloPoints(info, inputVector, outputVector);
-  }
+//  if (this->UpdateNumPieces>1) {
+//    this->ExchangeHaloPoints(info, inputVector, outputVector);
+//  }
 
   //
   // If polydata create Vertices for each final point
@@ -184,7 +186,7 @@ vtkBoundingBox *vtkParticlePartitionFilter::GetPartitionBoundingBoxWithHalo(int 
   return NULL;
 }
 //----------------------------------------------------------------------------
-void vtkParticlePartitionFilter::FillPartitionBoundingBoxWithHalo()
+void vtkParticlePartitionFilter::AddHaloToBoundingBoxes()
 {
   //
   // Set the halo/ghost regions we need around each process bounding box
@@ -212,42 +214,97 @@ void vtkParticlePartitionFilter::FillPartitionBoundingBoxWithHalo()
   }
 }
 //-------------------------------------------------------------------------
-void vtkParticlePartitionFilter::FindPointsInHaloRegions(vtkPoints *pts, vtkIdTypeArray *IdArray, PartitionInfo &ghostinfo)
+void vtkParticlePartitionFilter::FindPointsInHaloRegions(
+  vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData)
 {
-  typedef std::pair<vtkBoundingBox*,int> boxproc;
-  // we don't want to test against boxes that are far away, so first reject
-  // any boxes that don't overlap with our local box.
-  std::vector< boxproc > good_boxes;
-  int proc = 0;
-  for (std::vector<vtkBoundingBox>::iterator it=this->BoxListWithHalo.begin(); 
-    it!=this->BoxListWithHalo.end(); ++it, proc++) 
-  {
-    vtkBoundingBox &b = *it;
-#if 1 
-    if (b!=*(this->LocalBoxHalo) && this->LocalBoxHalo->Intersects(b)) {
-#else
-    if (b!=*(this->LocalBoxHalo)) {
-#endif
-      good_boxes.push_back( boxproc(&b,proc));
-    }
+  //
+  // What is the bounding box of points we have been given to start with
+  //
+  vtkIdType numPts = pts->GetNumberOfPoints();
+  double bounds[6];
+  pts->GetBounds(bounds);
+  vtkBoundingBox localPointsbox(bounds);
+
+  // we know that some points on this process will be exported to remote processes
+  // so build a point to process map to quickly lookup the process Id from the point Id
+  // 1) initially set all points as local to this process
+  std::vector<int> localId_to_process_map(numPts, this->UpdatePiece); 
+  // 2) loop over all to be exported and note the destination
+  for (vtkIdType i=0; i<loadBalanceData.numExport; i++) {
+    vtkIdType id               = loadBalanceData.exportGlobalGids[i] - this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
+    localId_to_process_map[id] = loadBalanceData.exportProcs[i];
   }
-  // now test all points against those boxes which are valid
-  vtkIdType N = pts->GetNumberOfPoints();
-  for (vtkIdType i=0; i<N; i++) {
-    double *pt = pts->GetPoint(i);
-    for (std::vector<boxproc>::iterator it=good_boxes.begin(); it!=good_boxes.end(); ++it) 
-    {
-      vtkBoundingBox *b = (it->first);
-      if (b->ContainsPoint(pt)) {
-//        ghostinfo.LocalIds.push_back(i);
-        ghostinfo.GlobalIds.push_back(IdArray->GetValue(i));
-        ghostinfo.Procs.push_back(it->second);
+
+  //
+  // This vector will store {Id,process} pairs wilst the list is being scanned
+  typedef std::pair<vtkIdType, int> process_tuple;
+  std::vector<process_tuple> process_vector;
+
+  // Since we already have a list of points to export, we don't want to
+  // duplicate them, so traverse the points list once per process
+  // skipping those already flagged for export
+  vtkIdType N = pts->GetNumberOfPoints(), pE=0;
+  for (int proc=0; proc<this->UpdateNumPieces; proc++) {
+    vtkBoundingBox &b = this->BoxListWithHalo[proc];
+    int pc = 0;
+    //
+    // any remote process box (+halo) which does not overlap our local box can be ignored
+    //
+    if (localPointsbox.Intersects(b)) {      
+      for (vtkIdType i=0; i<N; i++) {
+        bool marked = false;
+        vtkIdType gID = i + this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
+        // if this ID is already marked as exported to the process then we don't need to send it again
+        // But, if it's marked for export and we need a local copy, we must add it to our keep list
+        if (/*pE<loadBalanceData.numExport && */loadBalanceData.exportGlobalGids[pE]==gID && loadBalanceData.exportProcs[pE]==proc) {
+          pE++;
+          continue;
+        }
+        double *pt = pts->GetPoint(i);
+        if (b.ContainsPoint(pt)) {
+          if (proc==this->UpdatePiece) {
+            if (localId_to_process_map[i]==this->UpdatePiece) {
+            }
+            else {
+              point_partitioninfo.LocalIdsToKeep.push_back(i);
+            }
+          }
+          else {
+            process_vector.push_back( process_tuple(gID, proc) );
+            pc++;
+          }
+        }
       }
+      std::cout << "Rank " << this->UpdatePiece << " exporting " << pc << " ghost particles to rank " << proc << std::endl;
+      std::cout << "Rank " << this->UpdatePiece << " LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size() << std::endl;
     }
   }
-//  std::cout << "There are " << ghostinfo.GlobalIds.size() << " ghosts on the list" <<std::endl;
-//  std::ostream_iterator<vtkIdType> out_it (cout,", ");
-//  copy ( ghostinfo.GlobalIds.begin(), ghostinfo.GlobalIds.end(), out_it );
+
+  //
+  // After examining ghosts, we found some points we need to send away,
+  // we must add these to the points the original load balance already declared in export lists 
+  //
+  point_partitioninfo.GlobalIds.reserve(loadBalanceData.numExport + process_vector.size());
+  point_partitioninfo.Procs.reserve(loadBalanceData.numExport + process_vector.size());
+  
+  // 1) add the points from original zoltan load balance to send list
+  for (int i=0; i<loadBalanceData.numExport; ++i) {
+    point_partitioninfo.GlobalIds.push_back(loadBalanceData.exportGlobalGids[i]);
+    point_partitioninfo.Procs.push_back(loadBalanceData.exportProcs[i]);
+  }
+
+  // 2) add the points from ghost tests just performed to send list
+  for (std::vector<process_tuple>::iterator x=process_vector.begin(); x!=process_vector.end(); ++x) 
+  {
+    point_partitioninfo.GlobalIds.push_back(x->first);
+    point_partitioninfo.Procs.push_back(x->second);
+  }
+
+  vtkDebugMacro(<<"FindPointsInHaloRegions "  << 
+    " numImport : " << this->LoadBalanceData.numImport <<
+    " numExport : " << point_partitioninfo.GlobalIds .size()
+  );
+
 }
 //----------------------------------------------------------------------------
 int vtkParticlePartitionFilter::ExchangeHaloPoints(vtkInformation* info,
@@ -263,15 +320,15 @@ int vtkParticlePartitionFilter::ExchangeHaloPoints(vtkInformation* info,
   // note that we must use the 'new' migrated points which are not the same
   // as the original input points (might be bigger/smaller), so get the new IdArray 
   //
-  vtkIdTypeArray *newIds = vtkIdTypeArray::SafeDownCast(
-    this->ZoltanCallbackData.Output->GetPointData()->GetArray(this->IdsName.c_str()));
-  if (!newIds || newIds->GetNumberOfTuples()!=this->ZoltanCallbackData.Output->GetPoints()->GetNumberOfPoints()) {
-    vtkErrorMacro(<<"Fatal : Ids on migrated data corrupted");
-    return 0;
-  }
+  //vtkIdTypeArray *newIds = vtkIdTypeArray::SafeDownCast(
+  //  this->ZoltanCallbackData.Output->GetPointData()->GetArray(this->IdsName.c_str()));
+  //if (!newIds || newIds->GetNumberOfTuples()!=this->ZoltanCallbackData.Output->GetPoints()->GetNumberOfPoints()) {
+  //  vtkErrorMacro(<<"Fatal : Ids on migrated data corrupted");
+  //  return 0;
+  //}
 
-  PartitionInfo GhostIds;
-  this->FindPointsInHaloRegions(this->ZoltanCallbackData.Output->GetPoints(), newIds, GhostIds);
+  //PartitionInfo GhostIds;
+//  this->FindPointsInHaloRegions(this->ZoltanCallbackData.Input->GetPoints(), GhostIds);
 
   int num_found = 0; //this->ManualPointMigrate(GhostIds, true, this->KeepInversePointLists);
 

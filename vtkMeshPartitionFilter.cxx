@@ -264,6 +264,8 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
 {
   //
   // Calculate even distribution of points across processes
+  // This step only performs the load balance analysis, 
+  // no actual sending of data takes place yet.
   //
   this->PartitionPoints(info, inputVector, outputVector);
 
@@ -306,7 +308,7 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   // Based on the original partition and our extra cell point allocations
   // perform the main point exchange between all processes
   //
-  this->ManualPointMigrate(this->MigrateLists, false, this->KeepInversePointLists);
+  this->ManualPointMigrate(this->MigrateLists, false, this->KeepInversePointLists==1);
   
   if (!this->KeepInversePointLists) {
     vtkDebugMacro(<<"Release point exchange data");
@@ -461,7 +463,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 
   // we know that some points on this process will be exported to remote processes
   // so build a point to process map to quickly lookup the process Id from the point Id
-  // 1) set all points as local to this process
+  // 1) initially set all points as local to this process
   std::vector<int> localId_to_process_map(numPts, this->UpdatePiece); 
   // 2) loop over all to be exported and note the destination
   for (vtkIdType i=0; i<loadBalanceData.numExport; i++) {
@@ -480,6 +482,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   // reserve a little space to get things going (1% of total exports to start)
   point_partitioninfo.LocalIdsToKeep.reserve(loadBalanceData.numExport/100);
 
+  // we must handle Polydata and UnstructuredGrid slightly differently
   vtkIdType npts, *pts;
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(data);
   vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(data);
@@ -576,6 +579,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   //
   std::sort(process_vector.begin(), process_vector.end());
   process_vector.resize(std::unique(process_vector.begin(), process_vector.end()) - process_vector.begin());
+
   //
   // remove any duplicated ids of points we are keeping as well as sending, not pairs here
   //
@@ -583,19 +587,19 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   point_partitioninfo.LocalIdsToKeep.resize(std::unique(point_partitioninfo.LocalIdsToKeep.begin(), point_partitioninfo.LocalIdsToKeep.end()) - point_partitioninfo.LocalIdsToKeep.begin());
 
   //
-  // After examining cells, we have found some points we need to send away,
+  // After examining cells, we found some points we need to send away,
   // we must add these to the points the original load balance already declared in export lists 
   //
   point_partitioninfo.GlobalIds.reserve(loadBalanceData.numExport + process_vector.size());
   point_partitioninfo.Procs.reserve(loadBalanceData.numExport + process_vector.size());
   
-  // 1) add the points from zoltan load balance to send list
+  // 1) add the points from original zoltan load balance to send list
   for (int i=0; i<loadBalanceData.numExport; ++i) {
     point_partitioninfo.GlobalIds.push_back(loadBalanceData.exportGlobalGids[i]);
     point_partitioninfo.Procs.push_back(loadBalanceData.exportProcs[i]);
   }
 
-  // 2) add the points from cell tests to send list
+  // 2) add the points from cell tests just performed to send list
   for (std::vector<process_tuple>::iterator x=process_vector.begin(); x!=process_vector.end(); ++x) 
   {
     point_partitioninfo.GlobalIds.push_back(x->first + this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece]);

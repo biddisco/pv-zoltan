@@ -189,17 +189,16 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     } ZoltanLoadBalanceData;
 
     //----------------------------------------------------------------------------
-    // Structure we use as a temp storage for info about sending points to remote
-    // processors. 
-    // GlobalIds is the list of local Ids we are sending away, converted to Global Ids
-    // Procs is the list of destination ranks, must be same size as Ids
+    // Structure we use as a temp storage for info about sending points to remote processors. 
+    // GlobalIds is the list of local Ids we are sending away, converted to Global Ids.
+    // Procs is the list of destination ranks, must be same size as GlobalIds
     // LocalIdsToKeep is a (usually) small subset of Ids which need to be copied 
     // locally as well as sent remotely.
     //----------------------------------------------------------------------------
     typedef struct {
       std::vector<ZOLTAN_ID_TYPE> GlobalIds;
       std::vector<int>            Procs;
-      std::vector<int>            LocalIdsToKeep;
+      std::vector<vtkIdType>      LocalIdsToKeep;
     } PartitionInfo;
 
     typedef struct {
@@ -292,7 +291,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     template<typename T>
     void CopyPointsToSelf(
-      std::vector<int> &LocalPointsToKeep,
+      std::vector<vtkIdType> &LocalPointsToKeep,
       void *data, int num_gid_entries, int num_lid_entries,
       int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
       int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
@@ -325,11 +324,12 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
      vtkZoltanV1PartitionFilter();
     ~vtkZoltanV1PartitionFilter();
 
+    virtual void ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells);
+    virtual void InitializeGhostFlags(vtkPointSet *input);
+
     int  GatherDataTypeInfo(vtkPoints *points);
     bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
     void AllocateFieldArrays(vtkDataSetAttributes *fields);
-
-    virtual void SetupGlobalIds(vtkPointSet *ps);
 
     // Override to specify support for vtkPointSet input type.
     virtual int FillInputPortInformation(int port, vtkInformation* info);
@@ -350,8 +350,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
                             vtkInformationVector*);
-
-    void ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells);
 
     MPI_Comm GetMPIComm();
     int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);

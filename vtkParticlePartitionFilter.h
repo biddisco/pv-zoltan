@@ -42,7 +42,6 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
   public:
     static vtkParticlePartitionFilter *New();
     vtkTypeMacro(vtkParticlePartitionFilter,vtkZoltanV1PartitionFilter);
-    void PrintSelf(ostream& os, vtkIndent indent);
 
     // Description:
     // The thickness of the region between each partition that is used for 
@@ -57,9 +56,10 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
     // all around the box where ghost cells might be required/present
     vtkBoundingBox *GetPartitionBoundingBoxWithHalo(int partition);
 
-    void FillPartitionBoundingBoxWithHalo();
+    void InitializeGhostFlags(vtkPointSet *input);
+    void AddHaloToBoundingBoxes();
 
-    void FindPointsInHaloRegions(vtkPoints *pts, vtkIdTypeArray *IdArray, PartitionInfo &ghostinfo);
+    void FindPointsInHaloRegions(vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData);
 
     int ExchangeHaloPoints(vtkInformation*,
                            vtkInformationVector**,
@@ -73,14 +73,10 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
      vtkParticlePartitionFilter();
     ~vtkParticlePartitionFilter();
 
-    virtual void SetupGlobalIds(vtkPointSet *ps);
-
     // Description:
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
                             vtkInformationVector*);
-
-    std::string IdsName;
 
   private:
     vtkParticlePartitionFilter(const vtkParticlePartitionFilter&);  // Not implemented.
