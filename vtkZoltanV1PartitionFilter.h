@@ -151,7 +151,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       std::vector<int>              ProcessOffsetsPointId; // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
       std::vector<int>              ProcessOffsetsCellId;  // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
       int                           PointType;             // float/double flag
-      bool                          CopyFromOutput;        
       void                         *InputPointsData;       // float/double pointer
       void                         *OutputPointsData;      // float/double pointer
       int                           NumberOfFields;
@@ -195,19 +194,29 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     // LocalIdsToKeep is a (usually) small subset of Ids which need to be copied 
     // locally as well as sent remotely.
     //----------------------------------------------------------------------------
-    typedef struct {
+    typedef struct PartitionInfo {
+      // use either the vector 
       std::vector<ZOLTAN_ID_TYPE> GlobalIds;
       std::vector<int>            Procs;
+      // or the Ptr interface, if the Ptr vars are set, they will be used in preference to the vectors
+      vtkIdType                   nIDs;
+      ZOLTAN_ID_TYPE             *GlobalIdsPtr;
+      int                        *ProcsPtr;
+      // Points which are to be copied locally
       std::vector<vtkIdType>      LocalIdsToKeep;
+      //
+      PartitionInfo() : nIDs(0), GlobalIdsPtr(0), ProcsPtr(0) {}
     } PartitionInfo;
 
-    typedef struct {
+    typedef struct MigrationLists {
       PartitionInfo               known;
       int                         num_found;
+      int                         num_reserved;
       ZOLTAN_ID_PTR               found_global_ids;
       ZOLTAN_ID_PTR               found_local_ids;
       int                        *found_procs;
       int                        *found_to_part;
+      MigrationLists() : num_found(0),num_reserved(0), found_global_ids(0), found_local_ids(0), found_procs(0), found_to_part(0) {};
     } MigrationLists;
 
     // Description:
@@ -291,7 +300,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     template<typename T>
     void CopyPointsToSelf(
-      std::vector<vtkIdType> &LocalPointsToKeep,
+      std::vector<vtkIdType> &LocalPointsToKeep, vtkIdType num_reserved,
       void *data, int num_gid_entries, int num_lid_entries,
       int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
       int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
@@ -325,7 +334,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     ~vtkZoltanV1PartitionFilter();
 
     virtual void ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells);
-    virtual void InitializeGhostFlags(vtkPointSet *input);
 
     int  GatherDataTypeInfo(vtkPoints *points);
     bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
@@ -353,7 +361,11 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     MPI_Comm GetMPIComm();
     int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
-    int ManualPointMigrate(MigrationLists &migrationLists, bool useoutput, bool keepinformation);
+    
+    void ComputeInvertLists(MigrationLists &migrationLists);
+    int ManualPointMigrate(MigrationLists &migrationLists, bool keepinformation);
+    int ZoltanPointMigrate(MigrationLists &migrationLists, bool keepinformation);
+
     vtkSmartPointer<vtkPKdTree> CreatePkdTree();
 
     //

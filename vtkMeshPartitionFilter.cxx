@@ -308,7 +308,8 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   // Based on the original partition and our extra cell point allocations
   // perform the main point exchange between all processes
   //
-  this->ManualPointMigrate(this->MigrateLists, false, this->KeepInversePointLists==1);
+  this->ComputeInvertLists(this->MigrateLists);
+  this->ManualPointMigrate(this->MigrateLists, this->KeepInversePointLists==1);
   
   if (!this->KeepInversePointLists) {
     vtkDebugMacro(<<"Release point exchange data");

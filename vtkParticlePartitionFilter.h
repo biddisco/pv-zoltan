@@ -56,19 +56,6 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
     // all around the box where ghost cells might be required/present
     vtkBoundingBox *GetPartitionBoundingBoxWithHalo(int partition);
 
-    void InitializeGhostFlags(vtkPointSet *input);
-    void AddHaloToBoundingBoxes();
-
-    void FindPointsInHaloRegions(vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData);
-
-    int ExchangeHaloPoints(vtkInformation*,
-                           vtkInformationVector**,
-                           vtkInformationVector*);
-
-    double                      GhostCellOverlap;
-    vtkBoundingBox             *LocalBoxHalo;
-    std::vector<vtkBoundingBox> BoxListWithHalo;
-
   protected:
      vtkParticlePartitionFilter();
     ~vtkParticlePartitionFilter();
@@ -77,6 +64,13 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
                             vtkInformationVector*);
+
+    void AddHaloToBoundingBoxes();
+
+    void FindPointsInHaloRegions(vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData, PartitionInfo &ghost_info);
+
+    double                      GhostCellOverlap;
+    std::vector<vtkBoundingBox> BoxListWithHalo;
 
   private:
     vtkParticlePartitionFilter(const vtkParticlePartitionFilter&);  // Not implemented.

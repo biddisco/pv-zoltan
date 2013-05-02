@@ -708,11 +708,6 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
 */
 }
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::InitializeGhostFlags(vtkPointSet *input)
-{
-  // default class does nothing
-}
-//----------------------------------------------------------------------------
 int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
                                  vtkInformationVector** inputVector,
                                  vtkInformationVector* outputVector)
@@ -799,12 +794,6 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
     return 0;
   }
   vtkDebugMacro(<<"Zoltan Initialized");
-
-  //
-  // If we are handling ghost transfers, we may need to add flags
-  // on a per point/cell basis
-  //
-  this->InitializeGhostFlags(input);
 
   //
   // if a process has zero points, we need to make dummy data arrays to allow 
@@ -1006,12 +995,15 @@ void vtkZoltanV1PartitionFilter::InitializeFieldDataArrayPointers(
   }
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::ManualPointMigrate(MigrationLists &migrationLists, bool useoutput, bool keepinformation)
+void vtkZoltanV1PartitionFilter::ComputeInvertLists(MigrationLists &migrationLists)
 {
   //
   // Ask zoltan to create the inverse map of who sends/receives from who
   //
-  int num_known  = static_cast<int>(migrationLists.known.GlobalIds.size());
+  int num_known                = static_cast<int>(migrationLists.known.nIDs ? migrationLists.known.nIDs : migrationLists.known.GlobalIds.size());
+  ZOLTAN_ID_TYPE *GlobalIdsPtr = migrationLists.known.GlobalIdsPtr ? migrationLists.known.GlobalIdsPtr : (migrationLists.known.GlobalIds.size()>0 ? &migrationLists.known.GlobalIds[0] : NULL);
+  int            *ProcsPtr     = migrationLists.known.ProcsPtr     ? migrationLists.known.ProcsPtr     : (migrationLists.known.Procs.size()>0     ? &migrationLists.known.Procs[0]     : NULL);
+  //
   migrationLists.num_found        = 0;
   migrationLists.found_global_ids = NULL;
   migrationLists.found_local_ids  = NULL;
@@ -1020,9 +1012,9 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(MigrationLists &migrationList
   //
   int zoltan_error = Zoltan_Invert_Lists(this->ZoltanData, 
     num_known,
-    num_known>0 ? &migrationLists.known.GlobalIds[0] : NULL,
+    num_known>0 ? GlobalIdsPtr : NULL,
     NULL,
-    num_known>0 ? &migrationLists.known.Procs[0]     : NULL,
+    num_known>0 ? ProcsPtr : NULL,
     NULL,
     &migrationLists.num_found,
     &migrationLists.found_global_ids,
@@ -1037,44 +1029,69 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(MigrationLists &migrationList
     exit(0);
   }
 
-  vtkDebugMacro(<<"ManualPointMigrate (Invert) "  << 
+  vtkDebugMacro(<<"ComputeInvertLists "  << 
     " numImport : " << migrationLists.num_found <<
-    " numExport : " << migrationLists.known.GlobalIds.size()
+    " numExport : " << num_known
     );
 
+}
+//----------------------------------------------------------------------------
+int vtkZoltanV1PartitionFilter::ManualPointMigrate(MigrationLists &migrationLists, bool keepinformation)
+{
+
+  int num_known                = static_cast<int>(migrationLists.known.nIDs ? migrationLists.known.nIDs : migrationLists.known.GlobalIds.size());
+  ZOLTAN_ID_TYPE *GlobalIdsPtr = migrationLists.known.GlobalIdsPtr ? migrationLists.known.GlobalIdsPtr : (migrationLists.known.GlobalIds.size()>0 ? &migrationLists.known.GlobalIds[0] : NULL);
+  int            *ProcsPtr     = migrationLists.known.ProcsPtr     ? migrationLists.known.ProcsPtr     : (migrationLists.known.Procs.size()>0     ? &migrationLists.known.Procs[0]     : NULL);
+
   //
-  // After invert lists is called, we know 
+  // After invert lists is called, we now know 
   // 1) how many points we are sending
   // 2) how many points we are receiving
   // 3) how many points we are sending - but also keeping locally (computed locally earlier)
   // so now we can allocate just once the whole set of final arrays
-  // instead of using pre_migrate callback, we'll manually do it here
+  // instead of using a pre_migrate callback, we'll manually do it here
   // because we can use some local info and then delete some lists prior to the main exchange
   // 
 
   int err;
   if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
     this->CopyPointsToSelf<float>(
-      migrationLists.known.LocalIdsToKeep,
+      migrationLists.known.LocalIdsToKeep, migrationLists.num_reserved,
       &this->ZoltanCallbackData, 0, 0,
       migrationLists.num_found, migrationLists.found_global_ids, migrationLists.found_local_ids,
       migrationLists.found_procs, migrationLists.found_to_part, 
-      num_known, (num_known>0 ? &migrationLists.known.GlobalIds[0] : NULL),
-      NULL, (num_known>0 ? &migrationLists.known.Procs[0] : NULL), NULL, &err);
+      num_known, 
+      (num_known>0 ? GlobalIdsPtr : NULL),
+      NULL, 
+      (num_known>0 ? ProcsPtr : NULL), 
+      NULL,
+      &err
+    );
   }
   else if (this->ZoltanCallbackData.PointType==VTK_DOUBLE) {
     this->CopyPointsToSelf<double>(
-      migrationLists.known.LocalIdsToKeep,
+      migrationLists.known.LocalIdsToKeep, migrationLists.num_reserved,
       &this->ZoltanCallbackData, 0, 0,
       migrationLists.num_found, migrationLists.found_global_ids, migrationLists.found_local_ids,
       migrationLists.found_procs, migrationLists.found_to_part, 
-      num_known, (num_known>0 ? &migrationLists.known.GlobalIds[0] : NULL),
-      NULL, (num_known>0 ? &migrationLists.known.Procs[0] : NULL), NULL, &err);
+      num_known, 
+      (num_known>0 ? GlobalIdsPtr : NULL),
+      NULL, 
+      (num_known>0 ? ProcsPtr : NULL), 
+      NULL,
+      &err
+    );
   }
 
   vtkDebugMacro(<<"ManualPointMigrate (CopyPointsToSelf) ");
-
-  this->ZoltanCallbackData.CopyFromOutput = useoutput;
+  return this->ZoltanPointMigrate(migrationLists, keepinformation);
+}
+//----------------------------------------------------------------------------
+int vtkZoltanV1PartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLists, bool keepinformation)
+{
+  int num_known                = static_cast<int>(migrationLists.known.nIDs ? migrationLists.known.nIDs : migrationLists.known.GlobalIds.size());
+  ZOLTAN_ID_TYPE *GlobalIdsPtr = migrationLists.known.GlobalIdsPtr ? migrationLists.known.GlobalIdsPtr : (migrationLists.known.GlobalIds.size()>0 ? &migrationLists.known.GlobalIds[0] : NULL);
+  int            *ProcsPtr     = migrationLists.known.ProcsPtr     ? migrationLists.known.ProcsPtr     : (migrationLists.known.Procs.size()>0     ? &migrationLists.known.Procs[0]     : NULL);
 
   //
   // Register functions for packing and unpacking data by migration tools.  
@@ -1105,18 +1122,19 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(MigrationLists &migrationList
   //
   // Now let zoltan perform the send/receive exchange of data
   //
-  zoltan_error = Zoltan_Migrate (this->ZoltanData,
+  int zoltan_error = Zoltan_Migrate (this->ZoltanData,
     migrationLists.num_found,
     migrationLists.found_global_ids,
     migrationLists.found_local_ids,
     migrationLists.found_procs,
     migrationLists.found_to_part,
-    num_known,
-    num_known>0 ? &migrationLists.known.GlobalIds[0] : NULL,
-    NULL,
-    num_known>0 ? &migrationLists.known.Procs[0]     : NULL,
+    num_known, 
+    (num_known>0 ? GlobalIdsPtr : NULL),
+    NULL, 
+    (num_known>0 ? ProcsPtr : NULL), 
     NULL
     );
+
 
 #ifdef EXTRA_ZOLTAN_DEBUG
     vtkDebugMacro(<<"Partitioning complete on " << this->UpdatePiece << 
@@ -1291,7 +1309,7 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
 //----------------------------------------------------------------------------
 template<typename T>
 void vtkZoltanV1PartitionFilter::CopyPointsToSelf(
-  std::vector<vtkIdType> &LocalPointsToKeep,
+  std::vector<vtkIdType> &LocalPointsToKeep, vtkIdType num_reserved,
   void *data, int num_gid_entries, int num_lid_entries,
   int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
@@ -1318,7 +1336,7 @@ void vtkZoltanV1PartitionFilter::CopyPointsToSelf(
     }
   }
   // now compute the final number of points we'll have 
-  vtkIdType N2 = N + num_import - (uniqueSends - LocalPointsToKeep.size());
+  vtkIdType N2 = N + num_reserved + num_import - (uniqueSends - LocalPointsToKeep.size());
   callbackdata->Output->GetPoints()->SetNumberOfPoints(N2);
   callbackdata->OutputPointsData = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
   vtkPointData    *inPD  = callbackdata->Input->GetPointData();

@@ -64,20 +64,6 @@ vtkParticlePartitionFilter::~vtkParticlePartitionFilter()
 {
 }
 //----------------------------------------------------------------------------
-void vtkParticlePartitionFilter::InitializeGhostFlags(vtkPointSet *input)
-{
-  vtkSmartPointer<vtkUnsignedCharArray> GhostArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
-  vtkIdType N = input->GetNumberOfPoints();
-  GhostArray->SetName("vtkGhostLevels");
-  GhostArray->SetNumberOfComponents(1);
-  GhostArray->SetNumberOfTuples(N);
-  unsigned char *ghost = GhostArray->GetPointer(0);
-  for (vtkIdType i=0; i<N; i++) {
-    ghost[i]  = 0;
-  }
-  input->GetPointData()->AddArray(GhostArray);
-}
-//----------------------------------------------------------------------------
 int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
                                  vtkInformationVector** inputVector,
                                  vtkInformationVector* outputVector)
@@ -103,36 +89,78 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // based on the point partition, decide which particles are ghost particles
   // and need to be sent/kept in addition to the default load balance
   //
-  this->FindPointsInHaloRegions(this->ZoltanCallbackData.Input->GetPoints(), this->MigrateLists.known, this->LoadBalanceData);
+  // Concept: One algorithm would be to 
+  // a) compute load balance (done in PartitionPoints above)
+  // b) ascertain ghost cells based on the expected load balance
+  // c) perform a particle exchange of all a+b) together in one go
+  // however when attempting this, it was found during step b) some particles are being sent as
+  // non-ghost cells to one process and ghost cells others - this means that the c) exchange must 
+  // send different ghost flags to different processes -  we can't just send/receive a normal list
+  // but instead have to maintain a map of process/ghost/ID flags. This makes the send/receive
+  // more expensive as the maps must be checked for every particle sent (to each process). 
+  //
+  // A second algorithm is to
+  // a) compute load balance (done in PartitionPoints above)
+  // b) ascertain ghost cells based on the expected load balance
+  // c) compute the inverse lists for ghost exchange
+  // d) perform a particle exchange for just the main load balance step from a), but allocating
+  //    all space determined by a+c) so that only one final list is allocated.
+  //    Note that some points marked for transfer will stay on this process as ghosts
+  //    which does require extra bookkeeping.
+  // e) perform a particle exchange using the lists from c), during the exchange we know that
+  //    all send/received are ghosts so ghost flags can be set unilaterally
+  //
+  MigrationLists ghost_info;
+  this->FindPointsInHaloRegions(this->ZoltanCallbackData.Input->GetPoints(), this->MigrateLists.known, this->LoadBalanceData, ghost_info.known);
 
   //
-  // Based on the original partition and our extra ghost allocations
-  // perform the main point exchange between all processes
+  // create the inverse map of who sends/receives from who : Ghost particles
   //
-  this->ManualPointMigrate(this->MigrateLists, false, this->KeepInversePointLists==1);
+  this->ComputeInvertLists(ghost_info);
+  std::cout << "Rank " << this->UpdatePiece << " Imports " << ghost_info.num_found << " ghost particles " << std::endl;
+
+  //
+  // create the inverse map of who sends/receives from who : Core particles
+  //
+  this->ComputeInvertLists(this->MigrateLists);
+  std::cout << "Rank " << this->UpdatePiece << " Imports " << this->MigrateLists.num_found << " core particles " << std::endl;
+
+  // we want to reserve some extra space for the ghost particles when they are sent in
+  this->MigrateLists.num_reserved = ghost_info.num_found;
+
+  //
+  // Based on the original load balance step perform the point exchange for core particles
+  // pass in ghost info so that space can be allocated for the final 
+  //
+  // NB : not yet supporting retaining of migration lists for later point data exchange
+  this->ManualPointMigrate(this->MigrateLists, false); 
+
+  // we have now allocated the output and filled the point data for non ghost Ids
+  vtkIdType N = this->ZoltanCallbackData.Output->GetNumberOfPoints();
+
+  // create a ghost array
+  vtkSmartPointer<vtkUnsignedCharArray> GhostArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
+  GhostArray->SetName("vtkGhostLevels");
+  GhostArray->SetNumberOfComponents(1);
+  GhostArray->SetNumberOfTuples(N);
+  unsigned char *ghost = GhostArray->GetPointer(0);
+
+  vtkIdType i=0;
+  for (; i<(N-ghost_info.num_found); i++) {
+    ghost[i] = 0;
+  }
+  // some local points were kept as they were inside the local ghost region, we need to mark them
+  for (std::vector<vtkIdType>::iterator it = this->MigrateLists.known.LocalIdsToKeep.begin(); it!=this->MigrateLists.known.LocalIdsToKeep.end(); ++it) {
+    vtkIdType Id = this->ZoltanCallbackData.LocalToLocalIdMap[*it];
+    ghost[Id] = 1;
+  }
+
+  for (; i<N; i++) {
+    ghost[i] = 1;
+  }
   
-
-  // add the ghost points to the original points
-/*
-  vtkDebugMacro(<<"Entering BuildCellToProcessList");
-  if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
-    this->BuildCellToProcessList<float>(this->ZoltanCallbackData.Input, 
-      cell_partitioninfo,       // lists of which cells to send to which process
-      this->MigrateLists.known, // list of which points to send to which process
-      this->LoadBalanceData     // the partition information generated during PartitionPoints
-    );
-  }
-  else if (this->ZoltanCallbackData.PointType==VTK_DOUBLE) {
-    this->BuildCellToProcessList<double>(this->ZoltanCallbackData.Input, 
-      cell_partitioninfo,       // lists of which cells to send to which process
-      this->MigrateLists.known, // list of which points to send to which process
-      this->LoadBalanceData     // the partition information generated during PartitionPoints
-    );
-  }
-
-*/
-
-
+  // now exchange ghost cells too
+  this->ZoltanPointMigrate(ghost_info, false);
 
 
   //
@@ -143,13 +171,6 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
     Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
   }
   
-  //
-  // Find points in halo regions and sent them to remote processes
-  //
-//  if (this->UpdateNumPieces>1) {
-//    this->ExchangeHaloPoints(info, inputVector, outputVector);
-//  }
-
   //
   // If polydata create Vertices for each final point
   //
@@ -170,6 +191,8 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   //*****************************************************************
   //
   Zoltan_Destroy(&this->ZoltanData);
+
+  this->ZoltanCallbackData.Output->GetPointData()->AddArray(GhostArray);
 
   this->Controller->Barrier();
   this->Timer->StopTimer();
@@ -215,8 +238,10 @@ void vtkParticlePartitionFilter::AddHaloToBoundingBoxes()
 }
 //-------------------------------------------------------------------------
 void vtkParticlePartitionFilter::FindPointsInHaloRegions(
-  vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData)
+  vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData, PartitionInfo &ghost_info)
 {
+  // create N maps to store ghost assignments
+  std::vector< std::map<int, vtkIdType> > GhostProcessMap(this->UpdateNumPieces);
   //
   // What is the bounding box of points we have been given to start with
   //
@@ -229,16 +254,14 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
   // so build a point to process map to quickly lookup the process Id from the point Id
   // 1) initially set all points as local to this process
   std::vector<int> localId_to_process_map(numPts, this->UpdatePiece); 
+  std::vector<int> ghost_flag(numPts, 0); 
   // 2) loop over all to be exported and note the destination
   for (vtkIdType i=0; i<loadBalanceData.numExport; i++) {
     vtkIdType id               = loadBalanceData.exportGlobalGids[i] - this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
     localId_to_process_map[id] = loadBalanceData.exportProcs[i];
+    // points marked for export by load balance are not ghost points
+    ghost_flag[i] = 0;
   }
-
-  //
-  // This vector will store {Id,process} pairs wilst the list is being scanned
-  typedef std::pair<vtkIdType, int> process_tuple;
-  std::vector<process_tuple> process_vector;
 
   // Since we already have a list of points to export, we don't want to
   // duplicate them, so traverse the points list once per process
@@ -248,7 +271,7 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
     vtkBoundingBox &b = this->BoxListWithHalo[proc];
     int pc = 0;
     //
-    // any remote process box (+halo) which does not overlap our local box can be ignored
+    // any remote process box (+halo) which does not overlap our local points does not need to be tested
     //
     if (localPointsbox.Intersects(b)) {      
       for (vtkIdType i=0; i<N; i++) {
@@ -262,104 +285,55 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
         }
         double *pt = pts->GetPoint(i);
         if (b.ContainsPoint(pt)) {
+          // if the bounding box is actually our local box
           if (proc==this->UpdatePiece) {
             if (localId_to_process_map[i]==this->UpdatePiece) {
+              // this point is due to stay on this process anyway
             }
             else {
+              // this point has already been flagged for export but we need it as a ghost locally
               point_partitioninfo.LocalIdsToKeep.push_back(i);
+              ghost_flag[i] = 1;
             }
           }
+          // the bounding box is a remote one
           else {
-            process_vector.push_back( process_tuple(gID, proc) );
+            if (localId_to_process_map[i]==proc) {
+              // this point is already marked for export to the process so it is not a ghost cell
+              ghost_flag[i] = 0; 
+            }
+            else {
+              // this point is due to be exported to one process as a non ghost 
+              // but another copy must be sent to a different process as a ghost
+              ghost_info.GlobalIds.push_back(gID);
+              ghost_info.Procs.push_back(proc);
+              ghost_flag[i] = 1; 
+              GhostProcessMap[proc][i] = 1;
+            }
             pc++;
           }
         }
       }
       std::cout << "Rank " << this->UpdatePiece << " exporting " << pc << " ghost particles to rank " << proc << std::endl;
-      std::cout << "Rank " << this->UpdatePiece << " LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size() << std::endl;
     }
   }
 
-  //
-  // After examining ghosts, we found some points we need to send away,
-  // we must add these to the points the original load balance already declared in export lists 
-  //
-  point_partitioninfo.GlobalIds.reserve(loadBalanceData.numExport + process_vector.size());
-  point_partitioninfo.Procs.reserve(loadBalanceData.numExport + process_vector.size());
+  for (int i=0; i<this->UpdateNumPieces; i++) {
+    std::cout << "Rank " << this->UpdatePiece << " exporting " << GhostProcessMap[i].size() << " ghost particles to rank " << i << std::endl;
+  }
+  std::cout << "Rank " << this->UpdatePiece << " LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size() << std::endl;
   
-  // 1) add the points from original zoltan load balance to send list
-  for (int i=0; i<loadBalanceData.numExport; ++i) {
-    point_partitioninfo.GlobalIds.push_back(loadBalanceData.exportGlobalGids[i]);
-    point_partitioninfo.Procs.push_back(loadBalanceData.exportProcs[i]);
-  }
-
-  // 2) add the points from ghost tests just performed to send list
-  for (std::vector<process_tuple>::iterator x=process_vector.begin(); x!=process_vector.end(); ++x) 
-  {
-    point_partitioninfo.GlobalIds.push_back(x->first);
-    point_partitioninfo.Procs.push_back(x->second);
-  }
-
+  //
+  // Set the send list to the points from original zoltan load balance 
+  //
+  point_partitioninfo.nIDs         = loadBalanceData.numExport;
+  point_partitioninfo.GlobalIdsPtr = loadBalanceData.exportGlobalGids;
+  point_partitioninfo.ProcsPtr     = loadBalanceData.exportProcs;
+  
   vtkDebugMacro(<<"FindPointsInHaloRegions "  << 
     " numImport : " << this->LoadBalanceData.numImport <<
     " numExport : " << point_partitioninfo.GlobalIds .size()
   );
 
-}
-//----------------------------------------------------------------------------
-int vtkParticlePartitionFilter::ExchangeHaloPoints(vtkInformation* info,
-                                 vtkInformationVector** inputVector,
-                                 vtkInformationVector* outputVector)
-{
-  this->ExtentTranslator->InitWholeBounds();
-  this->LocalBox     = &this->BoxList[this->UpdatePiece];
-  this->LocalBoxHalo = &this->BoxListWithHalo[this->UpdatePiece];
-
-  //
-  // Find points which overlap other processes' ghost regions
-  // note that we must use the 'new' migrated points which are not the same
-  // as the original input points (might be bigger/smaller), so get the new IdArray 
-  //
-  //vtkIdTypeArray *newIds = vtkIdTypeArray::SafeDownCast(
-  //  this->ZoltanCallbackData.Output->GetPointData()->GetArray(this->IdsName.c_str()));
-  //if (!newIds || newIds->GetNumberOfTuples()!=this->ZoltanCallbackData.Output->GetPoints()->GetNumberOfPoints()) {
-  //  vtkErrorMacro(<<"Fatal : Ids on migrated data corrupted");
-  //  return 0;
-  //}
-
-  //PartitionInfo GhostIds;
-//  this->FindPointsInHaloRegions(this->ZoltanCallbackData.Input->GetPoints(), GhostIds);
-
-  int num_found = 0; //this->ManualPointMigrate(GhostIds, true, this->KeepInversePointLists);
-
-  //
-  // Ghost information : Paraview doesn't let us visualize an array called vtkGhostLevels
-  // because it's an 'internal' array, so we make an extra one for debug purposes
-  //
-  vtkSmartPointer<vtkUnsignedCharArray> GhostArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
-  vtkSmartPointer<vtkIntArray> GhostArray2 = vtkSmartPointer<vtkIntArray>::New();
-  vtkIdType N = this->ZoltanCallbackData.Output->GetNumberOfPoints();
-  GhostArray->SetName("vtkGhostLevels");
-  GhostArray->SetNumberOfComponents(1);
-  GhostArray->SetNumberOfTuples(N);
-  GhostArray2->SetName("GhostLevels");
-  GhostArray2->SetNumberOfComponents(1);
-  GhostArray2->SetNumberOfTuples(N);
-  unsigned char *ghost = GhostArray->GetPointer(0);
-  int          *ghost2 = GhostArray2->GetPointer(0);
-  for (vtkIdType i=0; i<N; i++) {
-    if (i<(N-num_found)) {
-      ghost[i]  = 0;
-      ghost2[i] = 0;
-    }
-    else {
-      ghost[i]  = 1;
-      ghost2[i] = 1;
-    }
-  }
-  this->ZoltanCallbackData.Output->GetPointData()->AddArray(GhostArray);
-  this->ZoltanCallbackData.Output->GetPointData()->AddArray(GhostArray2);
-
-  return 1;
 }
 //----------------------------------------------------------------------------
