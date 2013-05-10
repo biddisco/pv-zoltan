@@ -39,9 +39,10 @@ class VTK_EXPORT vtkBoundsExtentTranslator : public vtkExtentTranslator
 {
 public:
   vtkTypeMacro(vtkBoundsExtentTranslator,vtkExtentTranslator);
-  void PrintSelf(ostream& os, vtkIndent indent);
   
   static vtkBoundsExtentTranslator* New();
+
+  virtual void ShallowCopy(vtkBoundsExtentTranslator *trans);
 
   // Description:
   // Set the bounding box to be used for a piece.
@@ -67,7 +68,7 @@ public:
                               int ghostLevel, int *wholeExtent, 
                               int *resultExtent, int splitMode, 
                               int byPoints);
-  
+
   // Description:
   // Set the bounding box to be used for a piece.
   virtual void SetBoundsForPiece(int piece, double* bounds);
@@ -85,10 +86,22 @@ public:
   virtual void SetBoundsHaloForPiece(int piece, vtkBoundingBox &box);
 
   // Description:
+  // If a modified bounding box table is required, the bounds
+  // must be set for each piece and UserBoundsEnabled must be set
+  void SetUserBoundsForPiece(int piece, double* bounds);
+  void SetUserBoundsForPiece(int piece, vtkBoundingBox &box);
+
+  // Description:
   // Set the maximum ghost overlap region that is required 
-  vtkSetMacro(BoundsHalosPresent, int);
-  vtkGetMacro(BoundsHalosPresent, int); 
-  vtkBooleanMacro(BoundsHalosPresent, int); 
+  vtkSetMacro(UserBoundsEnabled, int);
+  vtkGetMacro(UserBoundsEnabled, int); 
+  vtkBooleanMacro(UserBoundsEnabled, int); 
+
+  // Description:
+  // Set the maximum ghost overlap region that is required 
+  vtkSetMacro(BoundsHalosEnabled, int);
+  vtkGetMacro(BoundsHalosEnabled, int); 
+  vtkBooleanMacro(BoundsHalosEnabled, int); 
 
   // Description:  
   // Get the bounds table entry for the given piece.  
@@ -130,12 +143,14 @@ protected:
   ~vtkBoundsExtentTranslator();
   
   // Store the extent table in a single array.  Every 6 values form an extent.
-  std::vector<double> BoundsTable;
-  std::vector<double> BoundsTableHalo;
-  double WholeBounds[6];
-  double Spacing[3];
-  double MaximumGhostDistance;
-  int    BoundsHalosPresent;
+  std::vector<double>         BoundsTable;
+  int                         BoundsHalosEnabled;
+  std::vector<double>         BoundsTableHalo;
+  int                         UserBoundsEnabled;
+  std::vector<double>         BoundsTableUser;
+  double                      WholeBounds[6];
+  double                      Spacing[3];
+  double                      MaximumGhostDistance;
   vtkSmartPointer<vtkPKdTree> KdTree;
    
 private:

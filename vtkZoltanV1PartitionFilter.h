@@ -95,13 +95,19 @@ typedef void (*zpack_fn) (void *, int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , in
 typedef void (*zupack_fn)(void *, int , ZOLTAN_ID_PTR , int , char *, int *);
 typedef void (*zprem_fn) (void *, int , int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int *, int *, int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int *, int *, int *);
 //----------------------------------------------------------------------------
-
+class vtkInformationDoubleKey;
+class vtkInformationDoubleVectorKey;
+class vtkInformationIntegerKey;
+//----------------------------------------------------------------------------
 class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 {
   public:
     static vtkZoltanV1PartitionFilter *New();
     vtkTypeMacro(vtkZoltanV1PartitionFilter,vtkDataSetAlgorithm);
     void PrintSelf(ostream& os, vtkIndent indent);
+
+    static vtkInformationDoubleVectorKey* ZOLTAN_SAMPLE_RESOLUTION();
+    static vtkInformationDoubleVectorKey* ZOLTAN_SAMPLE_ORIGIN();
 
     // Description:
     // By default this filter uses the global controller,
@@ -153,7 +159,6 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       int                           PointType;             // float/double flag
       void                         *InputPointsData;       // float/double pointer
       void                         *OutputPointsData;      // float/double pointer
-      int                           NumberOfFields;
       int                           MaxCellSize;
       vtkIdType                     OutPointCount;
       vtkIdType                     MigrationPointCount;
@@ -165,6 +170,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       // The variables below are used twice, once for points, then again for cells
       // but the information is updated in between
       //
+      int                           NumberOfFields;
       std::vector<void*>            InputArrayPointers;
       std::vector<void*>            OutputArrayPointers;
       std::vector<int>              MemoryPerTuple;
@@ -256,33 +262,33 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     // that is needed to pack all of a single object's data.
     // Here we add up the size of all the field arrays for points + the geometry itself
     template<typename T>
-    static int zoltan_obj_size_function_points(void *data, 
+    static int zoltan_obj_size_function_pointdata(void *data, 
       int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id, 
       ZOLTAN_ID_PTR local_id, int *ierr);
 
     // Description:
     // Zoltan callback to pack all the data for one point into a buffer
     template<typename T>
-    static void zoltan_pack_obj_function_points(void *data, int num_gid_entries, int num_lid_entries,
+    static void zoltan_pack_obj_function_pointdata(void *data, int num_gid_entries, int num_lid_entries,
       ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr);
 
     // Description:
     // Zoltan callback to unpack all the data for one point from a buffer
     template<typename T>
-    static void zoltan_unpack_obj_function_points(void *data, int num_gid_entries,
+    static void zoltan_unpack_obj_function_pointdata(void *data, int num_gid_entries,
       ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr);
 
     // Description:
     // Zoltan callback for Pre migration setup/initialization
-    template<typename T>
-    static void zoltan_pre_migrate_function_points(
+
+    static void zoltan_pre_migrate_function_null(
       void *data, int num_gid_entries, int num_lid_entries,
       int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
       int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
       ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
 
-    template <typename T>
-    static void zoltan_pre_migrate_function_points_add(
+    template<typename T>
+    static void zoltan_pre_migrate_function_points(
       void *data, int num_gid_entries, int num_lid_entries,
       int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
       int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,

@@ -110,7 +110,7 @@ int vtkPartitionOutline::RequestData(vtkInformation *request,
           else box.SetBounds(input->GetBounds());
           add = true;
         }
-        else if (h==1 && bet && bet->GetBoundsHalosPresent()) {
+        else if (h==1 && bet && bet->GetBoundsHalosEnabled()) {
           box.SetBounds(bet->GetBoundsHaloForPiece(i));
           add = true;
         }

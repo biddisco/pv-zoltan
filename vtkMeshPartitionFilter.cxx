@@ -333,7 +333,7 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   this->PartitionCells(cell_partitioninfo);
 
   //
-  // now we just build our tree of bounding boxes to use for rendering info/hints
+  // build a tree of bounding boxes to use for rendering info/hints or other spatial tests
   //
   this->CreatePkdTree();
   this->ExtentTranslator->SetKdTree(this->GetKdtree());

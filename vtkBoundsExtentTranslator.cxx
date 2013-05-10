@@ -28,8 +28,12 @@ vtkStandardNewMacro(vtkBoundsExtentTranslator);
 vtkBoundsExtentTranslator::vtkBoundsExtentTranslator()
 {
   this->MaximumGhostDistance = 0;
-  this->BoundsHalosPresent = 0;
-  this->KdTree = NULL;
+  this->BoundsHalosEnabled   = 0;
+  this->UserBoundsEnabled    = 0;
+  this->KdTree               = NULL;
+  this->WholeBounds[0] = this->WholeBounds[2] = this->WholeBounds[4] = 0;
+  this->WholeBounds[1] = this->WholeBounds[3] = this->WholeBounds[5] = -1;
+  this->Spacing[0]     = this->Spacing[1]     = this->Spacing[2]     = 0;
 }
 
 //----------------------------------------------------------------------------
@@ -38,33 +42,25 @@ vtkBoundsExtentTranslator::~vtkBoundsExtentTranslator()
 }
 
 //----------------------------------------------------------------------------
-void vtkBoundsExtentTranslator::PrintSelf(ostream& os, vtkIndent indent)
+void vtkBoundsExtentTranslator::ShallowCopy(vtkBoundsExtentTranslator *trans)
 {
-  this->Superclass::PrintSelf(os, indent);
-  if(!this->BoundsTable.empty())
-    {
-    vtkIndent nextIndent = indent.GetNextIndent();
-    double* bounds = &this->BoundsTable[0];
-    int i;
-    
-    os << indent << "BoundsTable: 0: "
-       << bounds[0] << " " << bounds[1] << " "
-       << bounds[2] << " " << bounds[3] << " "
-       << bounds[4] << " " << bounds[5] << "\n";
-    for(i=1; i<this->GetNumberOfPieces();++i)
-      {
-      bounds += 6;
-      os << nextIndent << "             " << i << ": "
-         << bounds[0] << " " << bounds[1] << " "
-         << bounds[2] << " " << bounds[3] << " "
-         << bounds[4] << " " << bounds[5] << "\n";
-      }
-    }
-  else
-    {
-    os << indent << "BoundsTable: (none)\n";
-    }
-  os << indent << "MaximumGhostDistance: " << this->MaximumGhostDistance << "\n";
+  // inherited members we copy just in case
+  this->Piece          = trans->Piece;
+  this->NumberOfPieces = trans->NumberOfPieces;
+  this->GhostLevel     = trans->GhostLevel;
+  this->SplitMode      = trans->SplitMode;
+  memcpy(this->Extent,      trans->Extent,      sizeof(int)*6);
+  memcpy(this->WholeExtent, trans->WholeExtent, sizeof(int)*6);
+  //
+  this->MaximumGhostDistance = trans->MaximumGhostDistance;
+  this->BoundsHalosEnabled   = trans->BoundsHalosEnabled;
+  this->UserBoundsEnabled    = trans->UserBoundsEnabled;
+  this->KdTree               = trans->KdTree; // @TODO warning, smartpointer copy, might need attention
+  this->BoundsTable          = trans->BoundsTable;
+  this->BoundsTableHalo      = trans->BoundsTableHalo;
+  this->BoundsTableUser      = trans->BoundsTableUser;
+  memcpy(this->WholeBounds, trans->WholeBounds, sizeof(double)*6);
+  memcpy(this->Spacing,     trans->Spacing,     sizeof(double)*3);
 }
 
 //----------------------------------------------------------------------------
@@ -73,6 +69,7 @@ void vtkBoundsExtentTranslator::SetNumberOfPieces(int pieces)
   // Allocate a table for this number of pieces.
   this->BoundsTable.resize(pieces*6);
   this->BoundsTableHalo.resize(pieces*6);
+  this->BoundsTableUser.resize(pieces*6);
   this->Superclass::SetNumberOfPieces(pieces);
 }
 
@@ -128,6 +125,26 @@ void vtkBoundsExtentTranslator::SetBoundsHaloForPiece(int piece, vtkBoundingBox 
   double bounds[6];
   box.GetBounds(bounds);
   this->SetBoundsHaloForPiece(piece, bounds);
+}
+
+//----------------------------------------------------------------------------
+void vtkBoundsExtentTranslator::SetUserBoundsForPiece(int piece, double* bounds)
+{
+  if ((piece*6)>this->BoundsTableUser.size() || (piece < 0))
+    {
+    vtkErrorMacro("Piece " << piece << " does not exist.  "
+                  "GetNumberOfPieces() is " << this->GetNumberOfPieces());
+    return;
+    }
+  memcpy(&this->BoundsTableUser[piece*6], bounds, sizeof(double)*6);
+}
+
+//----------------------------------------------------------------------------
+void vtkBoundsExtentTranslator::SetUserBoundsForPiece(int piece, vtkBoundingBox &box)
+{
+  double bounds[6];
+  box.GetBounds(bounds);
+  this->SetUserBoundsForPiece(piece, bounds);
 }
 
 //----------------------------------------------------------------------------

@@ -31,6 +31,7 @@
 #include "vtkBoundingBox.h"
 #include "vtkMath.h"
 #include "vtkPointLocator.h"
+#include "vtkPKdTree.h"
 //
 // For PARAVIEW_USE_MPI
 #include "vtkPVConfig.h"
@@ -58,6 +59,8 @@ vtkStandardNewMacro(vtkParticlePartitionFilter);
 vtkParticlePartitionFilter::vtkParticlePartitionFilter()
 {
   this->GhostCellOverlap = 0.0;
+  this->GridSpacing      = 0.0;
+  this->GridOrigin[0]    = this->GridOrigin[1] = this->GridOrigin[2] = 0.0;
 }
 //----------------------------------------------------------------------------
 vtkParticlePartitionFilter::~vtkParticlePartitionFilter()
@@ -184,6 +187,13 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
     }
     vtkPolyData::SafeDownCast(this->ZoltanCallbackData.Output)->SetVerts(cells);
   }
+
+  //
+  // build a tree of bounding boxes to use for rendering info/hints or other spatial tests
+  //
+  this->CreatePkdTree();
+  this->ExtentTranslator->SetKdTree(this->GetKdtree());
+
   //
   //*****************************************************************
   // Free the arrays allocated by Zoltan_LB_Partition, and free
@@ -215,8 +225,8 @@ void vtkParticlePartitionFilter::AddHaloToBoundingBoxes()
   // Set the halo/ghost regions we need around each process bounding box
   //  
   this->BoxListWithHalo.clear();
-  if (this->InputExtentTranslator && this->InputExtentTranslator->GetBoundsHalosPresent()) {
-    this->ExtentTranslator->SetBoundsHalosPresent(1);
+  if (this->InputExtentTranslator && this->InputExtentTranslator->GetBoundsHalosEnabled()) {
+    this->ExtentTranslator->SetBoundsHalosEnabled(1);
     for (int p=0; p<this->UpdateNumPieces; p++) {
       vtkBoundingBox box;  
       box.SetBounds(this->InputExtentTranslator->GetBoundsHaloForPiece(p));
@@ -225,7 +235,7 @@ void vtkParticlePartitionFilter::AddHaloToBoundingBoxes()
     }
   }
   else {
-    this->ExtentTranslator->SetBoundsHalosPresent(1);
+    this->ExtentTranslator->SetBoundsHalosEnabled(1);
     // @todo : extend this to handle AMR ghost regions etc.
     std::vector<double> ghostOverlaps(this->UpdateNumPieces,this->GhostCellOverlap);
     for (int p=0; p<this->UpdateNumPieces; p++) {

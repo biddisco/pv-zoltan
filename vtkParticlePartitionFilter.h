@@ -52,6 +52,19 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
     vtkGetMacro(GhostCellOverlap, double);
         
     // Description:
+    // Specify the point spacing on the X/Y/Z axis
+    vtkSetMacro(GridSpacing, double);
+    vtkGetMacro(GridSpacing, double);
+
+    // Description
+    // If Resolution[X/Y/Z]are all Non-zero, then
+    // the spacing is ignored and the box defined by the points is 
+    // sampled using the specified resolutions
+    vtkSetVector3Macro(GridOrigin, double);
+    vtkGetVector3Macro(GridOrigin, double);
+
+        
+    // Description:
     // Return the Bounding Box for a partition plus the extended region
     // all around the box where ghost cells might be required/present
     vtkBoundingBox *GetPartitionBoundingBoxWithHalo(int partition);
@@ -71,6 +84,8 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
 
     double                      GhostCellOverlap;
     std::vector<vtkBoundingBox> BoxListWithHalo;
+    double                      GridSpacing;
+    double                      GridOrigin[3];
 
   private:
     vtkParticlePartitionFilter(const vtkParticlePartitionFilter&);  // Not implemented.
