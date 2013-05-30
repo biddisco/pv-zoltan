@@ -106,7 +106,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.cameraViewUp[0] = 0.0;
   test.cameraViewUp[1] = 0.0;
   test.cameraViewUp[2] = 1.0;
-  test.windowSize[0] = test.windowSize[1] = 400+8;
+  test.windowSize[0] = test.windowSize[1] = 400;// +8;
 
   // uncomment this to wait for debugger attach
   // DEBUG_WAIT
@@ -191,8 +191,8 @@ int initTest(int argc, char* argv[], TestStruct &test)
   unused = GetArrayParameter<int>("-windowSize", "Window Size", test.windowSize, 2, argc, argv, test.myRank);
 //#ifdef WIN32
   if (0 && unused) { // why have window sizes changed?
-    test.windowSize[0] += 8;
-    test.windowSize[1] += 8;
+//    test.windowSize[0] += 8;
+//    test.windowSize[1] += 8;
   }
 //#endif  
   // bug fix for cmd line params on windows with debugger (only first read properly)
