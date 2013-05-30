@@ -39,10 +39,10 @@ INCLUDE_DIRECTORIES(
 #--------------------------------------------------
 # Find cuda for optional Piston classes
 #--------------------------------------------------
-option(PV_ZOLTAN_USE_CUDA OFF)
+option(PV_ZOLTAN_USE_CUDA "Use CUDA rendering" OFF)
 
 if(PV_ZOLTAN_USE_CUDA)
-
+  find_package(CUDA REQUIRED)
   add_definitions(PV_ZOLTAN_USE_PISTON)
 
   #--------------------------------------------------
