@@ -1469,6 +1469,8 @@ bool vtkZoltanV1PartitionFilter::MigratePointData(vtkDataSetAttributes *inPointD
   Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &this->ZoltanCallbackData); 
 
   int N1 = this->ZoltanCallbackData.OutPointCount;
+  // this sets internal flags used by CopyData to ensure arrays are marked for copying
+  outPointData->CopyAllocate(outPointData, N1);
   this->InitializeFieldDataArrayPointers(&this->ZoltanCallbackData, inPointData, outPointData, N1);
 
   vtkIdType N2 = inPointData->GetNumberOfTuples();
