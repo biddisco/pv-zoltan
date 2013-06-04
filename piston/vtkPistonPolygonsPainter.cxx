@@ -150,7 +150,7 @@ int device_binding(int mpi_rank)
   return my_dev_id;
 }
 //-----------------------------------------------------------------------------
-int vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int displayId)
+int vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int &displayId)
 {
   if (!vtkPistonPolygonsPainter::CudaGLInitted)
   {

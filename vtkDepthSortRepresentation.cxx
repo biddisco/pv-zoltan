@@ -105,10 +105,16 @@ bool vtkDepthSortRepresentation::AddToView(vtkView* view)
     std::string display;
     vtksys::SystemTools::GetEnv("DISPLAY", display);
     vtksys::RegularExpression regex(".*:.*\\.([0-9]+)");
-    regex.find(display.c_str());
     int displaynum = -1;
-    if (regex.match(1).size()>0) {
-      displaynum = atoi(regex.match(1).c_str());
+    if (regex.find(display.c_str())) {
+      if (regex.match(1).size()>0) {
+        displaynum = atoi(regex.match(1).c_str());
+      }
+    }
+    else {
+#ifndef _WIN32
+      vtkWarningMacro("DISPLAY environment variable should conform to \":0.0\" format");
+#endif
     }
     //
     bool ok = vtkPistonPolygonsPainter::InitCudaGL(rview->GetRenderWindow(), rank, displaynum);
