@@ -21,7 +21,13 @@
 #ifndef __vtkPistonDataWrangling_h
 #define __vtkPistonDataWrangling_h
 
-#define SPACE thrust::detail::default_device_space_tag
+#include <thrust/version.h>
+
+#if (THRUST_MAJOR_VERSION>=1) && (THRUST_MINOR_VERSION>=6)
+ #define SPACE thrust::device_space_tag
+#else
+ #define SPACE thrust::detail::default_device_space_tag
+#endif
 
 namespace vtkpiston {
 

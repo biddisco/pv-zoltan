@@ -54,7 +54,13 @@ if(PV_ZOLTAN_USE_CUDA)
   include(vtkModuleMacros)
   include(ParaViewMacros)
 
+  #--------------------------------------------------
+  # Find CUDA and Thrust
+  #--------------------------------------------------
+  SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/piston")
   find_package(CUDA REQUIRED)
+  find_package(CUDAThrust REQUIRED)
+
   #--------------------------------------------------
   # Find piston header library
   #--------------------------------------------------
@@ -147,6 +153,12 @@ if(PV_ZOLTAN_USE_CUDA)
     piston/vtkPistonConverters.cu
     piston/vtkPistonMapper.cu
   )
+
+  #--------------------------------------------------
+  # include path for Thrust
+  #--------------------------------------------------
+  include_directories(${CUDATHRUST_INCLUDE_DIRS})
+  message("include_directories(${CUDATHRUST_INCLUDE_DIRS})")
 
   #--------------------------------------------------
   # Define CUDA sources

@@ -37,6 +37,7 @@
 #include "vtkCompositeDataIterator.h"
 //
 #include "vtkPistonDataObject.h"
+#include <thrust/version.h>
 //-----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkPistonPolygonsPainter);
 //-----------------------------------------------------------------------------
@@ -154,6 +155,10 @@ int vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int &dis
 {
   if (!vtkPistonPolygonsPainter::CudaGLInitted)
   {
+    int major = THRUST_MAJOR_VERSION;
+    int minor = THRUST_MINOR_VERSION;
+    std::cout << "Thrust v" << major << "." << minor << std::endl;
+    //
     vtkOpenGLExtensionManager *em = vtkOpenGLExtensionManager::New();
     em->SetRenderWindow(rw);
     if (!em->LoadSupportedExtension("GL_VERSION_1_5"))
