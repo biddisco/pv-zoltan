@@ -34,6 +34,7 @@ typedef thrust::device_vector<float>::iterator FloatIterator;
 typedef thrust::tuple<FloatIterator, FloatIterator> FloatIteratorTuple;
 typedef thrust::tuple<float&, float&> FloatTuple;
 typedef thrust::zip_iterator<FloatIteratorTuple> Float2Iterator;
+//typedef thrust::detail::tuple_of_iterator_references<float &, float &, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type> TupleDef;
 //------------------------------------------------------------------------------
 // The colour map struct is templated (T) over the iterator type that we will use
 // in our transform function.
@@ -47,8 +48,7 @@ typedef thrust::zip_iterator<FloatIteratorTuple> Float2Iterator;
 // 1) scalars        : T=float(iterator), element=float 
 // 2) scalar/opacity : T=FloatIteratorTuple(iterator), element=FloatTuple 
 
-template<typename T>
-struct color_map : public thrust::unary_function<T, float4>
+struct color_map 
 {
   const float min;
   const float max;
@@ -56,13 +56,15 @@ struct color_map : public thrust::unary_function<T, float4>
   float      *table;
   float       alpha;
   float      *opacity;
+  float      *scalars;
 
-  color_map(float *table, int arrSize, float rMin, float rMax, double a, float *opacityarray) :
+  color_map(float *RGBtable, size_t arrSize, float rMin, float rMax, double a, float *scalararray, float *opacityarray) :
     min(rMin),
     max(rMax),
     size((arrSize / 3) - 1),
-    table(table),
+    table(RGBtable),
     alpha(a),
+    scalars(scalararray),
     opacity(opacityarray)
     {
     }
@@ -82,32 +84,20 @@ struct color_map : public thrust::unary_function<T, float4>
     return make_float4(table[index]*opac, table[index + 1]*opac, table[index + 2]*opac, opac);
   };
 
-  // declare an empty general templated functor operator which we will specialize later
-  template<typename element>
-  __host__ __device__ float4 operator()(element t) { 
-    // should throw ("Error - this function must be specialized for the type used");
-    return make_float4(1,1,1,1);
+  __host__ __device__ float4 color_map::operator()(float t)
+  {
+    float val = t;
+    return calc(val, alpha);
   }
+
+//  __host__ __device__ float4 color_map::operator()(const TupleDef &t)
+//  {
+//    float val  = thrust::get<0>(t);
+//    float opac = thrust::get<1>(t)*alpha;
+//    return calc(val, opac);
+//  }
+
 };
-//------------------------------------------------------------------------------
-// doubly templated specialization
-// overload the colormap operator() for tuple iterators which will hold <scalar, opacity>
-template <> template<>
-__host__ __device__ float4 color_map<FloatIteratorTuple>::operator()<FloatTuple>(FloatTuple t)
-{
-  float val  = thrust::get<0>(t);
-  float opac = thrust::get<1>(t)*alpha;
-  return calc(val, opac);
-}
-//------------------------------------------------------------------------------
-// doubly templated specialization
-// overload the colormap operator() for single color array
-template <> template<>
-__host__ __device__ float4 color_map<float>::operator()<float>(float t)
-{
-  float val = t;
-  return calc(val, alpha);
-}
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -155,7 +145,7 @@ void CudaRegisterBuffer(struct cudaGraphicsResource **vboResource,
 }
 
 //------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
+// Compute the distance from the camera to a single point
 //------------------------------------------------------------------------------
 struct distance_functor 
 {
@@ -171,6 +161,8 @@ struct distance_functor
     thrust::get<1>(t) = dot(thrust::get<0>(t), cameravector);  
   }
 };
+//------------------------------------------------------------------------------
+// Takes 3 point distances and computes the mean (i.e. triangular cell) distance
 //------------------------------------------------------------------------------
 struct celldistance_functor 
 {
@@ -251,18 +243,16 @@ void DepthSortPolygons(vtkPistonDataObject *id, double *cameravec, int direction
 
 //------------------------------------------------------------------------------
 void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCache,
-                      vtkTwoScalarsToColorsPainter *psc,
                       cudaGraphicsResource **vboResources,
                       double alpha,
                       bool &hasNormals, bool &hasColors, 
                       bool &useindexbuffers)
 {
   vtkPistonReference *tr = id->GetReference();
-  if (tr->type != VTK_POLY_DATA || tr->data == NULL)
-    {
+  if (tr->type != VTK_POLY_DATA || tr->data == NULL) {
     // Type mismatch, don't bother trying
     return;
-    }
+  }
 
   vtk_polydata *pD = (vtk_polydata *)tr->data;
 
@@ -279,34 +269,30 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
   float3 *vertexBufferData;
   uint3  *cellsBufferData;
   float  *normalsBufferData;
-  float4 *colorsBufferData; 
+  uchar4 *colorsBufferData; 
 
-  res = cudaGraphicsResourceGetMappedPointer
-      ((void **)&vertexBufferData, &num_bytes, vboResources[0]);
-  if(res != cudaSuccess) {
+  res = cudaGraphicsResourceGetMappedPointer((void **)&vertexBufferData, &num_bytes, vboResources[0]);
+  if (res != cudaSuccess) {
     cerr << "Get mappedpointer for vertices failed ... "
          << cudaGetErrorString(res) << endl;
     return;
   }
-  res = cudaGraphicsResourceGetMappedPointer
-      ((void **)&normalsBufferData, &num_bytes, vboResources[1]);
-  if(res != cudaSuccess) {
+  res = cudaGraphicsResourceGetMappedPointer((void **)&normalsBufferData, &num_bytes, vboResources[1]);
+  if (res != cudaSuccess) {
     cerr << "Get mappedpointer for normals failed ... "
          << cudaGetErrorString(res) << endl;
     return;
   }
-  res = cudaGraphicsResourceGetMappedPointer
-      ((void **)&colorsBufferData, &num_bytes, vboResources[2]);
-  if(res != cudaSuccess)
+  res = cudaGraphicsResourceGetMappedPointer((void **)&colorsBufferData, &num_bytes, vboResources[2]);
+  if (res != cudaSuccess)
   {
     cerr << "Get mappedpointer for colors failed ... "
          << cudaGetErrorString(res) << endl;
     return;
   }
 
-  res = cudaGraphicsResourceGetMappedPointer
-      ((void **)&cellsBufferData, &num_bytes, vboResources[3]);
-  if(res != cudaSuccess)
+  res = cudaGraphicsResourceGetMappedPointer((void **)&cellsBufferData, &num_bytes, vboResources[3]);
+  if (res != cudaSuccess)
   {
     std::string errormsg = cudaGetErrorString(res);
     cerr << "Get mappedpointer for cell indices failed ... "
@@ -337,14 +323,15 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
   hasColors = false;
 
 
-  if (0 && pD->colors)
+  if (pD->colors)
   {
     thrust::copy(pD->colors->begin(), pD->colors->end(), 
-      thrust::device_ptr<float4>(colorsBufferData));
+      thrust::device_ptr<uchar4>(colorsBufferData));
+    hasColors = true;
   }
+/*
   else if (pD->scalars)
   {
-    hasColors = true;
 
     std::vector<float> *colors = psc->ComputeScalarsColorsf();
 
@@ -359,12 +346,28 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
 
     float * opacitydata = pD->opacities ? thrust::raw_pointer_cast(pD->opacities->data()) : NULL;
 
+
+  if (opacitydata==0) {
+    color_map colorMap(raw_RGBA, rgba.size(), scalarRange[0], scalarRange[1], alpha, raw_scalar, raw_opacity);
+
+    thrust::transform(scalardata.begin(), scalardata.end(), colours.begin(), colorMap);
+  }
+  else {
+    // Now we'll create some zip_iterators for A and B
+    auto first = thrust::make_zip_iterator(thrust::make_tuple(scalardata.begin(), opacitydata.begin()));
+    auto last  = thrust::make_zip_iterator(thrust::make_tuple(scalardata.end(),   opacitydata.end()));
+
+    color_map colorMap(raw_RGBA, rgba.size(), scalarRange[0], scalarRange[1], alpha, raw_scalar, raw_opacity);
+
+    thrust::transform(first, last, colours.begin(), colorMap);
+  }
+
     if (opacitydata) {
       // Now we'll create some zip_iterators for A and B
       Float2Iterator _first = thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->begin(), pD->opacities->begin()));; 
       Float2Iterator  _last = thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->end(),   pD->opacities->end()));
 
-      color_map<FloatIteratorTuple> colorMap(raw_ptr, onGPU.size(), scalarRange[0], scalarRange[1], alpha, opacitydata);
+      color_map<FloatTuple> colorMap(raw_ptr, onGPU.size(), scalarRange[0], scalarRange[1], alpha, opacitydata);
       thrust::copy(thrust::make_transform_iterator(_first, colorMap),
                    thrust::make_transform_iterator(_last,  colorMap),
                    thrust::device_ptr<float4>(colorsBufferData));
@@ -376,7 +379,7 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
                    thrust::device_ptr<float4>(colorsBufferData));
     }
   }
-
+*/
   // Allow GL to access again
   res = cudaGraphicsUnmapResources(4, vboResources, 0);
   if (res != cudaSuccess)

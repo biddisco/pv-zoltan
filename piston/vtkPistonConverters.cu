@@ -142,7 +142,7 @@ namespace vtkpiston {
 
         newD->scalars = new thrust::device_vector<float>(oldD->scalars->size());
         thrust::copy(oldD->scalars->begin(), oldD->scalars->end(), newD->scalars->begin());
-        newD->colors = new thrust::device_vector<float4>(oldD->colors->size());
+        newD->colors = new thrust::device_vector<uchar4>(oldD->colors->size());
         thrust::copy(oldD->colors->begin(), oldD->colors->end(), newD->colors->begin());
 
         if (oldD->opacities) {
@@ -423,23 +423,21 @@ namespace vtkpiston {
       newD->normals = NULL;
     }
 
-/*
     vtkUnsignedCharArray *incolors = vtkUnsignedCharArray::SafeDownCast(
       id->GetPointData()->GetArray("Color"));
     if (incolors)
     {
-      thrust::host_vector<float4> hA(nPoints);
+      thrust::host_vector<uchar4> hA(nPoints);
+      unsigned char *next = incolors->GetPointer(0);
       for (vtkIdType i=0; i<nPoints; i++) {
-        unsigned char *next = incolors->GetPointer(i);
-        hA[i] = make_float4( next[0]/255.0, next[1]/255.0, next[2]/255.0, next[3]/255.0 );
+        hA[i] = uchar4(next[0], next[1], next[2], next[3]);;
+        next+=4;
       }
-      thrust::device_vector<float4> *dA =
-        new thrust::device_vector<float4>(nPoints);
-      *dA = hA;
-      newD->colors = dA;
+      // copy from host vector to device vector
+      newD->colors = new thrust::device_vector<uchar4>(nPoints);
+      *(newD->colors) = hA;
     }
     else
-*/
     {
       newD->colors = NULL;
     }
@@ -543,7 +541,7 @@ namespace vtkpiston {
     //colors
     if (pD->colors)
     {
-      thrust::host_vector<float4> V(nPoints);
+      thrust::host_vector<uchar4> V(nPoints);
       thrust::copy(pD->colors->begin(), pD->colors->end(), V.begin());
       //assign that to the output dataset
 //      vtkUnsignedCharArray *outColors = makeScalars(&V);

@@ -31,6 +31,8 @@
 
 namespace vtkpiston {
 
+  typedef thrust::tuple<unsigned char, unsigned char, unsigned char, unsigned char> uchar4;
+
 void DeleteData(vtkPistonReference *);
 
 typedef struct
@@ -46,7 +48,7 @@ typedef struct
   thrust::device_vector<float>         *scalars;
   thrust::device_vector<float>         *opacities;
   thrust::device_vector<float>         *normals;
-  thrust::device_vector<float4>        *colors;
+  thrust::device_vector<uchar4>        *colors;
 } vtk_polydata;
 
 struct tuple2float3 :

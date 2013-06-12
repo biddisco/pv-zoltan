@@ -191,11 +191,11 @@ static inline void vtkMultiplyColorsWithOpacity(vtkDataArray* array, vtkDataArra
     // @TODO : assume values are 0-1 for now
     alpha = alpha * opacity->GetTuple1(tuple);
     if (multiply_with_alpha) {
-      ptr[0] = static_cast<unsigned char>(0x0ff & static_cast<int>((0x0ff&ptr[0])*alpha));
-      ptr[1] = static_cast<unsigned char>(0x0ff & static_cast<int>((0x0ff&ptr[1])*alpha));
-      ptr[2] = static_cast<unsigned char>(0x0ff & static_cast<int>((0x0ff&ptr[2])*alpha));
+      ptr[0] = static_cast<unsigned char>(0x0ff & static_cast<int>((0x0ff&ptr[0])*alpha + 0.5));
+      ptr[1] = static_cast<unsigned char>(0x0ff & static_cast<int>((0x0ff&ptr[1])*alpha + 0.5));
+      ptr[2] = static_cast<unsigned char>(0x0ff & static_cast<int>((0x0ff&ptr[2])*alpha + 0.5));
     }
-    ptr[3] = static_cast<unsigned char>(0x0ff & static_cast<int>(0x0ff*alpha));
+    ptr[3]   = static_cast<unsigned char>(0x0ff & static_cast<int>(0x0ff*alpha + 0.5));
   }
 }
 

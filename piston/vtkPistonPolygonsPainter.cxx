@@ -55,7 +55,7 @@ namespace vtkpiston {
   int  QueryVertsPer(vtkPistonDataObject *id);
   int  QueryNumCells(vtkPistonDataObject *id);
   void CudaRegisterBuffer(struct cudaGraphicsResource **vboResource, GLuint vboBuffer);
-  void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCache, vtkTwoScalarsToColorsPainter *psc,
+  void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCache,
        struct cudaGraphicsResource **vboResources, double alpha, bool &hasNormals, bool &hasColors, bool &useindexbuffers);
   bool AlmostEqualRelativeAndAbs(float A, float B, float maxDiff, float maxRelDiff);
   //
@@ -210,11 +210,11 @@ void vtkPistonPolygonsPainter::PrepareDirectRenderBuffers(int nPoints, int nCell
     this->Internal->BufferSize*3*sizeof(float), 0,
     vtkgl::DYNAMIC_DRAW);
 
-  // colors 3*n float {R,G,B} 
+  // colors 4*n uchar {R,G,B,A} 
   vtkgl::BindBuffer(vtkgl::ARRAY_BUFFER,
     this->Internal->vboBuffers[2]);
   vtkgl::BufferData(vtkgl::ARRAY_BUFFER,
-    this->Internal->BufferSize*4*sizeof(float), 0,
+    this->Internal->BufferSize*4*sizeof(unsigned char), 0,
     vtkgl::DYNAMIC_DRAW);
 
   // indexes 3*nCells int : triangles assumed {a,b,c} 
@@ -258,8 +258,8 @@ void vtkPistonPolygonsPainter::RenderOnGPU(vtkCamera *cam, vtkActor *act)
   if (this->Direction>=0) {
     vtkpiston::DepthSortPolygons(id, cameravec, this->Direction);
   }
-  vtkpiston::CudaTransferToGL(id, this->Internal->DataObjectMTimeCache,
-    this->ScalarsToColors,
+  vtkpiston::CudaTransferToGL(
+    id, this->Internal->DataObjectMTimeCache,
     this->Internal->vboResources, 
     act->GetProperty()->GetOpacity(),
     hasNormals, hasColors, useindexbuffers);
@@ -297,7 +297,7 @@ void vtkPistonPolygonsPainter::RenderOnGPU(vtkCamera *cam, vtkActor *act)
 */
     glEnableClientState(GL_COLOR_ARRAY);
     vtkgl::BindBuffer(vtkgl::ARRAY_BUFFER, this->Internal->vboBuffers[2]);
-    glColorPointer(4, GL_FLOAT, 0, 0);
+    glColorPointer(4, GL_UNSIGNED_BYTE, 0, 0);
   }
   else {
     //    glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
