@@ -102,6 +102,7 @@ struct color_map
     opacity(opacityarray)
     {
     }
+
 //  const float inv = 0.0039215686274509803921568627451;
   // the internal calculation which is independent of template types
   __host__ __device__ inline uchar4 calc(float val, float opac) 
@@ -402,8 +403,7 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
     }
   hasColors = false;
 
-
-  if (pD->colors)
+  if (0 && pD->colors)
   {
     thrust::copy(pD->colors->begin(), pD->colors->end(), 
       thrust::device_ptr<uchar4>(colorsBufferData));
@@ -415,10 +415,20 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
     // Copy RGB values to GPU
     thrust::device_vector<unsigned char> onGPU(colorptr, colorptr+(256*4));
     unsigned char *raw_RGBA = thrust::raw_pointer_cast(&onGPU[0]);
+    // find min and max distances
+
+    thrust::pair<thrust::device_vector<float>::iterator,thrust::device_vector<float>::iterator> 
+      minmax = thrust::minmax_element(pD->distances.begin(), pD->distances.end());
+    float minval =  *minmax.first;
+    float maxval =  *minmax.second;
+
     // create a lookuptable
-    color_map colorMap(raw_RGBA, 256, 0, 2, 0.5, raw_scalar, NULL);
+//    color_map colorMap(raw_RGBA, 256, min_val, max_val, 0.5, raw_scalar, NULL);
+    color_map colorMap(raw_RGBA, 256, minval, maxval, 0.5, raw_scalar, NULL);
+
     // map all scalars through LUT
-    thrust::transform(pD->distances.begin(), pD->distances.end(), pD->colors->begin(), colorMap);
+    thrust::transform(pD->distances.begin(), pD->distances.end(), thrust::device_ptr<uchar4>(colorsBufferData), colorMap);
+    hasColors = true;
   }
   else if (pD->scalars)
   {

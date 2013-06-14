@@ -122,10 +122,11 @@ protected:
   int CanUseTextureMapForColoring(vtkDataObject* input);
 
 protected :
-  char         *OpacityArrayName;
-  int           EnableOpacity;
-  int           OpacityScalarMode;
-  vtkTimeStamp  BlendTime;
+  char          *OpacityArrayName;
+  int            EnableOpacity;
+  int            OpacityScalarMode;
+  vtkTimeStamp   BlendTime;
+  std::vector<unsigned char> RGBTable;
 
   //BTX
   std::vector<float> GPUScalarsColors;

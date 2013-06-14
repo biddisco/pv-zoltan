@@ -377,7 +377,40 @@ unsigned char *vtkTwoScalarsToColorsPainter::GetRGBPointer()
   if (vtkLookupTable::SafeDownCast(this->LookupTable)) {
     return vtkLookupTable::SafeDownCast(this->LookupTable)->GetPointer(0);
   }
-  return NULL;
+  if(!(this->LookupTable->GetMTime() > this->GetMTime() ||
+       this->GPUColourTime.GetMTime() < this->GetMTime()))
+  {
+    return &this->RGBTable[0];
+  }
+  this->RGBTable.resize(256*4);
+  
+  //
+  // generate scalar ramp from range[0] to range[1]
+  //
+  double range[2];
+  std::vector<float> values(256);
+  float *valueptr = &values[0];
+  this->GetScalarRange(range);
+  for (int i=0; i<256; ++i) {
+    values[i] = range[0] + i * ((range[1] - range[0]) / 256.0);
+  }
+
+  //
+  // generate RGB values for the scalar ramp 
+  //
+  unsigned char *colorptr = &this->RGBTable[0];
+
+  //
+  // map the scalar ramp through RGB lookup to get the RGB table we pass to GPU
+  //
+  if (!this->UseLookupTableScalarRange)
+  {
+    this->LookupTable->SetRange(this->ScalarRange);
+  }
+  this->LookupTable->Build();
+  this->LookupTable->MapScalarsThroughTable(valueptr, colorptr, VTK_FLOAT, 256, 1, 4);
+  //
+  return &this->RGBTable[0];
 }
 //-----------------------------------------------------------------------------
 std::vector<float>* vtkTwoScalarsToColorsPainter::ComputeScalarsColorsf()
