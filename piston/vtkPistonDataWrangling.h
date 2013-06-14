@@ -31,7 +31,7 @@
 
 namespace vtkpiston {
 
-  typedef thrust::tuple<unsigned char, unsigned char, unsigned char, unsigned char> uchar4;
+//  typedef thrust::tuple<unsigned char, unsigned char, unsigned char, unsigned char> uchar4;
 
 void DeleteData(vtkPistonReference *);
 
@@ -45,10 +45,12 @@ typedef struct
   thrust::device_vector<float3>        *points;
   thrust::device_vector<uint3>         *cells;
   thrust::device_vector<uint3>         *originalcells;
+  thrust::device_vector<float>          distances;
   thrust::device_vector<float>         *scalars;
   thrust::device_vector<float>         *opacities;
   thrust::device_vector<float>         *normals;
   thrust::device_vector<uchar4>        *colors;
+  thrust::device_vector<uchar4>         lutRGBA;
 } vtk_polydata;
 
 struct tuple2float3 :
@@ -71,6 +73,7 @@ struct float4tofloat3 : thrust::unary_function<float4, float3>
            (float) xyzw.y,
            (float) xyzw.z);
   }
+
 };
 
 } //namespace

@@ -4,9 +4,20 @@
 
 #include <iostream>
 
+// include before gl_interop
+#include "vtkgl.h"
+//
+// CUDA
+//
+#include <cuda_gl_interop.h>
+#include <vector_types.h>
+#include <vector_functions.h>
+
+//
+// Thrust
+//
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
-
 #include <thrust/functional.h>
 #include <thrust/sort.h>
 #include <thrust/copy.h>
@@ -14,10 +25,10 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/permutation_iterator.h>
 
-#include "vtkgl.h"
-#include <cuda_gl_interop.h>
-
-#include "piston/piston_math.h"
+//
+// Piston
+//
+//#include "piston/piston_math.h"
 //
 #include "vtkPistonDataObject.h"
 #include "vtkPistonDataWrangling.h"
@@ -25,7 +36,19 @@
 
 #include "../vtkTwoScalarsToColorsPainter.h"
 
+#define USE_FLOAT_FOR_DEPTH_SORT
+
 namespace vtkpiston {
+
+inline __host__ __device__ float dot(float3 a, float3 b)
+{ 
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+inline __host__ __device__ float dot(double3 a, double3 b)
+{ 
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -35,6 +58,17 @@ typedef thrust::tuple<FloatIterator, FloatIterator> FloatIteratorTuple;
 typedef thrust::tuple<float&, float&> FloatTuple;
 typedef thrust::zip_iterator<FloatIteratorTuple> Float2Iterator;
 //typedef thrust::detail::tuple_of_iterator_references<float &, float &, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type> TupleDef;
+
+static __inline__ __host__ __device__ double3 make_double3(const float3 &f3)
+{
+  double3 t; t.x = f3.x; t.y = f3.y; t.z = f3.z; return t;
+}
+
+static __inline__ __host__ __device__ double3 make_double3(const float  &x, const float  &y, const float  &z)
+{
+  double3 t; t.x = x; t.y = y; t.z = z; return t;
+}
+
 //------------------------------------------------------------------------------
 // The colour map struct is templated (T) over the iterator type that we will use
 // in our transform function.
@@ -53,12 +87,12 @@ struct color_map
   const float min;
   const float max;
   const int   size;
-  float      *table;
+  unsigned char *table;
   float       alpha;
   float      *opacity;
   float      *scalars;
 
-  color_map(float *RGBtable, size_t arrSize, float rMin, float rMax, double a, float *scalararray, float *opacityarray) :
+  color_map(unsigned char *RGBtable, size_t arrSize, float rMin, float rMax, double a, float *scalararray, float *opacityarray) :
     min(rMin),
     max(rMax),
     size((arrSize / 3) - 1),
@@ -68,9 +102,9 @@ struct color_map
     opacity(opacityarray)
     {
     }
-  
+//  const float inv = 0.0039215686274509803921568627451;
   // the internal calculation which is independent of template types
-  __host__ __device__ inline float4 calc(float val, float opac) 
+  __host__ __device__ inline uchar4 calc(float val, float opac) 
   { 
     // convert val to lookuptable index
     int index = 0;
@@ -80,11 +114,12 @@ struct color_map
     if (index < 0)    index = 0;
     if (index > size) index = size;
     // convert to RGB tuple index
+    // 1/255 = 0.0039215686274509803921568627451
     index *= 3; 
-    return make_float4(table[index]*opac, table[index + 1]*opac, table[index + 2]*opac, opac);
+    return make_uchar4(table[index]*opac, table[index + 1]*opac, table[index + 2]*opac, 255.0*opac);
   };
 
-  __host__ __device__ float4 color_map::operator()(float t)
+  __host__ __device__ uchar4 color_map::operator()(float t)
   {
     float val = t;
     return calc(val, alpha);
@@ -147,12 +182,13 @@ void CudaRegisterBuffer(struct cudaGraphicsResource **vboResource,
 //------------------------------------------------------------------------------
 // Compute the distance from the camera to a single point
 //------------------------------------------------------------------------------
+template <typename T>
 struct distance_functor 
 {
-  float3 cameravector;
+  T cameravector;
 
   // construct with a constant camera vector
-  __host__ __device__ distance_functor(float3 &cam) : cameravector(cam) {}
+  __host__ __device__ distance_functor(T &cam) : cameravector(cam) {}
 
   template <typename Tuple>
   __host__ __device__
@@ -164,12 +200,13 @@ struct distance_functor
 //------------------------------------------------------------------------------
 // Takes 3 point distances and computes the mean (i.e. triangular cell) distance
 //------------------------------------------------------------------------------
+template <typename T>
 struct celldistance_functor 
 {
-  const float *vertex_distances;
+  const T *vertex_distances;
   
   // construct with a precomputed distance vector for every vertex
-  __host__ __device__ celldistance_functor(float *v) : vertex_distances(v) {}
+  __host__ __device__ celldistance_functor(T *v) : vertex_distances(v) {}
   
   template <typename Tuple>
   __host__ __device__
@@ -198,29 +235,27 @@ void DepthSortPolygons(vtkPistonDataObject *id, double *cameravec, int direction
   // Perform a dot product of each vertex with the supplied camera vector
   //
 
+#ifdef USE_FLOAT_FOR_DEPTH_SORT
   // prepare an array for the distances
-  thrust::device_vector<float> distances(pD->points->size());
-
+  pD->distances.resize(pD->points->size());
   // initialize our functor which will compute distance and store in a vector
   float3 cam = make_float3(cameravec[0], cameravec[1], cameravec[2]);
-  distance_functor distance(cam);
 
+  distance_functor<float3> distance(cam);
   // apply distance functor using input and output arrays using zip_iterator
   thrust::for_each(
-    thrust::make_zip_iterator(thrust::make_tuple(pD->points->begin(), distances.begin())),
-    thrust::make_zip_iterator(thrust::make_tuple(pD->points->end(),   distances.end())),
+    thrust::make_zip_iterator(thrust::make_tuple(pD->points->begin(), pD->distances.begin())),
+    thrust::make_zip_iterator(thrust::make_tuple(pD->points->end(),   pD->distances.end())),
     distance);
-
   //
   // To compute the average distance for each cell, we must
   // sum/gather 3 distances (one for each vertex) for every cell by
   // looking up the vertex indices from the cell array tuples
   //
-
   // prepare an array for the distances
   thrust::device_vector<float> cell_distances(pD->nCells);
 
-  celldistance_functor celldist(thrust::raw_pointer_cast(distances.data()));
+  celldistance_functor<float> celldist(thrust::raw_pointer_cast(pD->distances.data()));
 
   thrust::for_each(
     thrust::make_zip_iterator(thrust::make_tuple(pD->cells->begin(), cell_distances.begin())),
@@ -239,11 +274,56 @@ void DepthSortPolygons(vtkPistonDataObject *id, double *cameravec, int direction
     thrust::sort_by_key(cell_distances.begin(), cell_distances.end(), pD->cells->begin(), 
       thrust::less<float>());
   }
+
+#else
+  // prepare an array for the distances
+  thrust::device_vector<double> distances(pD->points->size());
+  // initialize our functor which will compute distance and store in a vector
+  double3 cam = make_double3(cameravec[0], cameravec[1], cameravec[2]);
+
+  distance_functor<double3> distance(cam);
+  // apply distance functor using input and output arrays using zip_iterator
+  thrust::for_each(
+    thrust::make_zip_iterator(thrust::make_tuple(pD->points->begin(), distances.begin())),
+    thrust::make_zip_iterator(thrust::make_tuple(pD->points->end(),   distances.end())),
+    distance);
+
+  //
+  // To compute the average distance for each cell, we must
+  // sum/gather 3 distances (one for each vertex) for every cell by
+  // looking up the vertex indices from the cell array tuples
+  //
+
+  // prepare an array for the distances
+  thrust::device_vector<double> cell_distances(pD->nCells);
+
+  celldistance_functor<double> celldist(thrust::raw_pointer_cast(distances.data()));
+
+  thrust::for_each(
+    thrust::make_zip_iterator(thrust::make_tuple(pD->cells->begin(), cell_distances.begin())),
+    thrust::make_zip_iterator(thrust::make_tuple(pD->cells->end(),   cell_distances.end())),
+    celldist);
+
+  //
+  // now we want to sort the cells using the average distance
+  // we must copy the cell vertex index tuple during the sort
+  //
+  if (direction==0) {
+    thrust::sort_by_key(cell_distances.begin(), cell_distances.end(), pD->cells->begin(), 
+      thrust::greater_equal<double>());
+  }
+  else {
+    thrust::sort_by_key(cell_distances.begin(), cell_distances.end(), pD->cells->begin(), 
+      thrust::less<double>());
+  }
+#endif
+
 }
 
 //------------------------------------------------------------------------------
 void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCache,
                       cudaGraphicsResource **vboResources,
+                      unsigned char *colorptr,
                       double alpha,
                       bool &hasNormals, bool &hasColors, 
                       bool &useindexbuffers)
@@ -329,10 +409,20 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
       thrust::device_ptr<uchar4>(colorsBufferData));
     hasColors = true;
   }
-/*
+  else if (pD->distances.size()>0) {
+    pD->colors->resize(pD->distances.size());
+    float *raw_scalar = thrust::raw_pointer_cast(&pD->distances[0]);
+    // Copy RGB values to GPU
+    thrust::device_vector<unsigned char> onGPU(colorptr, colorptr+(256*4));
+    unsigned char *raw_RGBA = thrust::raw_pointer_cast(&onGPU[0]);
+    // create a lookuptable
+    color_map colorMap(raw_RGBA, 256, 0, 2, 0.5, raw_scalar, NULL);
+    // map all scalars through LUT
+    thrust::transform(pD->distances.begin(), pD->distances.end(), pD->colors->begin(), colorMap);
+  }
   else if (pD->scalars)
   {
-
+/*
     std::vector<float> *colors = psc->ComputeScalarsColorsf();
 
     // Copy to GPU
@@ -378,8 +468,9 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
                    thrust::make_transform_iterator(pD->scalars->end(),   colorMap),
                    thrust::device_ptr<float4>(colorsBufferData));
     }
-  }
 */
+  }
+
   // Allow GL to access again
   res = cudaGraphicsUnmapResources(4, vboResources, 0);
   if (res != cudaSuccess)

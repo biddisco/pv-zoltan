@@ -82,6 +82,8 @@ public :
   void GetScalarRange(double range[2]);
   //ETX
 
+  unsigned char *GetRGBPointer();
+
 protected:
   vtkTwoScalarsToColorsPainter();
   virtual ~vtkTwoScalarsToColorsPainter();

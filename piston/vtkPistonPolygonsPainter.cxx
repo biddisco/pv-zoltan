@@ -56,7 +56,9 @@ namespace vtkpiston {
   int  QueryNumCells(vtkPistonDataObject *id);
   void CudaRegisterBuffer(struct cudaGraphicsResource **vboResource, GLuint vboBuffer);
   void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCache,
-       struct cudaGraphicsResource **vboResources, double alpha, bool &hasNormals, bool &hasColors, bool &useindexbuffers);
+       struct cudaGraphicsResource **vboResources, 
+       unsigned char *colorptr,
+       double alpha, bool &hasNormals, bool &hasColors, bool &useindexbuffers);
   bool AlmostEqualRelativeAndAbs(float A, float B, float maxDiff, float maxRelDiff);
   //
   void DepthSortPolygons(vtkPistonDataObject *id, double *cameravec, int direction);
@@ -261,8 +263,11 @@ void vtkPistonPolygonsPainter::RenderOnGPU(vtkCamera *cam, vtkActor *act)
   vtkpiston::CudaTransferToGL(
     id, this->Internal->DataObjectMTimeCache,
     this->Internal->vboResources, 
+    this->ScalarsToColors->GetRGBPointer(),
     act->GetProperty()->GetOpacity(),
     hasNormals, hasColors, useindexbuffers);
+
+  glPushAttrib(GL_ENABLE_BIT);
 
   // Draw the result
   glEnableClientState(GL_VERTEX_ARRAY);
@@ -295,9 +300,12 @@ void vtkPistonPolygonsPainter::RenderOnGPU(vtkCamera *cam, vtkActor *act)
     glDepthFunc( GL_LEQUAL );
     glEnable( GL_DEPTH_TEST );
 */
+
+    glEnable(GL_DEPTH_TEST);
     glEnableClientState(GL_COLOR_ARRAY);
     vtkgl::BindBuffer(vtkgl::ARRAY_BUFFER, this->Internal->vboBuffers[2]);
     glColorPointer(4, GL_UNSIGNED_BYTE, 0, 0);
+
   }
   else {
     //    glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
@@ -346,6 +354,7 @@ void vtkPistonPolygonsPainter::RenderOnGPU(vtkCamera *cam, vtkActor *act)
   if (hasNormals) glDisableClientState(GL_NORMAL_ARRAY);
   if (hasColors) glDisableClientState(GL_COLOR_ARRAY);
 
+  glPopAttrib();
   // Update object modified time
   this->Internal->DataObjectMTimeCache = id->GetMTime();
 

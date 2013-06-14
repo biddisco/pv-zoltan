@@ -362,6 +362,24 @@ void vtkTwoScalarsToColorsPainter::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os, indent);
 }
 //-----------------------------------------------------------------------------
+unsigned char *vtkTwoScalarsToColorsPainter::GetRGBPointer()
+{
+  if (!this->LookupTable)
+  {
+    vtkErrorMacro(<< "Invalid look up table");
+    return NULL;
+  }
+  if (!this->UseLookupTableScalarRange)
+  {
+    this->LookupTable->SetRange(this->ScalarRange);
+  }
+  this->LookupTable->Build();
+  if (vtkLookupTable::SafeDownCast(this->LookupTable)) {
+    return vtkLookupTable::SafeDownCast(this->LookupTable)->GetPointer(0);
+  }
+  return NULL;
+}
+//-----------------------------------------------------------------------------
 std::vector<float>* vtkTwoScalarsToColorsPainter::ComputeScalarsColorsf()
 {
   if (!this->LookupTable)

@@ -1,6 +1,5 @@
 #include <vector_types.h>
 #include <thrust/copy.h>
-#include <piston/piston_math.h>
 #include <piston/choose_container.h>
 #include <piston/image3d.h>
 #include <piston/vtk_image3d.h>
@@ -430,7 +429,7 @@ namespace vtkpiston {
       thrust::host_vector<uchar4> hA(nPoints);
       unsigned char *next = incolors->GetPointer(0);
       for (vtkIdType i=0; i<nPoints; i++) {
-        hA[i] = uchar4(next[0], next[1], next[2], next[3]);;
+        hA[i] = make_uchar4(next[0], next[1], next[2], next[3]);;
         next+=4;
       }
       // copy from host vector to device vector

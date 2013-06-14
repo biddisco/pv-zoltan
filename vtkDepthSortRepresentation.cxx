@@ -81,6 +81,7 @@ vtkDepthSortRepresentation::vtkDepthSortRepresentation()
 //----------------------------------------------------------------------------
 vtkDepthSortRepresentation::~vtkDepthSortRepresentation()
 {
+  this->SetEnablePiston(0);
   this->DepthSortDefaultPainter->FastDelete();
   this->SetController(NULL);
 }
@@ -173,8 +174,12 @@ void vtkDepthSortRepresentation::SetEnablePiston(int mode)
   }
   this->DepthSortDefaultPainter->SetEnablePiston(mode);
   if (mode) {
-    this->PistonPolygonsPainter->SetScalarsToColors(this->TwoScalarsToColorsPainter);
     // swap the painter chain
+    this->PistonPolygonsPainter->SetScalarsToColors(this->TwoScalarsToColorsPainter);
+  }
+  else {
+    // clear references
+    this->PistonPolygonsPainter->SetScalarsToColors(NULL);
   }
   this->MarkModified();
 #endif
