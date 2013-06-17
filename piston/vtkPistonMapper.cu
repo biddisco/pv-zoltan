@@ -57,7 +57,7 @@ typedef thrust::device_vector<float>::iterator FloatIterator;
 typedef thrust::tuple<FloatIterator, FloatIterator> FloatIteratorTuple;
 typedef thrust::tuple<float&, float&> FloatTuple;
 typedef thrust::zip_iterator<FloatIteratorTuple> Float2Iterator;
-//typedef thrust::detail::tuple_of_iterator_references<float &, float &, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type> TupleDef;
+typedef thrust::detail::tuple_of_iterator_references<float &, float &, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type> TupleDef;
 
 static __inline__ __host__ __device__ double3 make_double3(const float3 &f3)
 {
@@ -87,15 +87,17 @@ struct color_map
   const float min;
   const float max;
   const int   size;
+  const int   components;
   unsigned char *table;
   float       alpha;
   float      *opacity;
   float      *scalars;
 
-  color_map(unsigned char *RGBtable, size_t arrSize, float rMin, float rMax, double a, float *scalararray, float *opacityarray) :
+  color_map(unsigned char *RGBtable, size_t arrSize, int aComponents, float rMin, float rMax, double a, float *scalararray, float *opacityarray) :
     min(rMin),
     max(rMax),
-    size((arrSize / 3) - 1),
+    size(arrSize - 1),
+    components(aComponents),
     table(RGBtable),
     alpha(a),
     scalars(scalararray),
@@ -116,7 +118,7 @@ struct color_map
     if (index > size) index = size;
     // convert to RGB tuple index
     // 1/255 = 0.0039215686274509803921568627451
-    index *= 4; 
+    index *= components; 
     return make_uchar4(table[index]*opac, table[index + 1]*opac, table[index + 2]*opac, 255.0*opac);
   };
 
@@ -126,12 +128,12 @@ struct color_map
     return calc(val, alpha);
   }
 
-//  __host__ __device__ float4 color_map::operator()(const TupleDef &t)
-//  {
-//    float val  = thrust::get<0>(t);
-//    float opac = thrust::get<1>(t)*alpha;
-//    return calc(val, opac);
-//  }
+  __host__ __device__ uchar4 color_map::operator()(const TupleDef &t)
+  {
+    float val  = thrust::get<0>(t);
+    float opac = thrust::get<1>(t)*alpha;
+    return calc(val, opac);
+  }
 
 };
 
@@ -325,7 +327,7 @@ void DepthSortPolygons(vtkPistonDataObject *id, double *cameravec, int direction
 void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCache,
                       cudaGraphicsResource **vboResources,
                       unsigned char *colorptr,
-                      double alpha,
+                      double scalarrange[2], double alpha,
                       bool &hasNormals, bool &hasColors, 
                       bool &useindexbuffers)
 {
@@ -393,75 +395,46 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
   }
 
   hasNormals = false;
-  if (pD->normals)
-    {
+  if (pD->normals) {
     hasNormals = true;
-
-    // Copy on card verts to the shared on card gl buffer
+  // Copy on card verts to the shared on card gl buffer
     thrust::copy(pD->normals->begin(), pD->normals->end(),
                  thrust::device_ptr<float>(normalsBufferData));
-    }
-  hasColors = false;
+  }
 
-  if (0 && pD->colors)
-  {
-    thrust::copy(pD->colors->begin(), pD->colors->end(), 
-      thrust::device_ptr<uchar4>(colorsBufferData));
+  hasColors = false;
+  // Have colours already been generated using the vtk LookupTable
+  // if so, simply copy them directly to the GPU for use by the glColorPointer
+  if (0 && pD->colors) {
+    thrust::copy(pD->colors->begin(), pD->colors->end(), thrust::device_ptr<uchar4>(colorsBufferData));
     hasColors = true;
   }
-  else if (pD->distances.size()>0) {
-    pD->colors->resize(pD->distances.size());
-    float *raw_scalar = thrust::raw_pointer_cast(&pD->distances[0]);
-    // Copy RGB values to GPU
+  // if no colours are present, we must generate them from scalar/opacity arrays
+  else if (pD->scalars) {
+    // Copy RGBA table values to GPU
     thrust::device_vector<unsigned char> onGPU(colorptr, colorptr+(256*4));
     unsigned char *raw_RGBA = thrust::raw_pointer_cast(&onGPU[0]);
-    // find min and max distances
 
-    thrust::pair<thrust::device_vector<float>::iterator,thrust::device_vector<float>::iterator> 
-      minmax = thrust::minmax_element(pD->distances.begin(), pD->distances.end());
-    float minval =  *minmax.first;
-    float maxval =  *minmax.second;
+    // get a pointer to the start of the scalar array
+    float *raw_scalar = thrust::raw_pointer_cast(pD->scalars->data());
+    // get a pointer to the start of the opacity array (if present)
+    float *raw_opacity = pD->opacities ? thrust::raw_pointer_cast(pD->opacities->data()) : NULL;
 
-    // create a lookuptable
-//    color_map colorMap(raw_RGBA, 256, min_val, max_val, 0.5, raw_scalar, NULL);
-    color_map colorMap(raw_RGBA, 256, minval, maxval, 0.25, raw_scalar, NULL);
+    color_map colorMap(raw_RGBA, 256, 4, scalarrange[0], scalarrange[1], alpha, raw_scalar, raw_opacity);
 
-    // map all scalars through LUT
-    thrust::transform(pD->distances.begin(), pD->distances.end(), thrust::device_ptr<uchar4>(colorsBufferData), colorMap);
+    // if no opacity, map scalars directly through LUT into RGBA array
+    if (raw_opacity==0) {
+      thrust::transform(pD->scalars->begin(), pD->scalars->end(), thrust::device_ptr<uchar4>(colorsBufferData), colorMap);
+    }
+    // map scalars+opacities using more complex zip iterator
+    else {
+      // Now we'll create some zip_iterators for A and B
+      auto first = thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->begin(), pD->opacities->begin()));
+      auto last  = thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->end(),   pD->opacities->end()));
+      thrust::transform(first, last, thrust::device_ptr<uchar4>(colorsBufferData), colorMap);
+    }
     hasColors = true;
-  }
-  else if (pD->scalars)
-  {
 /*
-    std::vector<float> *colors = psc->ComputeScalarsColorsf();
-
-    // Copy to GPU
-    thrust::device_vector<float> onGPU(colors->begin(), colors->end());
-    float *raw_ptr = thrust::raw_pointer_cast(&onGPU[0]);
-
-    // Now run each scalar data through the map to choose a color for it
-
-    double scalarRange[2];
-    psc->GetScalarRange(scalarRange);
-
-    float * opacitydata = pD->opacities ? thrust::raw_pointer_cast(pD->opacities->data()) : NULL;
-
-
-  if (opacitydata==0) {
-    color_map colorMap(raw_RGBA, rgba.size(), scalarRange[0], scalarRange[1], alpha, raw_scalar, raw_opacity);
-
-    thrust::transform(scalardata.begin(), scalardata.end(), colours.begin(), colorMap);
-  }
-  else {
-    // Now we'll create some zip_iterators for A and B
-    auto first = thrust::make_zip_iterator(thrust::make_tuple(scalardata.begin(), opacitydata.begin()));
-    auto last  = thrust::make_zip_iterator(thrust::make_tuple(scalardata.end(),   opacitydata.end()));
-
-    color_map colorMap(raw_RGBA, rgba.size(), scalarRange[0], scalarRange[1], alpha, raw_scalar, raw_opacity);
-
-    thrust::transform(first, last, colours.begin(), colorMap);
-  }
-
     if (opacitydata) {
       // Now we'll create some zip_iterators for A and B
       Float2Iterator _first = thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->begin(), pD->opacities->begin()));; 
@@ -479,6 +452,28 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
                    thrust::device_ptr<float4>(colorsBufferData));
     }
 */
+  }
+  else if (pD->distances.size()>0) {
+    // allocate space for RGBA colours for each vertex
+    pD->colors->resize(pD->distances.size());
+    float *raw_scalar = thrust::raw_pointer_cast(&pD->distances[0]);
+
+    // Copy RGBA table values to GPU
+    thrust::device_vector<unsigned char> onGPU(colorptr, colorptr+(256*4));
+    unsigned char *raw_RGBA = thrust::raw_pointer_cast(&onGPU[0]);
+
+    // find min and max distances of vertices
+    thrust::pair<thrust::device_vector<float>::iterator,thrust::device_vector<float>::iterator> 
+      minmax = thrust::minmax_element(pD->distances.begin(), pD->distances.end());
+    float minval =  *minmax.first;
+    float maxval =  *minmax.second;
+
+    // create a lookuptable using 256*4 entries 
+    color_map colorMap(raw_RGBA, 256, 4, minval, maxval, 0.25, raw_scalar, NULL);
+
+    // map all scalars through LUT using GPU calculation
+    thrust::transform(pD->distances.begin(), pD->distances.end(), thrust::device_ptr<uchar4>(colorsBufferData), colorMap);
+    hasColors = true;
   }
 
   // Allow GL to access again

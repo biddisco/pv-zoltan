@@ -78,11 +78,10 @@ public :
   virtual int GetPremultiplyColorsWithAlpha(vtkActor* actor);
 
   //BTX
-  std::vector<float>* ComputeScalarsColorsf();
   void GetScalarRange(double range[2]);
   //ETX
 
-  unsigned char *GetRGBPointer();
+  unsigned char *GetRGBAPointer();
 
 protected:
   vtkTwoScalarsToColorsPainter();

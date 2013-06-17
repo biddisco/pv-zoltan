@@ -57,7 +57,7 @@ namespace vtkpiston {
   void CudaRegisterBuffer(struct cudaGraphicsResource **vboResource, GLuint vboBuffer);
   void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCache,
        struct cudaGraphicsResource **vboResources, 
-       unsigned char *colorptr,
+       unsigned char *colorptr, double scalarrange[2], 
        double alpha, bool &hasNormals, bool &hasColors, bool &useindexbuffers);
   bool AlmostEqualRelativeAndAbs(float A, float B, float maxDiff, float maxRelDiff);
   //
@@ -260,10 +260,13 @@ void vtkPistonPolygonsPainter::RenderOnGPU(vtkCamera *cam, vtkActor *act)
   if (this->Direction>=0) {
     vtkpiston::DepthSortPolygons(id, cameravec, this->Direction);
   }
+  double scalarrange[2];
+  this->ScalarsToColors->GetScalarRange(scalarrange);
   vtkpiston::CudaTransferToGL(
     id, this->Internal->DataObjectMTimeCache,
     this->Internal->vboResources, 
-    this->ScalarsToColors->GetRGBPointer(),
+    this->ScalarsToColors->GetRGBAPointer(),
+    scalarrange, 
     act->GetProperty()->GetOpacity(),
     hasNormals, hasColors, useindexbuffers);
 

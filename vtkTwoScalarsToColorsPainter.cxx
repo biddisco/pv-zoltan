@@ -362,34 +362,29 @@ void vtkTwoScalarsToColorsPainter::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os, indent);
 }
 //-----------------------------------------------------------------------------
-unsigned char *vtkTwoScalarsToColorsPainter::GetRGBPointer()
+unsigned char *vtkTwoScalarsToColorsPainter::GetRGBAPointer()
 {
-  if (!this->LookupTable)
-  {
+  if (!this->LookupTable) {
     vtkErrorMacro(<< "Invalid look up table");
     return NULL;
   }
-  if (!this->UseLookupTableScalarRange)
-  {
+  if (!this->UseLookupTableScalarRange) {
     this->LookupTable->SetRange(this->ScalarRange);
   }
   this->LookupTable->Build();
   if (vtkLookupTable::SafeDownCast(this->LookupTable)) {
     return vtkLookupTable::SafeDownCast(this->LookupTable)->GetPointer(0);
   }
-  if(!(this->LookupTable->GetMTime() > this->GetMTime() ||
-       this->GPUColourTime.GetMTime() < this->GetMTime()))
-  {
+  if (!(this->LookupTable->GetMTime() > this->GetMTime() || this->GPUColourTime.GetMTime() < this->GetMTime())) {
     return &this->RGBTable[0];
   }
   this->RGBTable.resize(256*4);
   
   //
-  // generate scalar ramp from range[0] to range[1]
+  // generate 256 values of scalar ramp from range[0] to range[1]
   //
   double range[2];
   std::vector<float> values(256);
-  float *valueptr = &values[0];
   this->GetScalarRange(range);
   for (int i=0; i<256; ++i) {
     values[i] = range[0] + i * ((range[1] - range[0]) / 256.0);
@@ -398,83 +393,16 @@ unsigned char *vtkTwoScalarsToColorsPainter::GetRGBPointer()
   //
   // generate RGB values for the scalar ramp 
   //
-  unsigned char *colorptr = &this->RGBTable[0];
-
-  //
-  // map the scalar ramp through RGB lookup to get the RGB table we pass to GPU
-  //
-  if (!this->UseLookupTableScalarRange)
-  {
+  if (!this->UseLookupTableScalarRange) {
     this->LookupTable->SetRange(this->ScalarRange);
   }
   this->LookupTable->Build();
-  this->LookupTable->MapScalarsThroughTable(valueptr, colorptr, VTK_FLOAT, 256, 1, 4);
-  //
-  return &this->RGBTable[0];
-}
-//-----------------------------------------------------------------------------
-std::vector<float>* vtkTwoScalarsToColorsPainter::ComputeScalarsColorsf()
-{
-  if (!this->LookupTable)
-  {
-    vtkErrorMacro(<< "Invalid look up table");
-    return NULL;
-  }
-
-  if(!(this->LookupTable->GetMTime() > this->GetMTime() ||
-       this->GPUColourTime.GetMTime() < this->GetMTime()))
-  {
-    return &this->GPUScalarsColors;
-  }
-
-  //
-  // generate scalar ramp from range[0] to range[1]
-  //
-  double range[2];
-  std::vector<float> values(256);
-  float *valueptr = &values[0];
-  this->GetScalarRange(range);
-  for (int i=0; i<256; ++i) {
-    values[i] = range[0] + i * ((range[1] - range[0]) / 256.0);
-  }
-
-  // Colors for those values;
-  this->GPUScalarsColors.clear();
-
-  std::vector<unsigned char> scalarColors(256 * 3);
-  unsigned char *colorptr = &scalarColors[0];
-
-  //
-  // map the scalar ramp through RGB lookup to get the RGB table we pass to GPU
-  //
-  if (!this->UseLookupTableScalarRange)
-  {
-    this->LookupTable->SetRange(this->ScalarRange);
-  }
-  this->LookupTable->Build();
-  this->LookupTable->MapScalarsThroughTable(valueptr, colorptr, VTK_FLOAT, 256, 1, 3);
-
-  // Convert unsigned char color to float color
-  this->GPUScalarsColors.resize(256 * 3);
-  for (int i = 0, j = 0; i < 256; ++i, j += 3)
-  {
-    float r = (float)colorptr[i*3+0] / 256.0;
-    float g = (float)colorptr[i*3+1] / 256.0;
-    float b = (float)colorptr[i*3+2] / 256.0;
-
-    this->GPUScalarsColors[j]   = r;
-    this->GPUScalarsColors[j+1] = g;
-    this->GPUScalarsColors[j+2] = b;
-  }
-
-  this->Modified();
+  this->LookupTable->MapScalarsThroughTable(&values[0], &this->RGBTable[0], VTK_FLOAT, 256, 1, 4);
 
   // touch build time (should be done last)
   this->GPUColourTime.Modified();
-
-  return &this->GPUScalarsColors;
+  return &this->RGBTable[0];
 }
-
 //-----------------------------------------------------------------------------
 void vtkTwoScalarsToColorsPainter::GetScalarRange(double range[2])
 {
