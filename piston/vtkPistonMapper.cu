@@ -401,7 +401,7 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
   hasColors = false;
   // Have colours already been generated using the vtk LookupTable
   // if so, simply copy them directly to the GPU for use by the glColorPointer
-  if (0 && pD->colors) {
+  if (pD->colors) {
     thrust::copy(pD->colors->begin(), pD->colors->end(), thrust::device_ptr<uchar4>(colorsBufferData));
     hasColors = true;
   }
@@ -454,6 +454,9 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
   }
   else if (pD->distances.size()>0) {
     // allocate space for RGBA colours for each vertex
+    if (!pD->colors) {
+      pD->colors = new thrust::device_vector<uchar4>(pD->distances.size());
+    }
     pD->colors->resize(pD->distances.size());
     float *raw_scalar = thrust::raw_pointer_cast(&pD->distances[0]);
 
