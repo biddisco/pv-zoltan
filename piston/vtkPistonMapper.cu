@@ -116,7 +116,7 @@ struct color_map
     if (index > size) index = size;
     // convert to RGB tuple index
     // 1/255 = 0.0039215686274509803921568627451
-    index *= 3; 
+    index *= 4; 
     return make_uchar4(table[index]*opac, table[index + 1]*opac, table[index + 2]*opac, 255.0*opac);
   };
 
@@ -424,7 +424,7 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
 
     // create a lookuptable
 //    color_map colorMap(raw_RGBA, 256, min_val, max_val, 0.5, raw_scalar, NULL);
-    color_map colorMap(raw_RGBA, 256, minval, maxval, 0.5, raw_scalar, NULL);
+    color_map colorMap(raw_RGBA, 256, minval, maxval, 0.25, raw_scalar, NULL);
 
     // map all scalars through LUT
     thrust::transform(pD->distances.begin(), pD->distances.end(), thrust::device_ptr<uchar4>(colorsBufferData), colorMap);
