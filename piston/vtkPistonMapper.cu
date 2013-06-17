@@ -53,11 +53,7 @@ inline __host__ __device__ float dot(double3 a, double3 b)
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-typedef thrust::device_vector<float>::iterator FloatIterator;
-typedef thrust::tuple<FloatIterator, FloatIterator> FloatIteratorTuple;
-typedef thrust::tuple<float&, float&> FloatTuple;
-typedef thrust::zip_iterator<FloatIteratorTuple> Float2Iterator;
-typedef thrust::detail::tuple_of_iterator_references<float &, float &, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type, thrust::null_type> TupleDef;
+typedef thrust::tuple<float&, float&> TupleDef;
 
 static __inline__ __host__ __device__ double3 make_double3(const float3 &f3)
 {
