@@ -118,13 +118,13 @@ struct color_map
     return make_uchar4(table[index]*opac, table[index + 1]*opac, table[index + 2]*opac, 255.0*opac);
   };
 
-  __host__ __device__ uchar4 color_map::operator()(float t)
+  __host__ __device__ uchar4 operator()(float t)
   {
     float val = t;
     return calc(val, alpha);
   }
 
-  __host__ __device__ uchar4 color_map::operator()(const TupleDef &t)
+  __host__ __device__ uchar4 operator()(const TupleDef &t)
   {
     float val  = thrust::get<0>(t);
     float opac = thrust::get<1>(t)*alpha;
@@ -425,9 +425,12 @@ void CudaTransferToGL(vtkPistonDataObject *id, unsigned long dataObjectMTimeCach
     // map scalars+opacities using more complex zip iterator
     else {
       // Now we'll create some zip_iterators for A and B
-      auto first = thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->begin(), pD->opacities->begin()));
-      auto last  = thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->end(),   pD->opacities->end()));
-      thrust::transform(first, last, thrust::device_ptr<uchar4>(colorsBufferData), colorMap);
+//      auto first = thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->begin(), pD->opacities->begin()));
+//      auto last  = thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->end(),   pD->opacities->end()));
+      thrust::transform(
+        thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->begin(), pD->opacities->begin())),
+        thrust::make_zip_iterator(thrust::make_tuple(pD->scalars->end(),   pD->opacities->end())), 
+        thrust::device_ptr<uchar4>(colorsBufferData), colorMap);
     }
     hasColors = true;
 /*
