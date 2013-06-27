@@ -273,4 +273,15 @@ IF (BUILD_TESTING)
   ADD_SUBDIRECTORY(testing)
 ENDIF (BUILD_TESTING)  
 
+#--------------------------------------------------
+# Install
+#--------------------------------------------------
+SET(INSTALL_PATH 
+  "${CMAKE_INSTALL_PREFIX}/lib/paraview-${PARAVIEW_VERSION_MAJOR}.${PARAVIEW_VERSION_MINOR}"
+)
 
+INSTALL(
+  TARGETS 
+    ${PLUGIN_NAME}
+  DESTINATION ${INSTALL_PATH}
+)
