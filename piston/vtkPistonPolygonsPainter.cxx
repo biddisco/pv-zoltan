@@ -148,7 +148,7 @@ int device_binding(int mpi_rank)
     use_dev_count = dev_count;
   }
 
-  my_dev_id = local_rank % use_dev_count;
+  my_dev_id = (use_dev_count>0) ? (local_rank % use_dev_count) : 0;
   printf ("local rank = %d dev id = %d\n", local_rank, my_dev_id);
   return my_dev_id;
 }
