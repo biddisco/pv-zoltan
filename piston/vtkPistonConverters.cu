@@ -1,8 +1,14 @@
+//
+// cuda + thrust
+//
 #include <vector_types.h>
 #include <thrust/copy.h>
 #include <piston/choose_container.h>
 #include <piston/image3d.h>
 #include <piston/vtk_image3d.h>
+//
+// VTK
+//
 #include "vtkCellArray.h"
 #include "vtkFloatArray.h"
 #include "vtkDoubleArray.h"

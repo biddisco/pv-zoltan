@@ -44,15 +44,7 @@ INCLUDE_DIRECTORIES(
 #--------------------------------------------------
 option(PV_ZOLTAN_USE_CUDA "Use CUDA rendering" OFF)
 
-if(PV_ZOLTAN_USE_CUDA)
-
-  #--------------------------------------------------
-  # setup module definitions we'll need for piston
-  # compiler flags/cuda etc
-  #--------------------------------------------------
-  include(vtkModuleAPI)
-  include(vtkModuleMacros)
-  include(ParaViewMacros)
+if (PV_ZOLTAN_USE_CUDA)
 
   #--------------------------------------------------
   # Find CUDA and Thrust
@@ -60,6 +52,19 @@ if(PV_ZOLTAN_USE_CUDA)
   SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/piston")
   find_package(CUDA REQUIRED)
   find_package(CUDAThrust REQUIRED)
+
+  if (${CUDA_VERSION} VERSION_LESS "5.5")
+    set(NEED_PATH_HACK_FOR_VISUAL_STUDIO 1)
+    message("set(NEED_PATH_HACK_FOR_VISUAL_STUDIO 1)")
+  endif (${CUDA_VERSION} VERSION_LESS "5.5")
+
+  #--------------------------------------------------
+  # module definitions we'll need for piston flags/cuda etc
+  #--------------------------------------------------
+  include(vtkModuleMacros)
+#  include(vtkModuleAPI)
+#  include(vtkModuleMacros)
+#  include(ParaViewMacros)
 
   #--------------------------------------------------
   # Find piston header library
@@ -73,9 +78,64 @@ if(PV_ZOLTAN_USE_CUDA)
     add_definitions(-DPV_ZOLTAN_USE_PISTON)
 
     INCLUDE_DIRECTORIES(
+      ${PISTON_INCLUDE}
       ${CMAKE_CURRENT_SOURCE_DIR}/piston
     )
   endif(PISTON_INCLUDE)
+
+  #--------------------------------------------------
+  # include path for Thrust
+  #--------------------------------------------------
+  include_directories(${CUDATHRUST_INCLUDE_DIRS})
+  message("include_directories(${CUDATHRUST_INCLUDE_DIRS})")
+
+  #--------------------------------------------------
+  # Define sources using PISTON 
+  #--------------------------------------------------
+  set(Module_SRCS
+    piston/vtkDataSetToPiston.cxx
+    piston/vtkPistonAlgorithm.cxx
+    piston/vtkPistonDataObject.cxx
+    piston/vtkPistonPolygonsPainter.cxx
+  )
+
+  set(Module_CUDA_SRCS
+    piston/vtkPistonConverters.cu
+    piston/vtkPistonMapper.cu
+  )
+
+  #--------------------------------------------------
+  # Define CUDA compiled source files
+  #--------------------------------------------------
+  if(BUILD_SHARED_LIBS)
+    set(GPGPU_BUILD_TYPE SHARED)
+  endif()
+
+  # set this, otherwise C_SOURCES is empty in Visual Studio  
+  set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF) 
+
+  if(NEED_PATH_HACK_FOR_VISUAL_STUDIO)
+    # generate the list of dependencies based on our module definition file
+    vtk_module_impl()
+
+    # remove a bunch of cruft that VTK adds in here about modules autoinit
+    # first get the old setting and store it
+    get_directory_property(TEMP_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES)
+    get_directory_property(TEMP_COMPILE_DEFINITIONS COMPILE_DEFINITIONS)
+    # clear compile defs 
+    set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "")
+    # shorten the include dirs so nvcc doesn't crumble under the entire VTK/ParaView/Qt path
+    set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${${vtk-module}_DEPENDS_INCLUDE_DIRS};${PISTON_INCLUDE}")
+  endif(NEED_PATH_HACK_FOR_VISUAL_STUDIO)
+
+  # call the cuda wrapper
+  cuda_compile(Module_CUDA_C_SRCS ${Module_CUDA_SRCS} ${GPGPU_BUILD_TYPE})
+
+  if(NEED_PATH_HACK_FOR_VISUAL_STUDIO)
+    # put the include dirs back to what they were
+    set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${TEMP_INCLUDE_DIRECTORIES}")
+    set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "${TEMP_COMPILE_DEFINITIONS}")
+  endif(NEED_PATH_HACK_FOR_VISUAL_STUDIO)
 
 endif(PV_ZOLTAN_USE_CUDA)
 
@@ -137,59 +197,6 @@ IF(Trilinos_FOUND)
 ELSE(Trilinos_FOUND)
   message(FATAL_ERROR "pv-zoltan cannot be built unless Trilinos is correctly found")
 ENDIF(Trilinos_FOUND)
-
-#--------------------------------------------------
-# Define PISTON sources
-#--------------------------------------------------
-if(PV_ZOLTAN_USE_CUDA)
-  set(Module_SRCS
-    piston/vtkDataSetToPiston.cxx
-    piston/vtkPistonAlgorithm.cxx
-    piston/vtkPistonDataObject.cxx
-    piston/vtkPistonPolygonsPainter.cxx
-  )
-
-  set(Module_CUDA_SRCS
-    piston/vtkPistonConverters.cu
-    piston/vtkPistonMapper.cu
-  )
-
-  #--------------------------------------------------
-  # include path for Thrust
-  #--------------------------------------------------
-  include_directories(${CUDATHRUST_INCLUDE_DIRS})
-  message("include_directories(${CUDATHRUST_INCLUDE_DIRS})")
-
-  #--------------------------------------------------
-  # Define CUDA sources
-  #--------------------------------------------------
-  if(BUILD_SHARED_LIBS)
-    set(GPGPU_BUILD_TYPE SHARED)
-  endif()
-
-  # set this, otherwise C_SOURCES is empty in VS
-  set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF) 
-  # generate the list of dependencies based on our module definition file
-  vtk_module_impl()
-  # remove a bunch of cruft that VTK adds in here about modules autoinit
-  # first get the old setting and store it
-  get_directory_property(TEMP_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES)
-  get_directory_property(TEMP_COMPILE_DEFINITIONS COMPILE_DEFINITIONS)
-  # clear compile defs 
-  set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "")
-  # shorten the include dirs so nvcc doesn't crumble under the entire VTK/ParaView/Qt path
-  set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${${vtk-module}_DEPENDS_INCLUDE_DIRS};${PISTON_INCLUDE}")
-  # call the cuda wrapper
-  cuda_compile(Module_CUDA_C_SRCS ${Module_CUDA_SRCS} ${GPGPU_BUILD_TYPE})
-  # put the include dirs back to what they were
-  set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${TEMP_INCLUDE_DIRECTORIES}")
-  set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "${TEMP_COMPILE_DEFINITIONS}")
-
-  set_source_files_properties(
-    ${Module_CUDA_C_SRCS}
-    WRAP_EXCLUDE
-  )
-endif(PV_ZOLTAN_USE_CUDA)
 
 # --------------------------------------------------
 # Plugin config
