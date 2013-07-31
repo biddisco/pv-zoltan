@@ -114,7 +114,7 @@ if (PV_ZOLTAN_USE_CUDA)
   # set this, otherwise C_SOURCES is empty in Visual Studio  
   set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF) 
 
-  if(NEED_PATH_HACK_FOR_VISUAL_STUDIO)
+  if(MSVC AND NEED_PATH_HACK_FOR_VISUAL_STUDIO)
     # generate the list of dependencies based on our module definition file
     vtk_module_impl()
 
@@ -126,16 +126,16 @@ if (PV_ZOLTAN_USE_CUDA)
     set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "")
     # shorten the include dirs so nvcc doesn't crumble under the entire VTK/ParaView/Qt path
     set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${${vtk-module}_DEPENDS_INCLUDE_DIRS};${PISTON_INCLUDE}")
-  endif(NEED_PATH_HACK_FOR_VISUAL_STUDIO)
+  endif(MSVC AND NEED_PATH_HACK_FOR_VISUAL_STUDIO)
 
   # call the cuda wrapper
   cuda_compile(Module_CUDA_C_SRCS ${Module_CUDA_SRCS} ${GPGPU_BUILD_TYPE})
 
-  if(NEED_PATH_HACK_FOR_VISUAL_STUDIO)
+  if(MSVC AND NEED_PATH_HACK_FOR_VISUAL_STUDIO)
     # put the include dirs back to what they were
     set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${TEMP_INCLUDE_DIRECTORIES}")
     set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "${TEMP_COMPILE_DEFINITIONS}")
-  endif(NEED_PATH_HACK_FOR_VISUAL_STUDIO)
+  endif(MSVC AND NEED_PATH_HACK_FOR_VISUAL_STUDIO)
 
 endif(PV_ZOLTAN_USE_CUDA)
 
