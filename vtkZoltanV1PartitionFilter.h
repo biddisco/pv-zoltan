@@ -51,7 +51,7 @@ class  vtkPKdTree;
 class  vtkBoundsExtentTranslator;
 
 //----------------------------------------------------------------------------
-#define JB_DEBUG__
+//#define JB_DEBUG__
 //#define EXTRA_ZOLTAN_DEBUG 1
 //----------------------------------------------------------------------------
 #ifdef EXTRA_ZOLTAN_DEBUG
