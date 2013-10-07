@@ -1,4 +1,4 @@
-vtk_module(vtkBBPModule
+vtk_module(vtkZoltanModule
   DEPENDS
     vtkCommonCore
     vtkCommonDataModel
