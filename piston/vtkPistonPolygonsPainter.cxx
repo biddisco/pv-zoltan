@@ -163,9 +163,11 @@ int vtkPistonPolygonsPainter::InitCudaGL(vtkRenderWindow *rw, int rank, int &dis
     //
     vtkOpenGLExtensionManager *em = vtkOpenGLExtensionManager::New();
     em->SetRenderWindow(rw);
+    em->Update();
     if (!em->LoadSupportedExtension("GL_VERSION_1_5"))
     {
-      // cerr << "WARNING: Can not use direct piston rendering" << endl;
+      std::cout << "WARNING: GL_VERSION_1_5 unsupported Can not use direct piston rendering" << endl;
+      std::cout << em->GetExtensionsString() << std::endl;
       em->FastDelete();
       return 0;
     }
