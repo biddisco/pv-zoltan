@@ -54,10 +54,10 @@ if (PV_ZOLTAN_USE_CUDA)
   find_package(CUDA REQUIRED)
   find_package(CUDAThrust REQUIRED)
 
-  if (${CUDA_VERSION} VERSION_LESS "5.5")
+  if (WIN32 AND ${CUDA_VERSION} VERSION_LESS "5.5")
     set(NEED_PATH_HACK_FOR_VISUAL_STUDIO 1)
     message("set(NEED_PATH_HACK_FOR_VISUAL_STUDIO 1)")
-  endif (${CUDA_VERSION} VERSION_LESS "5.5")
+  endif()
 
   #--------------------------------------------------
   # module definitions we'll need for piston flags/cuda etc
