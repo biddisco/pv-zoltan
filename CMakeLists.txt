@@ -12,7 +12,7 @@ if(COMMAND cmake_policy)
 endif(COMMAND cmake_policy)
 
 add_definitions(-DCMAKE_IS_BROKEN)
-
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 #--------------------------------------------------
 # Find and Use ParaView
@@ -258,6 +258,7 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 #--------------------------------------------------
 TARGET_LINK_LIBRARIES(${PLUGIN_NAME} 
   PUBLIC
+    vtksys
     ${ZOLTAN_SDK_LIBRARIES}
     ${TRILINOS_LIBS}
     ${HDF5_C_LIBRARY} 
