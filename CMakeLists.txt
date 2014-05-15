@@ -32,6 +32,27 @@ ELSE (ParaView_SOURCE_DIR)
   INCLUDE(${PARAVIEW_USE_FILE})
 ENDIF (ParaView_SOURCE_DIR)
 
+# --------------------------------------------------------------
+# Optional Boost : until we solve tuple issue on mac
+# --------------------------------------------------------------
+option(PV_ZOLTAN_USE_BOOST_TUPLE "Use boost::tuple instead of std::tuple" OFF)
+if(PV_ZOLTAN_USE_BOOST_TUPLE)
+  OPTION(Boost_USE_FIND_NO_MODULE "If cmake installed boost, use NO_MODULE in find package" ON)
+
+  if(Boost_USE_FIND_NO_MODULE)
+    find_package(Boost NO_MODULE)
+  else(Boost_USE_FIND_NO_MODULE)
+    find_package(Boost 1.41.0)
+  endif(Boost_USE_FIND_NO_MODULE)
+
+  include_directories(
+    ${Boost_INCLUDE_DIR}
+    ${Boost_INCLUDE_DIRS}
+  )
+
+  add_definitions(-DPV_ZOLTAN_USE_BOOST_TUPLE)
+endif()
+
 #--------------------------------------------------
 # Set project include directories
 #--------------------------------------------------
@@ -248,10 +269,10 @@ ADD_PARAVIEW_PLUGIN(
     ${XML_PATH}/pv_zoltan_Filters.xml
 )
 
-if(CMAKE_COMPILER_IS_GNUCXX)
+if(CMAKE_COMPILER_IS_GNUCXX AND NOT PV_ZOLTAN_USE_BOOST_TUPLE)
   message("Adding C++Ox flag for Depth Sort")
   set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortPolyData2.cxx PROPERTIES COMPILE_FLAGS "-std=c++0x")
-endif(CMAKE_COMPILER_IS_GNUCXX)
+endif()
 
 #--------------------------------------------------
 # setup plugin linking

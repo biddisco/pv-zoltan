@@ -30,11 +30,19 @@ PURPOSE.  See the above copyright notice for more information.
 
 #include <algorithm>
 #include <functional>
-#include <tuple>
+
 //
 // depth, cellId, pts_offset
 //
-typedef std::tuple<double, vtkIdType, vtkIdType> depthInfo;
+#ifdef PV_ZOLTAN_USE_BOOST_TUPLE
+  #include <boost/tuple/tuple.hpp>
+  typedef boost::tuple<double, vtkIdType, vtkIdType> depthInfo;
+  #define tuple_namespace boost
+#else
+  #include <tuple>
+  typedef std::tuple<double, vtkIdType, vtkIdType> depthInfo;
+  #define tuple_namespace std
+#endif
 typedef std::vector<depthInfo> depthList;
 
 //-----------------------------------------------------------------------------
@@ -167,13 +175,13 @@ int vtkDepthSortPolyData2::RequestData(
       // get N and pointer to point Ids for this cell
       polys->GetNextCell(npts, pts);
       // set the cell ID in 1st tuple entry
-      std::get<1>((*ListToSort)[index]) = index;
+      tuple_namespace::get<1>((*ListToSort)[index]) = index;
       // set the offset to the cell {N,ptIds} in 2nd tuple entry
-      std::get<2>((*ListToSort)[index]) = static_cast<vtkIdType>(pts-cellArrayData-1);
+      tuple_namespace::get<2>((*ListToSort)[index]) = static_cast<vtkIdType>(pts-cellArrayData-1);
     }
     else {
       // get N and pointer to point Ids for this cell from last cached iteration
-      vtkIdType val = std::get<2>((*ListToSort)[index]);
+      vtkIdType val = tuple_namespace::get<2>((*ListToSort)[index]);
       npts =  cellArrayData[val];
       pts  = &cellArrayData[val+1];
     }
@@ -182,11 +190,11 @@ int vtkDepthSortPolyData2::RequestData(
       // set depth using float/double operation
       if (pointsF) {
         float *x = &pointsF[pts[0]*3];
-        std::get<0>(ListToSort->operator[](index)) = vtkMath::Dot(x,vectorF);
+        tuple_namespace::get<0>(ListToSort->operator[](index)) = vtkMath::Dot(x,vectorF);
       }
       else {
         double *x = &pointsD[pts[0]*3];
-        std::get<0>(ListToSort->operator[](index)) = vtkMath::Dot(x,vectorD);
+        tuple_namespace::get<0>(ListToSort->operator[](index)) = vtkMath::Dot(x,vectorD);
       }
     }
     else // if (this->DepthSortMode == VTK_SORT_BOUNDS_CENTER)
@@ -195,12 +203,12 @@ int vtkDepthSortPolyData2::RequestData(
       if (pointsF) {
         float x[3];
         CentreBoundsFromPtIds<float>(pts, npts, pointsF, x);
-        std::get<0>(ListToSort->operator[](index)) = vtkMath::Dot(x,vectorF);
+        tuple_namespace::get<0>(ListToSort->operator[](index)) = vtkMath::Dot(x,vectorF);
       }
       else {
         double x[3];
         CentreBoundsFromPtIds<double>(pts, npts, pointsD, x);
-        std::get<0>(ListToSort->operator[](index)) = vtkMath::Dot(x,vectorD);
+        tuple_namespace::get<0>(ListToSort->operator[](index)) = vtkMath::Dot(x,vectorD);
       }
     }
 //    else // VTK_SORT_PARAMETRIC_CENTER )
@@ -248,8 +256,8 @@ int vtkDepthSortPolyData2::RequestData(
   vtkIdType *DepthData = this->DepthOrder->GetPointer(0);
   for (vtkIdType cellId=0; cellId<numCells; cellId++) {
     // tuple consists of "sorted cell Id", "Offset into cellArray list for {N,PtIds}"
-    DepthData[cellId*2+0] = std::get<1>(ListToSort->operator[](cellId));
-    DepthData[cellId*2+1] = std::get<2>(ListToSort->operator[](cellId));
+    DepthData[cellId*2+0] = tuple_namespace::get<1>(ListToSort->operator[](cellId));
+    DepthData[cellId*2+1] = tuple_namespace::get<2>(ListToSort->operator[](cellId));
   }
 
   // Points are left alone
