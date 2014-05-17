@@ -79,14 +79,14 @@ TARGET_LINK_LIBRARIES(TestMeshPartitionScalarsFilter
   ${Trilinos_LIBRARIES}
 )
   
-ADD_EXECUTABLE(TestPartitionCompositing
-  TestPartitionCompositing.cxx
-  TestUtils.cxx
-)
-TARGET_LINK_LIBRARIES(TestPartitionCompositing
-  pv_zoltan 
-  ${Trilinos_LIBRARIES}
-)
+#ADD_EXECUTABLE(TestPartitionCompositing
+#  TestPartitionCompositing.cxx
+#  TestUtils.cxx
+#)
+#TARGET_LINK_LIBRARIES(TestPartitionCompositing
+#  pv_zoltan 
+#  ${Trilinos_LIBRARIES}
+#)
 
 # 
 # This test will only run if we have 4 processors

@@ -28,7 +28,6 @@
 #include "vtkZoltanV1PartitionFilter.h" // superclass
 #include "vtkBoundingBox.h"
 #include <vector>
-#include "zoltan.h"
 
 class vtkMultiProcessController;
 class vtkPoints;

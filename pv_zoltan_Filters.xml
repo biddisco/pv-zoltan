@@ -1,4 +1,4 @@
-<ParaViewFilters>
+<ParaViewFilters> 
   <Category name="Zoltan" menu_label="&amp;Zoltan">
     <Proxy group="filters" name="PartitionOutline" />
     <Proxy group="filters" name="ParticlePartitionFilter" />
