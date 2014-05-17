@@ -5,14 +5,45 @@ project("pv_zoltan")
 #--------------------------------------------------
 cmake_minimum_required(VERSION 2.8)
 
-if(COMMAND cmake_policy)
-  cmake_policy(SET CMP0003 OLD)
-  cmake_policy(SET CMP0017 NEW)
-  cmake_policy(SET CMP0023 OLD)
-endif(COMMAND cmake_policy)
+#--------------------------------------------------
+# cmake policies
+# see http://www.cmake.org/cmake/help/v2.8.12/cmake.html#section_Policies
+#--------------------------------------------------
+foreach(p
+    CMP0003 
+    CMP0017 
+    CMP0023 
+    )
+  if(POLICY ${p})
+    cmake_policy(SET ${p} NEW)
+  endif()
+endforeach()
 
 add_definitions(-DCMAKE_IS_BROKEN)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+#-----------------------------------------------------------------------------
+# Basic naming/config stuff here
+#-----------------------------------------------------------------------------
+set(pv_zoltan_VERS_MAJOR   0)
+set(pv_zoltan_VERS_MINOR   9)
+set(pv_zoltan_VERS_RELEASE 0)
+
+set (pv_zoltan_PACKAGE                "pv_zoltan")
+set (pv_zoltan_PACKAGE_NAME           "pv_zoltan")
+set (pv_zoltan_PACKAGE_VERSION        "${pv_zoltan_VERS_MAJOR}.${pv_zoltan_VERS_MINOR}.${pv_zoltan_VERS_RELEASE}")
+set (pv_zoltan_PACKAGE_VERSION_MAJOR  "${pv_zoltan_VERS_MAJOR}.${pv_zoltan_VERS_MINOR}")
+set (pv_zoltan_PACKAGE_VERSION_MINOR  "${pv_zoltan_VERS_RELEASE}")
+set (pv_zoltan_PACKAGE_VERSION_STRING "${pv_zoltan_PACKAGE_VERSION}")
+set (pv_zoltan_PACKAGE_SOVERSION      "${pv_zoltan_SOVERS_MAJOR}.${pv_zoltan_SOVERS_RELEASE}.${pv_zoltan_SOVERS_MINOR}")
+set (pv_zoltan_PACKAGE_STRING         "${pv_zoltan_PACKAGE_NAME} ${pv_zoltan_PACKAGE_VERSION_STRING}")
+set (pv_zoltan_PACKAGE_TARNAME        "${pv_zoltan_PACKAGE}")
+set (pv_zoltan_PACKAGE_URL            "http://www.cscs.ch")
+set (pv_zoltan_PACKAGE_BUGREPORT      "help@cscs.ch")
+
+#--------------------------------------------------
+# Location of cmake files
+#--------------------------------------------------
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 #--------------------------------------------------
 # Find and Use ParaView
@@ -61,106 +92,6 @@ INCLUDE_DIRECTORIES(
   "${PROJECT_BINARY_DIR}"
 )
 
-#--------------------------------------------------
-# Find cuda for optional Piston classes
-#--------------------------------------------------
-option(PV_ZOLTAN_USE_CUDA "Use CUDA rendering" OFF)
-
-if (PV_ZOLTAN_USE_CUDA)
-
-  #--------------------------------------------------
-  # Find CUDA and Thrust
-  #--------------------------------------------------
-  SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/piston")
-  find_package(CUDA REQUIRED)
-  find_package(CUDAThrust REQUIRED)
-
-  if (WIN32 AND ${CUDA_VERSION} VERSION_LESS "5.5")
-    set(NEED_PATH_HACK_FOR_VISUAL_STUDIO 1)
-    message("set(NEED_PATH_HACK_FOR_VISUAL_STUDIO 1)")
-  endif()
-
-  #--------------------------------------------------
-  # module definitions we'll need for piston flags/cuda etc
-  #--------------------------------------------------
-  include(vtkModuleMacros)
-#  include(vtkModuleAPI)
-#  include(vtkModuleMacros)
-#  include(ParaViewMacros)
-
-  #--------------------------------------------------
-  # Find piston header library
-  #--------------------------------------------------
-  find_path(PISTON_INCLUDE
-    PistonCodingStyle.xml
-    "/Source/PISTON/github/PISTON"
-    DOC "PISTON library's source directory")
-
-  if(PISTON_INCLUDE)
-    add_definitions(-DPV_ZOLTAN_USE_PISTON)
-
-    INCLUDE_DIRECTORIES(
-      ${PISTON_INCLUDE}
-      ${CMAKE_CURRENT_SOURCE_DIR}/piston
-    )
-  endif(PISTON_INCLUDE)
-
-  #--------------------------------------------------
-  # include path for Thrust
-  #--------------------------------------------------
-  include_directories(${CUDATHRUST_INCLUDE_DIRS})
-  message("include_directories(${CUDATHRUST_INCLUDE_DIRS})")
-
-  #--------------------------------------------------
-  # Define sources using PISTON 
-  #--------------------------------------------------
-  set(Module_SRCS
-    piston/vtkDataSetToPiston.cxx
-    piston/vtkPistonAlgorithm.cxx
-    piston/vtkPistonDataObject.cxx
-    piston/vtkPistonPolygonsPainter.cxx
-  )
-
-  set(Module_CUDA_SRCS
-    piston/vtkPistonConverters.cu
-    piston/vtkPistonMapper.cu
-  )
-
-  #--------------------------------------------------
-  # Define CUDA compiled source files
-  #--------------------------------------------------
-  if(BUILD_SHARED_LIBS)
-    set(GPGPU_BUILD_TYPE SHARED)
-  endif()
-
-  # set this, otherwise C_SOURCES is empty in Visual Studio  
-  set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF) 
-
-  if(MSVC AND NEED_PATH_HACK_FOR_VISUAL_STUDIO)
-    # generate the list of dependencies based on our module definition file
-    vtk_module_impl()
-
-    # remove a bunch of cruft that VTK adds in here about modules autoinit
-    # first get the old setting and store it
-    get_directory_property(TEMP_INCLUDE_DIRECTORIES INCLUDE_DIRECTORIES)
-    get_directory_property(TEMP_COMPILE_DEFINITIONS COMPILE_DEFINITIONS)
-    # clear compile defs 
-    set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "")
-    # shorten the include dirs so nvcc doesn't crumble under the entire VTK/ParaView/Qt path
-    set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${${vtk-module}_DEPENDS_INCLUDE_DIRS};${PISTON_INCLUDE}")
-  endif(MSVC AND NEED_PATH_HACK_FOR_VISUAL_STUDIO)
-
-  # call the cuda wrapper
-  cuda_compile(Module_CUDA_C_SRCS ${Module_CUDA_SRCS} ${GPGPU_BUILD_TYPE})
-
-  if(MSVC AND NEED_PATH_HACK_FOR_VISUAL_STUDIO)
-    # put the include dirs back to what they were
-    set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "${TEMP_INCLUDE_DIRECTORIES}")
-    set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "${TEMP_COMPILE_DEFINITIONS}")
-  endif(MSVC AND NEED_PATH_HACK_FOR_VISUAL_STUDIO)
-
-endif(PV_ZOLTAN_USE_CUDA)
-
 #------------------------------------------------------
 # MPI support
 #------------------------------------------------------
@@ -171,6 +102,11 @@ ELSE (PARAVIEW_USE_MPI)
   SET(USE_TRILINOS OFF CACHE BOOL "Use Trilinos library" FORCE)
   message(FATAL_ERROR "pv-zoltan requires an MPI enabled ParaView")
 ENDIF (PARAVIEW_USE_MPI)
+
+# --------------------------------------------------
+# We must build sub libraries with -fPIC
+# --------------------------------------------------
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # --------------------------------------------------
 # Trilinos support 
@@ -238,19 +174,10 @@ ADD_PARAVIEW_PLUGIN(
     ${TRILINOS_XML}
     ${XML_PATH}/vtkPartitionOutline.xml
 
-    ${XML_PATH}/vtkDepthSortRepresentation.xml
-
   SERVER_MANAGER_SOURCES
     ${TRILINOS_CXX}
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkBoundsExtentTranslator.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkPartitionOutline.cxx
-
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortRepresentation.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortDefaultPainter.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortPainter.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortPolyData2.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortPolygonsPainter.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkTwoScalarsToColorsPainter.cxx
 
   SERVER_SOURCES
     ${Module_SRCS}
@@ -269,11 +196,6 @@ ADD_PARAVIEW_PLUGIN(
     ${XML_PATH}/pv_zoltan_Filters.xml
 )
 
-if(CMAKE_COMPILER_IS_GNUCXX AND NOT PV_ZOLTAN_USE_BOOST_TUPLE)
-  message("Adding C++Ox flag for Depth Sort")
-  set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/vtkDepthSortPolyData2.cxx PROPERTIES COMPILE_FLAGS "-std=c++0x")
-endif()
-
 #--------------------------------------------------
 # setup plugin linking
 #--------------------------------------------------
@@ -282,17 +204,6 @@ TARGET_LINK_LIBRARIES(${PLUGIN_NAME}
     vtksys
     ${ZOLTAN_SDK_LIBRARIES}
     ${TRILINOS_LIBS}
-    ${HDF5_C_LIBRARY} 
-    ${HDF5_CXX_LIBRARY} 
-    ${Boost_SERIALIZATION_LIBRARY} 
-    ${Boost_THREAD_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_SERIALIZATION_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
-    ${Boost_DATE_TIME_LIBRARY}
-    ${CUDA_LIBRARIES}
 )
 
 #--------------------------------------------------
@@ -303,6 +214,30 @@ IF (BUILD_TESTING)
   MAKE_DIRECTORY(${PLUGIN_TEST_DIR})
   ADD_SUBDIRECTORY(testing)
 ENDIF (BUILD_TESTING)  
+
+#--------------------------------------------------------
+# Create the configuration header.
+#--------------------------------------------------------
+CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/module_configure.h.in
+               ${PROJECT_BINARY_DIR}/pv_zoltan_configure.h
+               @ONLY IMMEDIATE)
+
+#-----------------------------------------------------------------------------
+# Configure the project-config.cmake file for the build directory
+#-----------------------------------------------------------------------------
+set (${PROJECT_NAME}_INCLUDES_BUILD_TIME
+  "${PROJECT_SOURCE_DIR}"
+  "${PROJECT_BINARY_DIR}"
+  "${PROJECT_BINARY_DIR}/trilinos/packages/zoltan/src"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan/src/include"
+)
+if(WIN32)
+  set(${PROJECT_NAME}_INCLUDES_BUILD_TIME 
+    ${PROJECT_SOURCE_DIR}/trilinos/cmake/tribits/common_tools/win_interface/include
+    ${${PROJECT_NAME}_INCLUDES_BUILD_TIME}      
+  )
+endif()
+include(CMakeInstallation)
 
 #--------------------------------------------------
 # Install
