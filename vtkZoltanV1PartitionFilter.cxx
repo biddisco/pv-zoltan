@@ -535,12 +535,12 @@ int vtkZoltanV1PartitionFilter::RequestInformation(
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
 
-  outInfo->Set(vtkStreamingDemandDrivenPipeline::EXTENT_TRANSLATOR(), this->ExtentTranslator);
+  outInfo->Set(vtkBoundsExtentTranslator::META_DATA(), this->ExtentTranslator);
   //
-//  outInfo->Set(vtkStreamingDemandDrivenPipeline::EXTENT_TRANSLATOR(),
-//               inInfo->Get(vtkStreamingDemandDrivenPipeline::EXTENT_TRANSLATOR()));
+//  outInfo->Set(vtkBoundsExtentTranslator::META_DATA(),
+//               inInfo->Get(vtkBoundsExtentTranslator::META_DATA()));
   //
-  outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(), -1);
+  outInfo->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
   //
   outInfo->Set(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT(),
                inInfo->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT()),
@@ -748,7 +748,7 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   // somewhere else and we can skip main partitioning step. (example: H5Part reader can generate this)
   //
   vtkExtentTranslator *translator = inInfo ? vtkExtentTranslator::SafeDownCast(
-    inInfo->Get(vtkStreamingDemandDrivenPipeline::EXTENT_TRANSLATOR())) : NULL;
+    inInfo->Get(vtkBoundsExtentTranslator::META_DATA())) : NULL;
   this->InputExtentTranslator = vtkBoundsExtentTranslator::SafeDownCast(translator);
   // if the extent translator has not been initialized well - don't use it
   if (this->InputExtentTranslator && this->InputExtentTranslator->GetNumberOfPieces()==0) {

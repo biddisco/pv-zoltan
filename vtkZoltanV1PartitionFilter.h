@@ -49,6 +49,10 @@ class  vtkFieldData;
 class  vtkPKdTree;
 // our special extent translator
 class  vtkBoundsExtentTranslator;
+class vtkInformationDataObjectMetaDataKey;
+class vtkInformationIntegerRequestKey;
+class vtkInformationIntegerKey;
+
 
 //----------------------------------------------------------------------------
 //#define JB_DEBUG__

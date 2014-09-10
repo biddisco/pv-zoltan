@@ -23,7 +23,8 @@
 #include "vtkPKdTree.h"
 
 vtkStandardNewMacro(vtkBoundsExtentTranslator);
-
+//----------------------------------------------------------------------------
+vtkInformationKeyMacro(vtkBoundsExtentTranslator, META_DATA, ObjectMetaData);
 //----------------------------------------------------------------------------
 vtkBoundsExtentTranslator::vtkBoundsExtentTranslator()
 {

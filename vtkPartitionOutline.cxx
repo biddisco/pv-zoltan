@@ -59,7 +59,7 @@ int vtkPartitionOutline::RequestInformation(
   vtkInformationVector *outputVector)
 {
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
-  outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(), -1);
+  outInfo->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
   return 1;
 }
 //----------------------------------------------------------------------------
@@ -75,7 +75,7 @@ int vtkPartitionOutline::RequestData(vtkInformation *request,
   vtkPolyData *output = vtkPolyData::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
   //
   vtkExtentTranslator *translator = inInfo ? vtkExtentTranslator::SafeDownCast(
-    inInfo->Get(vtkStreamingDemandDrivenPipeline::EXTENT_TRANSLATOR())) : NULL;
+    inInfo->Get(vtkBoundsExtentTranslator::META_DATA())) : NULL;
   vtkBoundsExtentTranslator *bet = vtkBoundsExtentTranslator::SafeDownCast(translator);
   // if the extent translator has not been initialized well - don't use it
   if (bet && bet->GetNumberOfPieces()==0) {

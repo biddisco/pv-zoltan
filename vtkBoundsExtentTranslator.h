@@ -27,6 +27,8 @@
 #ifndef __vtkBoundsExtentTranslator_h
 #define __vtkBoundsExtentTranslator_h
 
+#include "vtkInformation.h"
+#include "vtkInformationObjectMetaDataKey.h"
 #include "vtkExtentTranslator.h"
 #include "vtkSmartPointer.h"
 #include <vector>
@@ -40,6 +42,7 @@ class VTK_EXPORT vtkBoundsExtentTranslator : public vtkExtentTranslator
 public:
   vtkTypeMacro(vtkBoundsExtentTranslator,vtkExtentTranslator);
   
+  static vtkInformationObjectMetaDataKey* META_DATA();
   static vtkBoundsExtentTranslator* New();
 
   virtual void ShallowCopy(vtkBoundsExtentTranslator *trans);

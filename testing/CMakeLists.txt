@@ -57,6 +57,7 @@ ADD_EXECUTABLE(TestParticlePartitionFilter
   TestUtils.cxx
 )
 TARGET_LINK_LIBRARIES(TestParticlePartitionFilter
+  vtkTestingRendering
   pv_zoltan 
   ${Trilinos_LIBRARIES}
 )
@@ -66,6 +67,7 @@ ADD_EXECUTABLE(TestMeshPartitionFilter
   TestUtils.cxx
 )
 TARGET_LINK_LIBRARIES(TestMeshPartitionFilter
+  vtkTestingRendering
   pv_zoltan 
   ${Trilinos_LIBRARIES}
 )
@@ -75,6 +77,7 @@ ADD_EXECUTABLE(TestMeshPartitionScalarsFilter
   TestUtils.cxx
 )
 TARGET_LINK_LIBRARIES(TestMeshPartitionScalarsFilter
+  vtkTestingRendering
   pv_zoltan 
   ${Trilinos_LIBRARIES}
 )
