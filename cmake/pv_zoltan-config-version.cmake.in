@@ -1,0 +1,23 @@
+#-----------------------------------------------------------------------------
+# HDF5 Version file for install directory
+#-----------------------------------------------------------------------------
+
+set (PACKAGE_VERSION @HDF5_VERSION_STRING@)
+
+if ("${PACKAGE_FIND_VERSION_MAJOR}" EQUAL @pv_zoltan_VERSION_MAJOR@)
+
+  # exact match for version @pv_zoltan_VERSION_MAJOR@.@pv_zoltan_VERSION_MINOR@
+  if ("${PACKAGE_FIND_VERSION_MINOR}" EQUAL @pv_zoltan_VERSION_MINOR@)
+
+    # compatible with any version @pv_zoltan_VERSION_MAJOR@.@pv_zoltan_VERSION_MINOR@.x
+    set (PACKAGE_VERSION_COMPATIBLE 1) 
+    
+    if ("${PACKAGE_FIND_VERSION_PATCH}" EQUAL @pv_zoltan_VERSION_RELEASE@)
+      set (PACKAGE_VERSION_EXACT 1)    
+
+    endif ("${PACKAGE_FIND_VERSION_PATCH}" EQUAL @pv_zoltan_VERSION_RELEASE@)
+    
+  endif ("${PACKAGE_FIND_VERSION_MINOR}" EQUAL @pv_zoltan_VERSION_MINOR@)
+endif ("${PACKAGE_FIND_VERSION_MAJOR}" EQUAL @pv_zoltan_VERSION_MAJOR@)
+
+

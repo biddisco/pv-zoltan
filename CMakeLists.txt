@@ -13,6 +13,7 @@ foreach(p
     CMP0003 
     CMP0017 
     CMP0023 
+    CMP0042
     )
   if(POLICY ${p})
     cmake_policy(SET ${p} NEW)
@@ -24,21 +25,19 @@ add_definitions(-DCMAKE_IS_BROKEN)
 #-----------------------------------------------------------------------------
 # Basic naming/config stuff here
 #-----------------------------------------------------------------------------
-set(pv_zoltan_VERS_MAJOR   0)
-set(pv_zoltan_VERS_MINOR   9)
-set(pv_zoltan_VERS_RELEASE 0)
+set(pv_zoltan_VERSION_MAJOR   0)
+set(pv_zoltan_VERSION_MINOR   9)
+set(pv_zoltan_VERSION_RELEASE 0)
 
-set (pv_zoltan_PACKAGE                "pv_zoltan")
-set (pv_zoltan_PACKAGE_NAME           "pv_zoltan")
-set (pv_zoltan_PACKAGE_VERSION        "${pv_zoltan_VERS_MAJOR}.${pv_zoltan_VERS_MINOR}.${pv_zoltan_VERS_RELEASE}")
-set (pv_zoltan_PACKAGE_VERSION_MAJOR  "${pv_zoltan_VERS_MAJOR}.${pv_zoltan_VERS_MINOR}")
-set (pv_zoltan_PACKAGE_VERSION_MINOR  "${pv_zoltan_VERS_RELEASE}")
-set (pv_zoltan_PACKAGE_VERSION_STRING "${pv_zoltan_PACKAGE_VERSION}")
-set (pv_zoltan_PACKAGE_SOVERSION      "${pv_zoltan_SOVERS_MAJOR}.${pv_zoltan_SOVERS_RELEASE}.${pv_zoltan_SOVERS_MINOR}")
-set (pv_zoltan_PACKAGE_STRING         "${pv_zoltan_PACKAGE_NAME} ${pv_zoltan_PACKAGE_VERSION_STRING}")
-set (pv_zoltan_PACKAGE_TARNAME        "${pv_zoltan_PACKAGE}")
-set (pv_zoltan_PACKAGE_URL            "http://www.cscs.ch")
-set (pv_zoltan_PACKAGE_BUGREPORT      "help@cscs.ch")
+set (pv_zoltan                "pv_zoltan")
+set (pv_zoltan_NAME           "pv_zoltan")
+set (pv_zoltan_VERSION        "${pv_zoltan_VERSION_MAJOR}.${pv_zoltan_VERSION_MINOR}.${pv_zoltan_VERSION_RELEASE}")
+set (pv_zoltan_VERSION_STRING "${pv_zoltan_VERSION}")
+set (pv_zoltan_SOVERSION      "${pv_zoltan_SOVERS_MAJOR}.${pv_zoltan_SOVERS_RELEASE}.${pv_zoltan_SOVERS_MINOR}")
+set (pv_zoltan_STRING         "${pv_zoltan_NAME} ${pv_zoltan_VERSION_STRING}")
+set (pv_zoltan_TARNAME        "${pv_zoltan}")
+set (pv_zoltan_URL            "http://www.cscs.ch")
+set (pv_zoltan_BUGREPORT      "help@cscs.ch")
 
 #--------------------------------------------------
 # Location of cmake files
