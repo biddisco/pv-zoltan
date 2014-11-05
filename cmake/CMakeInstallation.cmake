@@ -1,9 +1,11 @@
 string( TOLOWER "${PROJECT_NAME}" PROJECT_LOWER_NAME )
 
+message ("var is set to if (NOT ${${PROJECT_NAME}_EXTERNALLY_CONFIGURED})")
 #-----------------------------------------------------------------------------
 # Add Target(s) to CMake Install for import into other projects
 #-----------------------------------------------------------------------------
-if (NOT ${PROJECT_NAME}_EXTERNALLY_CONFIGURED)
+if (NOT (${PROJECT_NAME}_EXTERNALLY_CONFIGURED OR ${PROJECT_NAME}_IS_SUBPROJECT))
+message("Here 111")
   install (
       EXPORT ${${PROJECT_NAME}_EXPORTED_TARGETS}
       DESTINATION ${${PROJECT_NAME}_INSTALL_CMAKE_DIR}/${${PROJECT_NAME}_PACKAGE}
@@ -15,7 +17,7 @@ endif (NOT ${PROJECT_NAME}_EXTERNALLY_CONFIGURED)
 #-----------------------------------------------------------------------------
 # Export all exported targets to the build tree for use by parent project
 #-----------------------------------------------------------------------------
-if (NOT ${PROJECT_NAME}_EXTERNALLY_CONFIGURED OR ${PROJECT_NAME}_IS_SUBPROJECT)
+if (NOT (${PROJECT_NAME}_EXTERNALLY_CONFIGURED OR ${PROJECT_NAME}_IS_SUBPROJECT))
   EXPORT (
       TARGETS ${${PROJECT_NAME}_LIBRARIES_TO_EXPORT} ${${PROJECT_NAME}_LIB_DEPENDENCIES}
       FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-targets.cmake

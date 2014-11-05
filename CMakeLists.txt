@@ -215,7 +215,10 @@ if(WIN32)
     ${${PROJECT_NAME}_INCLUDES_BUILD_TIME}      
   )
 endif()
+
 include(CMakeInstallation)
+
+return()
 
 #--------------------------------------------------
 # Install
