@@ -12,7 +12,7 @@ message("Here 111")
       FILE ${${PROJECT_NAME}_PACKAGE}-targets.cmake
       COMPONENT configinstall
   )
-endif (NOT ${PROJECT_NAME}_EXTERNALLY_CONFIGURED)
+endif()
 
 #-----------------------------------------------------------------------------
 # Export all exported targets to the build tree for use by parent project
@@ -22,7 +22,7 @@ if (NOT (${PROJECT_NAME}_EXTERNALLY_CONFIGURED OR ${PROJECT_NAME}_IS_SUBPROJECT)
       TARGETS ${${PROJECT_NAME}_LIBRARIES_TO_EXPORT} ${${PROJECT_NAME}_LIB_DEPENDENCIES}
       FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-targets.cmake
   )
-endif ()
+endif()
 
 #-----------------------------------------------------------------------------
 # Set any vars which other projects will want to access
