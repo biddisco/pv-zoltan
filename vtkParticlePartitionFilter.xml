@@ -27,6 +27,9 @@
         default_values="0.01" >
       </DoubleVectorProperty>
 
+      <Hints>
+        <ShowInMenu category="Zoltan" />
+      </Hints>
     </SourceProxy>
 
   </ProxyGroup>

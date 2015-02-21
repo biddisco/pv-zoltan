@@ -59,6 +59,10 @@
         </Documentation>
       </IntVectorProperty>
       
+      <Hints>
+        <ShowInMenu category="Zoltan" />
+      </Hints>
+
     </SourceProxy>
 
   </ProxyGroup>

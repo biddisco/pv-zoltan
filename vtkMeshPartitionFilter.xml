@@ -18,6 +18,10 @@
          short_help="Partitioning of PolyData or UnstructuredGrid Meshes in parallel">
       </Documentation>
 
+      <Hints>
+        <ShowInMenu category="Zoltan" />
+      </Hints>
+
     </SourceProxy>
 
   </ProxyGroup>
