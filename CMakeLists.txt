@@ -216,9 +216,10 @@ if(WIN32)
   )
 endif()
 
-include(CMakeInstallation)
 
 return()
+
+include(CMakeInstallation)
 
 #--------------------------------------------------
 # Install
