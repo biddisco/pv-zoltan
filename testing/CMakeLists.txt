@@ -5,7 +5,6 @@
 # ctest -C Release / Debug / etc
 #--------------------------------------------------
 
-
 include( CTest ) 
 enable_testing()
 
@@ -60,7 +59,23 @@ ADD_EXECUTABLE(TestParticlePartitionFilter
   TestParticlePartitionFilter.cxx
   TestUtils.cxx
 )
+target_compile_definitions(TestParticlePartitionFilter
+  PUBLIC "-Dzoltan_v1"
+)
 TARGET_LINK_LIBRARIES(TestParticlePartitionFilter
+  vtkTestingRendering
+  pv_zoltan 
+  ${Trilinos_LIBRARIES}
+)
+ 
+ADD_EXECUTABLE(TestParticlePartitionFilter2 
+  TestParticlePartitionFilter2.cxx
+  TestUtils.cxx
+)
+target_compile_definitions(TestParticlePartitionFilter2 
+  PUBLIC "-Dzoltan_v2"
+)
+TARGET_LINK_LIBRARIES(TestParticlePartitionFilter2
   vtkTestingRendering
   pv_zoltan 
   ${Trilinos_LIBRARIES}
@@ -99,13 +114,26 @@ TARGET_LINK_LIBRARIES(TestMeshPartitionScalarsFilter
 # This test will only run if we have 4 processors
 #   
 greater_equal(${MPIEXEC_MAX_NUMPROCS} 4 processors)
-SET(test_name "TestParticlePartitionFilter-P4")
 IF (processors)
+  SET(test_name "TestParticlePartitionFilter-P4")
   ADD_TEST(
     NAME ${test_name}
     COMMAND 
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
       $<TARGET_FILE:TestParticlePartitionFilter> 
+      -testName ${test_name}
+      -T "${PLUGIN_TEST_DIR}"
+      -generateParticles 1000
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition.png
+      -doRender 1
+      -windowSize "400 400"
+  )
+  SET(test_name "TestParticlePartitionFilter2-P4")
+  ADD_TEST(
+    NAME ${test_name}
+    COMMAND 
+      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestParticlePartitionFilter2> 
       -testName ${test_name}
       -T "${PLUGIN_TEST_DIR}"
       -generateParticles 1000

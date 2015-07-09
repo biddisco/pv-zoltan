@@ -22,9 +22,20 @@
 #include "vtkTimerLog.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 
-// only defined if trilinos used
-class vtkZoltanV1PartitionFilter;
+#if defined(zoltan_v1)
+ #define ZOLTAN_PARTITON_FILTER   vtkZoltanV1PartitionFilter
+ #define PARTITON_FILTER          vtkParticlePartitionFilter
+#elif defined(zoltan_v2)
+ #define ZOLTAN_PARTITON_FILTER   vtkZoltanV2PartitionFilter
+ #define PARTITON_FILTER          vtkParticlePartitionFilter2
+#else
+ #define ZOLTAN_PARTITON_FILTER   vtkZoltanV1PartitionFilter
+ #define PARTITON_FILTER          vtkMeshPartitionFilter
+#endif
+
+class PARTITON_FILTER;
 class vtkXMLPolyDataReader;
+
 //----------------------------------------------------------------------------
 #if 0
   #define OUTPUTTEXT(a) std::cout << (a);
@@ -52,7 +63,7 @@ class TestStruct {
  public:
   //
   vtkSmartPointer<vtkMultiProcessController>  controller;
-  vtkSmartPointer<vtkZoltanV1PartitionFilter> partitioner;
+  vtkSmartPointer<PARTITON_FILTER>            partitioner;
   vtkSmartPointer<vtkAlgorithm>               sphResampler;
   vtkSmartPointer<vtkXMLPolyDataReader>       xmlreader;
   //

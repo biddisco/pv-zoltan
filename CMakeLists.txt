@@ -157,6 +157,9 @@ IF(Trilinos_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.cxx
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV2PartitionFilter.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter2.cxx
   )
   SET(TRILINOS_XML 
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.xml
@@ -258,7 +261,6 @@ if(WIN32)
     ${${PROJECT_NAME}_INCLUDES_BUILD_TIME}      
   )
 endif()
-
 
 return()
 

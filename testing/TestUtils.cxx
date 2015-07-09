@@ -15,9 +15,14 @@
 #include <vtksys/SystemTools.hxx>
 //
 #include "vtkXMLPolyDataReader.h"
-#include "vtkParticlePartitionFilter.h"
-#include "vtkMeshPartitionFilter.h"
-//
+
+#if defined(zoltan_v1)
+ #include "vtkParticlePartitionFilter.h"
+#elif defined(zoltan_v2)
+ #include "vtkParticlePartitionFilter2.h"
+#else
+ #include "vtkMeshPartitionFilter.h"
+#endif//
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -220,14 +225,14 @@ void TestStruct::DeleteXMLPolyDataReader()
 void TestStruct::CreatePartitioner_Particles()
 {
   testDebugMacro( "Creating Partitioner " << this->myRank << " of " << this->numProcs );
-  this->partitioner = vtkSmartPointer<vtkParticlePartitionFilter>::New();
+  this->partitioner = vtkSmartPointer<PARTITON_FILTER>::New();
   this->partitioner->SetController(this->controller);
 }
 //----------------------------------------------------------------------------
 void TestStruct::CreatePartitioner_Mesh()
 {
   testDebugMacro( "Creating Partitioner " << this->myRank << " of " << this->numProcs );
-  this->partitioner = vtkSmartPointer<vtkMeshPartitionFilter>::New();
+  this->partitioner = vtkSmartPointer<PARTITON_FILTER>::New();
   this->partitioner->SetController(this->controller);
 }
 //----------------------------------------------------------------------------
