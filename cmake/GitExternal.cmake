@@ -8,7 +8,7 @@
 #    update target to bump the tag to the master revision by
 #    recreating .gitexternals.
 #  * Provides function
-#      git_external(<directory> <giturl> <gittag> [VERBOSE]
+#    git_external(<directory> <giturl> <gittag> [NO_UPDATE, VERBOSE]
 #        [RESET <files>])
 #    which will check out directory in CMAKE_SOURCE_DIR (if relative)
 #    or in the given absolute path using the given repository and tag
@@ -16,6 +16,8 @@
 #
 # Options which control behaviour:
 #  GIT_EXTERNAL_DISABLE_UPDATE
+# [optional] Flags which control behaviour
+#  NO_UPDATE
 #    When set, GitExternal will not change a repo that has already
 #    been checked out. The purpose of this is to allow one to set a
 #    default branch to be checked out, but stop GitExternal from
@@ -23,7 +25,10 @@
 #    working on another.
 #  GIT_EXTERNAL_VERBOSE
 #    When set, displays information about git commands that are executed
-#
+#  SHALLOW
+#    When set, the initial clone of the repo will be a shallow one
+#    not fetching all the history. Equivalent to
+#    git clone --depth 1 --branch <branch> <repo>
 # CMake variables
 #  GIT_EXTERNAL_USER_FORK If set, a remote called 'user' is set up for github
 #    repositories, pointing to github.com/<user>/<project>. Defaults to user
@@ -58,7 +63,7 @@ macro(GIT_EXTERNAL_MESSAGE msg)
 endmacro()
 
 function(GIT_EXTERNAL DIR REPO TAG)
-  cmake_parse_arguments(GIT_EXTERNAL "" "" "RESET" ${ARGN})
+  cmake_parse_arguments(GIT_EXTERNAL "NO_UPDATE;VERBOSE;SHALLOW" "" "RESET" ${ARGN})
 
   # check if we had a previous external of the same name
   string(REGEX REPLACE "[:/]" "_" TARGET "${DIR}")
@@ -67,7 +72,7 @@ function(GIT_EXTERNAL DIR REPO TAG)
     if(NOT OLD_TAG STREQUAL TAG)
       string(REPLACE "${CMAKE_SOURCE_DIR}/" "" PWD
         "${CMAKE_CURRENT_SOURCE_DIR}")
-      message(STATUS "${DIR}: already configured with ${OLD_TAG}, ignoring requested ${TAG} in ${PWD}")
+      git_external_message("${DIR}: already configured with ${OLD_TAG}, ignoring requested ${TAG} in ${PWD}")
       return()
     endif()
   else()
@@ -80,14 +85,24 @@ function(GIT_EXTERNAL DIR REPO TAG)
   get_filename_component(NAME "${DIR}" NAME)
   get_filename_component(GIT_EXTERNAL_DIR "${DIR}/.." ABSOLUTE)
 
+  set(FRESH_CLONE 0)
   if(NOT EXISTS "${DIR}")
-    message(STATUS "git clone ${REPO} ${DIR}")
+    set(FRESH_CLONE 1)
+    if (GIT_EXTERNAL_SHALLOW)
+      set(_command clone --recursive --depth 1 --branch ${TAG} ${REPO} ${DIR})
+    else()
+      set(_command "clone; --recursive; ${REPO}; ${DIR}")
+    endif()
+    message(STATUS "git " ${_command})
     execute_process(
-      COMMAND "${GIT_EXECUTABLE}" clone --recursive "${REPO}" "${DIR}"
+      COMMAND "${GIT_EXECUTABLE}" ${_command}
       RESULT_VARIABLE nok ERROR_VARIABLE error
       WORKING_DIRECTORY "${GIT_EXTERNAL_DIR}")
     if(nok)
       message(FATAL_ERROR "${DIR} git clone failed: ${error}\n")
+    endif()
+    if(FRESH_CLONE)
+      return()
     endif()
   endif()
 
@@ -106,7 +121,8 @@ function(GIT_EXTERNAL DIR REPO TAG)
     return()
   endif()
 
-  if(GIT_EXTERNAL_DISABLE_UPDATE)
+  # if a fresh clone of a repo is underway, proceed, otherwise we may get the wrong branch
+  if(FRESH_CLONE OR GIT_EXTERNAL_DISABLE_UPDATE OR GIT_EXTERNAL_NO_UPDATE)
     git_external_message("git update disabled by user")
     return()
   endif()
@@ -146,12 +162,12 @@ function(GIT_EXTERNAL DIR REPO TAG)
   # update tag
   git_external_message("git rebase FETCH_HEAD")
   execute_process(COMMAND ${GIT_EXECUTABLE} rebase FETCH_HEAD
-    RESULT_VARIABLE RESULT OUTPUT_VARIABLE OUTPUT ERROR_VARIABLE OUTPUT
+        RESULT_VARIABLE RESULT OUTPUT_VARIABLE OUTPUT ERROR_VARIABLE OUTPUT
     WORKING_DIRECTORY "${DIR}")
   if(RESULT)
     message(STATUS "git rebase failed, aborting ${DIR} merge")
     execute_process(COMMAND ${GIT_EXECUTABLE} rebase --abort
-      WORKING_DIRECTORY "${DIR}")
+          WORKING_DIRECTORY "${DIR}")
   endif()
 
   # checkout requested tag
@@ -196,10 +212,13 @@ if(EXISTS ${GIT_EXTERNALS} AND NOT GIT_EXTERNAL_SCRIPT_MODE)
           # Create update script and target to bump external spec
           if(NOT TARGET update)
             add_custom_target(update)
+            set_target_properties(update PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD TRUE)
           endif()
           if(NOT TARGET update_git_external)
             add_custom_target(update_git_external)
+            set_target_properties(update_git_external PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD TRUE)
             add_custom_target(flatten_git_external)
+            set_target_properties(flatten_git_external PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD TRUE)
             add_dependencies(update update_git_external)
           endif()
 
@@ -218,6 +237,7 @@ if(EXISTS ${GIT_EXTERNALS} AND NOT GIT_EXTERNAL_SCRIPT_MODE)
               COMMAND ${CMAKE_COMMAND} -DGIT_EXTERNAL_SCRIPT_MODE=1 -P ${GIT_EXTERNAL_SCRIPT}
               COMMENT "Recreate ${GIT_EXTERNALS_BASE}"
               WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+            set_target_properties(${GIT_EXTERNAL_TARGET} PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD TRUE)
           endif()
 
           set(GIT_EXTERNAL_SCRIPT
@@ -241,6 +261,7 @@ endif()")
             COMMENT "Update ${REPO} in ${GIT_EXTERNALS_BASE}"
             DEPENDS ${GIT_EXTERNAL_TARGET}
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+          set_target_properties(update_git_external_${GIT_EXTERNAL_NAME} PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD TRUE)
           add_dependencies(update_git_external
             update_git_external_${GIT_EXTERNAL_NAME})
 

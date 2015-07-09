@@ -110,6 +110,7 @@ Git_External(
   ${CMAKE_CURRENT_SOURCE_DIR}/trilinos
   https://github.com/biddisco/trilinos
   zoltan_only 
+  SHALLOW
   NO_UPDATE
   VERBOSE
 )
