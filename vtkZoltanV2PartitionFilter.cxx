@@ -570,6 +570,102 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
   //* Guide for the definition of these and many other parameters.
   //***************************************************************
 
+  #ifdef HAVE_ZOLTAN2_MPI                   
+      int rank, nprocs;
+      MPI_Comm_size(this->GetMPIComm(), &nprocs);
+      MPI_Comm_rank(this->GetMPIComm(), &rank);
+    #else
+      int rank=0, nprocs=1;
+    #endif
+
+  // Zoltan 2 parameters
+  double tolerance = 1.1;
+  this->ZoltanParams = Teuchos::ParameterList("test params");
+  this->ZoltanParams.set("debug_level", "basic_status");
+  this->ZoltanParams.set("debug_procs", "0");
+  this->ZoltanParams.set("error_check_level", "debug_mode_assertions");
+  this->ZoltanParams.set("compute_metrics", "true");
+  this->ZoltanParams.set("algorithm", "rcb");
+  this->ZoltanParams.set("imbalance_tolerance", tolerance );
+  this->ZoltanParams.set("num_global_parts", nprocs);
+  this->ZoltanParams.set("bisection_num_test_cuts", 1);
+  this->ZoltanParams.set("mj_keep_part_boxes", 1);
+    
+  /*
+  Zoltan2 all parameters
+  {
+    "error_check_level" : string = basic_assertions
+    "debug_level" : string = basic_status
+    "timer_type" : string = no_timers
+    "debug_output_stream" : string = cout
+    "timer_output_stream" : string = cout
+    "memory_output_stream" : string = cout
+    "debug_output_file" : string = /dev/null
+    "timer_output_file" : string = /dev/null
+    "memory_output_file" : string = /dev/null
+    "debug_procs" : string = 0
+    "mj_parts" : string = 0
+    "memory_procs" : string = 0
+    "speed_versus_quality" : string = balance
+    "memory_versus_speed" : string = balance
+    "random_seed" : string = 0.5
+    "order_method" : string = rcm
+    "order_package" : string = amd
+    "compute_metrics" : string = no
+    "topology" : string = 
+    "randomize_input" : string = no
+    "partitioning_objective" : string = balance_object_weight
+    "imbalance_tolerance" : string = 1.1
+    "num_global_parts" : string = 0
+    "num_local_parts" : string = 0
+    "partitioning_approach" : string = partition
+    "objects_to_partition" : string = graph_vertices
+    "model" : string = graph
+    "algorithm" : string = random
+    "rectilinear" : string = no
+    "average_cuts" : string = no
+    "bisection_num_test_cuts" : int = 1
+    "symmetrize_input" : string = no
+    "subset_graph" : string = no
+    "mj_concurrent_part_count" : int = 1
+    "mj_minimum_migration_imbalance" : string = 1.1
+    "mj_migration_option" : int = 1
+    "remap_parts" : string = no
+    "mapping_type" : int = -1
+    "mj_keep_part_boxes" : int = -1
+    "mj_enable_rcb" : int = 0
+    "mj_recursion_depth" : int = -1
+    "color_method" : string = rcm
+    "color_choice" : string = amd
+  }
+
+  */
+
+
+
+  // Zoltan 1 parameters
+  // this->ZoltanParams.set("RCB_OUTPUT_LEVEL", "0");
+  // this->ZoltanParams.set("DEBUG_LEVEL", "0");
+
+  // this->ZoltanParams.set("LB_APPROACH", "REPARTITION");
+  // this->ZoltanParams.set("LB_METHOD", "RCB");
+
+  // this->ZoltanParams.set("NUM_GID_ENTRIES", "1");
+  // this->ZoltanParams.set("NUM_LID_ENTRIES", "0");
+
+  // this->ZoltanParams.set("OBJ_WEIGHT_DIM", "0");
+  // this->ZoltanParams.set("RETURN_LISTS", "IMPORT AND EXPORT");
+  // this->ZoltanParams.set("RCB_RECOMPUTE_BOX", "0");
+  // this->ZoltanParams.set("REDUCE_DIMENSIONS", "0");
+
+  // this->ZoltanParams.set("RCB_MAX_ASPECT_RATIO", aspect.str().c_str());
+  // this->ZoltanParams.set("KEEP_CUTS", "1");
+
+  // this->ZoltanParams.set("RCB_RECTILINEAR_BLOCKS", "1");
+  // this->ZoltanParams.set("AUTO_MIGRATE", "0");
+
+  // this->ZoltanParams.set("MIGRATE_ONLY_PROC_CHANGES", "1"); 
+
   this->ZoltanData = Zoltan_Create(this->GetMPIComm()); 
 
   // we don't need any debug info
@@ -585,12 +681,12 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
   Zoltan_Set_Param(this->ZoltanData, "NUM_GID_ENTRIES", "1"); 
   Zoltan_Set_Param(this->ZoltanData, "NUM_LID_ENTRIES", "0");
 
-  // divide into N global and M local partitions
-  std::stringstream global;
-  global << this->UpdateNumPieces << ends;
-  // just one local piece for now
-  std::stringstream local;
-  local << 1 << ends;
+  // // divide into N global and M local partitions
+  // std::stringstream global;
+  // global << this->UpdateNumPieces << ends;
+  // // just one local piece for now
+  // std::stringstream local;
+  // local << 1 << ends;
   //
 //  Zoltan_Set_Param(this->ZoltanData, "NUM_GLOBAL_PARTS", global.str().c_str());
 //  Zoltan_Set_Param(this->ZoltanData, "NUM_LOCAL_PARTS",  local.str().c_str());
@@ -598,6 +694,7 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
   // All points have the same weight
   Zoltan_Set_Param(this->ZoltanData, "OBJ_WEIGHT_DIM", "0");
   Zoltan_Set_Param(this->ZoltanData, "RETURN_LISTS", "IMPORT AND EXPORT");
+
 
   // RCB parameters
   // Zoltan_Set_Param(this->ZoltanData, "PARMETIS_METHOD", "PARTKWAY");
@@ -608,6 +705,7 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
   std::stringstream aspect;
   aspect << this->MaxAspectRatio << std::ends;  
   Zoltan_Set_Param(this->ZoltanData, "RCB_MAX_ASPECT_RATIO", aspect.str().c_str());
+
 
   // we need the cuts to get BBoxes for partitions later
   Zoltan_Set_Param(this->ZoltanData, "KEEP_CUTS", "1");
@@ -620,6 +718,7 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
   // do the mirations of points/cells afterwards
   Zoltan_Set_Param(this->ZoltanData, "AUTO_MIGRATE", "0");
   Zoltan_Set_Param(this->ZoltanData, "MIGRATE_ONLY_PROC_CHANGES", "1"); 
+
 
   //
   // Query functions, to provide geometry to Zoltan 
@@ -638,6 +737,8 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
     Zoltan_Set_Geom_Multi_Fn(this->ZoltanData, get_geometry_list<double>, &this->ZoltanCallbackData);
   }
 }
+
+
 //----------------------------------------------------------------------------
 int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
                                  vtkInformationVector** inputVector,
@@ -827,6 +928,87 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
      );
 
 
+    // Zoltan 2 partining 
+    typedef double scalar_t;
+    typedef int localId_t;
+    #ifdef HAVE_ZOLTAN2_LONG_LONG_INT
+      typedef long long globalId_t;
+    #else
+      typedef int globalId_t;
+    #endif
+    typedef Zoltan2::BasicUserTypes<scalar_t, globalId_t, localId_t, globalId_t> myTypes;
+    
+    typedef Zoltan2::BasicVectorAdapter<myTypes> inputAdapter_t;
+    typedef inputAdapter_t::part_t part_t;
+
+
+    #ifdef HAVE_ZOLTAN2_MPI                   
+      int rank, nprocs;
+      MPI_Comm_size(this->GetMPIComm(), &nprocs);
+      MPI_Comm_rank(this->GetMPIComm(), &rank);
+    #else
+      int rank=0, nprocs=1;
+    #endif
+
+      // cout<<"rank " <<rank<<" of "<<nprocs<<endl;
+
+    int localCount = input->GetNumberOfPoints();
+    globalId_t *globalIds = new globalId_t [localCount];
+    globalId_t offset = this->ZoltanCallbackData.ProcessOffsetsPointId[0];
+
+    for (size_t i=0; i < localCount; i++)
+      globalIds[i] = offset++;
+
+    scalar_t *coords = new scalar_t[3*localCount];
+
+    scalar_t *x = coords; 
+    scalar_t *y = x + localCount; 
+    scalar_t *z = y + localCount; 
+
+    double p[3];
+    for (int i = 0; i < localCount; ++i)
+    {
+      input->GetPoint(i, p);
+      x[i] = p[0];
+      y[i] = p[1];
+      z[i] = p[2];
+      // cout<<"Point "<<i<<" x:"<<x[i]<<" y:"<<y[i]<<" z:"<<z[i]<<endl;
+    }
+
+  //   // vtkPoints *myInPoints = input->GetPoints();
+  //   // myVtkPoints myInput[localCount];
+  //   // for (int i=0; i<localCount; ++i){
+  //   //   myInput[i] = myVtkPoints(myInPoints[i]);
+  //   // }
+    inputAdapter_t InputAdapter(localCount, globalIds, x, y, z, 1, 1, 1);
+
+
+    Zoltan2::PartitioningProblem<inputAdapter_t> *problem1 =
+             new Zoltan2::PartitioningProblem<inputAdapter_t>(&InputAdapter, &this->ZoltanParams);
+     
+    // Solve the problem
+    problem1->solve();
+
+    // if (rank == 0)
+      // problem1->printMetrics(cout);
+
+    const Zoltan2::PartitioningSolution<inputAdapter_t> &solution4 =
+    problem1->getSolution();
+
+    // Zoltan 2 bounding box code
+    // std::vector<Zoltan2::coordinateModelPartBox<scalar_t, part_t> > &boxView = solution4.getPartBoxesView();
+    // for (int i=0; i<boxView.size(); i++){
+    //   scalar_t *minss = boxView[i].getlmins();
+    //   scalar_t *maxss = boxView[i].getlmaxs();
+    //   for (int i = 0; i < 3; ++i)
+    //   {
+    //     cout<<i<<" min:"<<minss[i]<<"\t max:"<<maxss[i]<<endl;
+    //   }
+    // }
+
+    //   cout<<"UpdateNumPieces:"<<this->UpdateNumPieces<<endl;
+
+
     //
     // Get bounding boxes from zoltan and set them in the ExtentTranslator
     //
@@ -841,6 +1023,12 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
         if (bounds[3]== DBL_MAX) { bounds[3] = globalBounds.GetMaxPoint()[1]; }
         if (bounds[4]==-DBL_MAX) { bounds[4] = globalBounds.GetMinPoint()[2]; }
         if (bounds[5]== DBL_MAX) { bounds[5] = globalBounds.GetMaxPoint()[2]; }
+        cout<<"bounds ";
+        for (int i = 0; i < 6; ++i)
+        {
+          cout<<bounds[i]<<", ";
+        }
+        cout<<endl;
         vtkBoundingBox box(bounds);
         this->BoxList.push_back(box);
         this->ExtentTranslator->SetBoundsForPiece(p, bounds);

@@ -5,6 +5,10 @@
 # ctest -C Release / Debug / etc
 #--------------------------------------------------
 
+
+include( CTest ) 
+enable_testing()
+
 #--------------------------------------------------
 # Machines running OSMesa instead of OpenGL might need a larger threshold for image test comparisons
 #--------------------------------------------------

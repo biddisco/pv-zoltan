@@ -36,6 +36,12 @@
 //
 #include "zoltan.h"              // required for definitions
 
+#include <Zoltan2_PartitioningSolution.hpp>
+#include <Zoltan2_PartitioningProblem.hpp>
+#include <Zoltan2_BasicVectorAdapter.hpp>
+#include <Zoltan2_InputTraits.hpp>
+
+
 // standard vtk classes
 class  vtkMultiProcessController;
 class  vtkPoints;
@@ -400,6 +406,7 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
     CallbackData                ZoltanCallbackData;
     ZoltanLoadBalanceData       LoadBalanceData;
 
+    Teuchos::ParameterList ZoltanParams;
 #ifdef EXTRA_ZOLTAN_DEBUG
     //
     // For debugging

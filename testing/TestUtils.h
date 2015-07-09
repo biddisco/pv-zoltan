@@ -1,4 +1,7 @@
 //
+ #include <vtkAutoInit.h>
+ VTK_MODULE_INIT(vtkRenderingOpenGL);
+
 #include <iostream>
 #include <sstream>
 //
