@@ -86,25 +86,47 @@ ENDIF (PARAVIEW_USE_MPI)
 # --------------------------------------------------
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+#--------------------------------------------------
+# GitExternal config
+#--------------------------------------------------
+set(GIT_EXTERNAL_DISABLE_UPDATE ON)
+set(GIT_EXTERNAL_USER_FORK "" CACHE STRING "Disabled")
+
+#--------------------------------------------------
+# load script for checking out projects from git
+#--------------------------------------------------
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/GitExternal.cmake)
+#include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SubProject.cmake)
+
+#--------------------------------------------------
+# checkout reduced version of trilinos 
+#--------------------------------------------------
+Git_External(
+  ${CMAKE_CURRENT_SOURCE_DIR}/trilinos
+  https://github.com/biddisco/trilinos
+  zoltan_subset
+  NO_UPDATE
+  VERBOSE
+)
+
 # --------------------------------------------------
 # Trilinos support 
 # --------------------------------------------------
 SET(TRILINOS_ENABLED 0)
-
 OPTION(USE_SYSTEM_TRILINOS "Use System Trilinos library" OFF)
 IF(USE_SYSTEM_TRILINOS)
   FIND_PACKAGE(Trilinos)
 ELSE(USE_SYSTEM_TRILINOS)
-  SET(TPL_ENABLE_MPI ON CACHE BOOL "Do not change")
-  SET(Trilinos_ENABLE_TESTS OFF CACHE BOOL "Do not change")
-  SET(Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES OFF CACHE BOOL "Do not change")
-  SET(Trilinos_ENABLE_Zoltan ON CACHE BOOL "Do not change")
-  SET(Trilinos_ENABLE_Fortran OFF CACHE BOOL "Do not change")
+  set(Trilinos_ASSERT_MISSING_PACKAGES      OFF CACHE BOOL "Do not change")
+  set(Trilinos_ENABLE_Zoltan2                ON CACHE BOOL "Do not change")
+  set(Trilinos_ENABLE_Fortran               OFF CACHE BOOL "Do not change")
+  set(TPL_ENABLE_MPI                         ON CACHE BOOL "Do not change")
+  set(Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES OFF CACHE BOOL "Do not change")
+  set(Trilinos_ENABLE_TESTS                 OFF CACHE BOOL "Do not change")
   IF (WIN32)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS)
     INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/trilinos/cmake/tribits/common_tools/win_interface/include")
   ENDIF(WIN32)
-#  ADD_DEFINITIONS(-DREALLOC_BUG)
   ADD_SUBDIRECTORY(trilinos)
   SET(Trilinos_FOUND 1)
   SET(Trilinos_DEPS_HTML_OUTPUT_FILE "" CACHE STRING "Leave empty" FORCE)
