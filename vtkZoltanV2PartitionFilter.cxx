@@ -54,7 +54,7 @@
 #include "vtkPKdTree2.h"
 #include "vtkBoundsExtentTranslator.h"
 #include "vtkZoltanV2PartitionFilter.h"
-
+#include "vtkFloatArray.h"
 
 #include <Zoltan2_PartitioningSolution.hpp>
 #include <Zoltan2_PartitioningProblem.hpp>
@@ -929,7 +929,7 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
 
 
     // Zoltan 2 partining 
-    typedef double scalar_t;
+    typedef float scalar_t;
     typedef int localId_t;
     #ifdef HAVE_ZOLTAN2_LONG_LONG_INT
       typedef long long globalId_t;
@@ -959,28 +959,18 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
     for (size_t i=0; i < localCount; i++)
       globalIds[i] = offset++;
 
-    scalar_t *coords = new scalar_t[3*localCount];
-
-    scalar_t *x = coords; 
-    scalar_t *y = x + localCount; 
-    scalar_t *z = y + localCount; 
-
-    double p[3];
-    for (int i = 0; i < localCount; ++i)
-    {
-      input->GetPoint(i, p);
-      x[i] = p[0];
-      y[i] = p[1];
-      z[i] = p[2];
-      // cout<<"Point "<<i<<" x:"<<x[i]<<" y:"<<y[i]<<" z:"<<z[i]<<endl;
+    vtkPoints *myInPoints = input->GetPoints();
+    vtkFloatArray *fa = vtkFloatArray::SafeDownCast(myInPoints->GetData());
+    if (!fa) {
+      std::cout << "Error, only testing flots at the moment " << std::endl;
+      std::terminate();
     }
-
-  //   // vtkPoints *myInPoints = input->GetPoints();
-  //   // myVtkPoints myInput[localCount];
-  //   // for (int i=0; i<localCount; ++i){
-  //   //   myInput[i] = myVtkPoints(myInPoints[i]);
-  //   // }
-    inputAdapter_t InputAdapter(localCount, globalIds, x, y, z, 1, 1, 1);
+    // points are {x,y,z} in a single array
+    float *x = fa->GetPointer(0);
+    float *y = fa->GetPointer(1); 
+    float *z = fa->GetPointer(2);
+    // create an adapter that will point to the correct coordinates
+    inputAdapter_t InputAdapter(localCount, globalIds, x, y, z, 3, 3, 3);
 
 
     Zoltan2::PartitioningProblem<inputAdapter_t> *problem1 =
