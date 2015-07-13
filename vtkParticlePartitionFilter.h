@@ -25,7 +25,7 @@
 #ifndef __vtkParticlePartitionFilter_h
 #define __vtkParticlePartitionFilter_h
 
-#include "vtkZoltanV1PartitionFilter.h" // superclass
+#include "vtkZoltanV2PartitionFilter.h" // superclass
 #include "vtkBoundingBox.h"
 #include <vector>
 
@@ -36,11 +36,11 @@ class vtkIntArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
-class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
+class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV2PartitionFilter
 {
   public:
     static vtkParticlePartitionFilter *New();
-    vtkTypeMacro(vtkParticlePartitionFilter,vtkZoltanV1PartitionFilter);
+    vtkTypeMacro(vtkParticlePartitionFilter,vtkZoltanV2PartitionFilter);
 
     // Description:
     // The thickness of the region between each partition that is used for 

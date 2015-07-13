@@ -572,7 +572,7 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
   this->ZoltanParams.set("debug_procs", "0");
   this->ZoltanParams.set("error_check_level", "debug_mode_assertions");
   this->ZoltanParams.set("compute_metrics", "true");
-  this->ZoltanParams.set("algorithm", "rcb");
+  this->ZoltanParams.set("algorithm", "multijagged");
   this->ZoltanParams.set("imbalance_tolerance", tolerance );
   this->ZoltanParams.set("num_global_parts", nprocs);
   this->ZoltanParams.set("bisection_num_test_cuts", 1);
@@ -892,6 +892,93 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
       " numExport : " << this->LoadBalanceData.numExport 
      );
 
+    //////////////////////////////////////////////////////////////////////
+    // Zoltan 2 partining 
+    //////////////////////////////////////////////////////////////////////
+    typedef double scalar_t;
+    typedef int localId_t;
+    #ifdef HAVE_ZOLTAN2_LONG_LONG_INT
+      typedef long long globalId_t;
+    #else
+      typedef int globalId_t;
+    #endif
+    typedef Zoltan2::BasicUserTypes<scalar_t, globalId_t, localId_t, globalId_t> myTypes;
+    
+    typedef Zoltan2::BasicVectorAdapter<myTypes> inputAdapter_t;
+    typedef inputAdapter_t::part_t part_t;
+
+
+    #ifdef HAVE_ZOLTAN2_MPI                   
+      int rank, nprocs;
+      MPI_Comm_size(this->GetMPIComm(), &nprocs);
+      MPI_Comm_rank(this->GetMPIComm(), &rank);
+    #else
+      int rank=0, nprocs=1;
+    #endif
+
+      // cout<<"rank " <<rank<<" of "<<nprocs<<endl;
+
+    int localCount = input->GetNumberOfPoints();
+    globalId_t *globalIds = new globalId_t [localCount];
+    globalId_t offset = this->ZoltanCallbackData.ProcessOffsetsPointId[0];
+
+    for (size_t i=0; i < localCount; i++)
+      globalIds[i] = offset++;
+
+    scalar_t *coords = new scalar_t[3*localCount];
+
+    scalar_t *x = coords; 
+    scalar_t *y = x + localCount; 
+    scalar_t *z = y + localCount; 
+
+    double p[3];
+    for (int i = 0; i < localCount; ++i)
+    {
+      input->GetPoint(i, p);
+      x[i] = p[0];
+      y[i] = p[1];
+      z[i] = p[2];
+      // cout<<"Point "<<i<<" x:"<<x[i]<<" y:"<<y[i]<<" z:"<<z[i]<<endl;
+    }
+
+  //   // vtkPoints *myInPoints = input->GetPoints();
+  //   // myVtkPoints myInput[localCount];
+  //   // for (int i=0; i<localCount; ++i){
+  //   //   myInput[i] = myVtkPoints(myInPoints[i]);
+  //   // }
+    inputAdapter_t InputAdapter(localCount, globalIds, x, y, z, 1, 1, 1);
+
+
+    Zoltan2::PartitioningProblem<inputAdapter_t> *problem1 =
+             new Zoltan2::PartitioningProblem<inputAdapter_t>(&InputAdapter, &this->ZoltanParams);
+     
+    // Solve the problem
+    problem1->solve();
+    cout<<"\n\n** Now printing Metrics **\n\n";
+    if (rank == 0)
+      problem1->printMetrics(cout);
+
+    const Zoltan2::PartitioningSolution<inputAdapter_t> &solution4 =
+    problem1->getSolution();
+
+    // Zoltan 2 bounding box code
+    std::vector<Zoltan2::coordinateModelPartBox<scalar_t, part_t> > &boxView = solution4.getPartBoxesView();
+    for (int i=0; i<boxView.size(); i++){
+      scalar_t *minss = boxView[i].getlmins();
+      scalar_t *maxss = boxView[i].getlmaxs();
+      for (int i = 0; i < 3; ++i)
+      {
+        cout<<" ("<<minss[i]<<", "<<maxss[i]<<")\t";
+      }
+      cout<<endl;
+    }
+
+    //   cout<<"UpdateNumPieces:"<<this->UpdateNumPieces<<endl;
+
+
+    //////////////////////////////////////////////////////////////////////
+    // Zoltan 2 partining ends here
+    //////////////////////////////////////////////////////////////////////
 
     //
     // Get bounding boxes from zoltan and set them in the ExtentTranslator
@@ -910,7 +997,9 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
         vtkBoundingBox box(bounds);
         this->BoxList.push_back(box);
         this->ExtentTranslator->SetBoundsForPiece(p, bounds);
+        cout<<"###"<<" ("<<bounds[0]<<", "<<bounds[1]<<")\t"<<" ("<<bounds[2]<<", "<<bounds[3]<<")\t"<<" ("<<bounds[4]<<", "<<bounds[5]<<")\t";
       }
+      cout<<endl;
     }
     this->ExtentTranslator->InitWholeBounds();
   }
