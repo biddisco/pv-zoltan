@@ -6,6 +6,12 @@
 #--------------------------------------------------
 
 #--------------------------------------------------
+# Enable Testing
+#--------------------------------------------------
+include( CTest )
+enable_testing()
+
+#--------------------------------------------------
 # Machines running OSMesa instead of OpenGL might need a larger threshold for image test comparisons
 #--------------------------------------------------
 set(IMAGE_THRESHOLD "0")
