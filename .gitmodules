@@ -1,0 +1,3 @@
+[submodule "trilinos"]
+	path = trilinos
+	url = https://github.com/abhishek4747/trilinos
