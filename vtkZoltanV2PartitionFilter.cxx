@@ -53,7 +53,7 @@
 //
 #include "vtkPKdTree2.h"
 #include "vtkBoundsExtentTranslator.h"
-#include "vtkZoltanV1PartitionFilter.h"
+#include "vtkZoltanV2PartitionFilter.h"
 //
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -69,20 +69,20 @@
 #include "zz_const.h"
 #include "rcb.h"
 //----------------------------------------------------------------------------
-vtkStandardNewMacro(vtkZoltanV1PartitionFilter);
-vtkCxxSetObjectMacro(vtkZoltanV1PartitionFilter, Controller, vtkMultiProcessController);
-vtkInformationKeyMacro(vtkZoltanV1PartitionFilter, ZOLTAN_SAMPLE_RESOLUTION, DoubleVector);
-vtkInformationKeyMacro(vtkZoltanV1PartitionFilter, ZOLTAN_SAMPLE_ORIGIN,     DoubleVector);
+vtkStandardNewMacro(vtkZoltanV2PartitionFilter);
+vtkCxxSetObjectMacro(vtkZoltanV2PartitionFilter, Controller, vtkMultiProcessController);
+vtkInformationKeyMacro(vtkZoltanV2PartitionFilter, ZOLTAN_SAMPLE_RESOLUTION, DoubleVector);
+vtkInformationKeyMacro(vtkZoltanV2PartitionFilter, ZOLTAN_SAMPLE_ORIGIN,     DoubleVector);
 //----------------------------------------------------------------------------
 #ifdef EXTRA_ZOLTAN_DEBUG
-  int vtkZoltanV1PartitionFilter::pack_count = 0;
-  int vtkZoltanV1PartitionFilter::unpack_count = 0;
-  int vtkZoltanV1PartitionFilter::size_count = 0;
+  int vtkZoltanV2PartitionFilter::pack_count = 0;
+  int vtkZoltanV2PartitionFilter::unpack_count = 0;
+  int vtkZoltanV2PartitionFilter::size_count = 0;
 #endif
 //----------------------------------------------------------------------------
 // Zoltan callback which returns number of objects participating in exchange
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::get_number_of_objects_points(void *data, int *ierr)
+int vtkZoltanV2PartitionFilter::get_number_of_objects_points(void *data, int *ierr)
 {
   int res = static_cast<CallbackData*>(data)->Input->GetNumberOfPoints(); 
   *ierr = (res < 0) ? ZOLTAN_FATAL : ZOLTAN_OK;
@@ -91,7 +91,7 @@ int vtkZoltanV1PartitionFilter::get_number_of_objects_points(void *data, int *ie
 //----------------------------------------------------------------------------
 // Zoltan callback which fills the Ids for each object in the exchange
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::get_first_object_points(
+int vtkZoltanV2PartitionFilter::get_first_object_points(
   void *data, int num_gid_entries, int num_lid_entries,
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id,
   int wdim, float *wgt, int *ierr)
@@ -109,7 +109,7 @@ int vtkZoltanV1PartitionFilter::get_first_object_points(
 //----------------------------------------------------------------------------
 // Zoltan callback which fills the Ids for each object in the exchange
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::get_next_object_points(
+int vtkZoltanV2PartitionFilter::get_next_object_points(
   void * data, int num_gid_entries, int num_lid_entries, 
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, ZOLTAN_ID_PTR next_global_id, ZOLTAN_ID_PTR next_local_id, 
   int wgt_dim, float *next_obj_wgt, int *ierr)
@@ -130,7 +130,7 @@ int vtkZoltanV1PartitionFilter::get_next_object_points(
 //----------------------------------------------------------------------------
 // Zoltan callback which returns the dimension of geometry (3D for us)
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::get_num_geometry(void *data, int *ierr)
+int vtkZoltanV2PartitionFilter::get_num_geometry(void *data, int *ierr)
 {
   *ierr = ZOLTAN_OK;
   return 3;
@@ -140,7 +140,7 @@ int vtkZoltanV1PartitionFilter::get_num_geometry(void *data, int *ierr)
 // templated here to alow float/double instances in our implementation
 //----------------------------------------------------------------------------
 template<typename T>
-void vtkZoltanV1PartitionFilter::get_geometry_list(
+void vtkZoltanV2PartitionFilter::get_geometry_list(
   void *data, int sizeGID, int sizeLID, int num_obj, 
   ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
   int num_dim, double *geom_vec, int *ierr)
@@ -172,7 +172,7 @@ void vtkZoltanV1PartitionFilter::get_geometry_list(
 //  int              The size (in bytes) of the required data buffer (per object).
 //----------------------------------------------------------------------------
 template<typename T>
-int vtkZoltanV1PartitionFilter::zoltan_obj_size_function_pointdata(void *data, 
+int vtkZoltanV2PartitionFilter::zoltan_obj_size_function_pointdata(void *data, 
   int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id, 
   ZOLTAN_ID_PTR local_id, int *ierr)
 {
@@ -185,7 +185,7 @@ int vtkZoltanV1PartitionFilter::zoltan_obj_size_function_pointdata(void *data,
 // Zoltan callback to pack all the data for one point into a buffer
 //----------------------------------------------------------------------------
 template<typename T>
-void vtkZoltanV1PartitionFilter::zoltan_pack_obj_function_pointdata(void *data, int num_gid_entries, int num_lid_entries,
+void vtkZoltanV2PartitionFilter::zoltan_pack_obj_function_pointdata(void *data, int num_gid_entries, int num_lid_entries,
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr)
 {
   INC_PACK_COUNT
@@ -207,7 +207,7 @@ void vtkZoltanV1PartitionFilter::zoltan_pack_obj_function_pointdata(void *data, 
 // Zoltan callback to unpack all the data for one point from a buffer
 //----------------------------------------------------------------------------
 template<typename T>
-void vtkZoltanV1PartitionFilter::zoltan_unpack_obj_function_pointdata(void *data, int num_gid_entries,
+void vtkZoltanV2PartitionFilter::zoltan_unpack_obj_function_pointdata(void *data, int num_gid_entries,
   ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr)
 {
   INC_UNPACK_COUNT
@@ -249,7 +249,7 @@ void vtkZoltanV1PartitionFilter::zoltan_unpack_obj_function_pointdata(void *data
 //  export_to_part    An array of size num_export listing the parts to which objects will be sent.
 //  ierr              Error code to be set by function.
 template<typename T>
-void vtkZoltanV1PartitionFilter::zoltan_pre_migrate_function_points(
+void vtkZoltanV2PartitionFilter::zoltan_pre_migrate_function_points(
   void *data, int num_gid_entries, int num_lid_entries,
   int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
@@ -295,7 +295,7 @@ void vtkZoltanV1PartitionFilter::zoltan_pre_migrate_function_points(
 // Zoltan callback which does nothing, we register this during load balance
 // when we do not want any pre migration operations (we manually handle it)
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::zoltan_pre_migrate_function_null(
+void vtkZoltanV2PartitionFilter::zoltan_pre_migrate_function_null(
   void *data, int num_gid_entries, int num_lid_entries,
   int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
@@ -304,9 +304,9 @@ void vtkZoltanV1PartitionFilter::zoltan_pre_migrate_function_null(
   *ierr = ZOLTAN_OK;
 }
 //----------------------------------------------------------------------------
-// vtkZoltanV1PartitionFilter :: implementation 
+// vtkZoltanV2PartitionFilter :: implementation 
 //----------------------------------------------------------------------------
-vtkZoltanV1PartitionFilter::vtkZoltanV1PartitionFilter()
+vtkZoltanV2PartitionFilter::vtkZoltanV2PartitionFilter()
 {
   this->UpdatePiece                    = 0;
   this->UpdateNumPieces                = 1;
@@ -323,7 +323,7 @@ vtkZoltanV1PartitionFilter::vtkZoltanV1PartitionFilter()
   }
 }
 //----------------------------------------------------------------------------
-vtkZoltanV1PartitionFilter::~vtkZoltanV1PartitionFilter()
+vtkZoltanV2PartitionFilter::~vtkZoltanV2PartitionFilter()
 {
   // make sure we do not leave any memory unfreed
   if (this->MigrateLists.num_found!=-1) {
@@ -340,19 +340,19 @@ vtkZoltanV1PartitionFilter::~vtkZoltanV1PartitionFilter()
   this->SetController(NULL);
 }
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
+void vtkZoltanV2PartitionFilter::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os,indent);
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::FillInputPortInformation(int, vtkInformation* info)
+int vtkZoltanV2PartitionFilter::FillInputPortInformation(int, vtkInformation* info)
 {
   // This filter supports any vtkPointSet type as input.
   info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkPointSet");
   return 1;
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::FillOutputPortInformation(
+int vtkZoltanV2PartitionFilter::FillOutputPortInformation(
   int vtkNotUsed(port), vtkInformation* info)
 {
   // output should be the same as the input (a subclass of vtkPointSet)
@@ -360,7 +360,7 @@ int vtkZoltanV1PartitionFilter::FillOutputPortInformation(
   return 1;
 }
 //----------------------------------------------------------------------------
-vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBox(int partition)
+vtkBoundingBox *vtkZoltanV2PartitionFilter::GetPartitionBoundingBox(int partition)
 {
   if (partition<this->BoxList.size()) {
     return &this->BoxList[partition];
@@ -369,7 +369,7 @@ vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBox(int partitio
   return NULL;
 }
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells)
+void vtkZoltanV2PartitionFilter::ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells)
 {
   // offset arrays
   std::vector<vtkIdType> PointsPerProcess(this->UpdateNumPieces);
@@ -393,7 +393,7 @@ struct vtkZPF_datainfo {
   vtkZPF_datainfo() : datatype(-1), numC(-1) {};
 };
 //----------------------------------------------------------------------------
-bool vtkZoltanV1PartitionFilter::GatherDataArrayInfo(vtkDataArray *data, 
+bool vtkZoltanV2PartitionFilter::GatherDataArrayInfo(vtkDataArray *data, 
   int &datatype, std::string &dataname, int &numComponents)
 {
 #ifdef VTK_USE_MPI
@@ -420,7 +420,7 @@ bool vtkZoltanV1PartitionFilter::GatherDataArrayInfo(vtkDataArray *data,
 #endif
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::GatherDataTypeInfo(vtkPoints *points)
+int vtkZoltanV2PartitionFilter::GatherDataTypeInfo(vtkPoints *points)
 {
 #ifdef VTK_USE_MPI
   if (this->UpdateNumPieces==1) {
@@ -446,7 +446,7 @@ int vtkZoltanV1PartitionFilter::GatherDataTypeInfo(vtkPoints *points)
 #endif
 }
 //-------------------------------------------------------------------------
-vtkBoundingBox vtkZoltanV1PartitionFilter::GetGlobalBounds(vtkDataSet *input) 
+vtkBoundingBox vtkZoltanV2PartitionFilter::GetGlobalBounds(vtkDataSet *input) 
 {
   double bounds[6];
   input->GetBounds(bounds);
@@ -473,7 +473,7 @@ vtkBoundingBox vtkZoltanV1PartitionFilter::GetGlobalBounds(vtkDataSet *input)
 }
 
 //-------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fields) 
+void vtkZoltanV2PartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fields) 
 {
   int NumberOfFieldArrays = fields->GetNumberOfArrays();
   this->Controller->AllReduce(&NumberOfFieldArrays, &this->ZoltanCallbackData.NumberOfFields, 1, vtkCommunicator::MAX_OP);
@@ -496,7 +496,7 @@ void vtkZoltanV1PartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *field
   }
 }
 //-------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::RequestUpdateExtent(
+int vtkZoltanV2PartitionFilter::RequestUpdateExtent(
   vtkInformation *vtkNotUsed(request),
   vtkInformationVector **inputVector,
   vtkInformationVector *outputVector)
@@ -516,7 +516,7 @@ int vtkZoltanV1PartitionFilter::RequestUpdateExtent(
   return 1;
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::RequestInformation(
+int vtkZoltanV2PartitionFilter::RequestInformation(
   vtkInformation* request,
   vtkInformationVector** inputVector,
   vtkInformationVector* outputVector)
@@ -546,7 +546,7 @@ int vtkZoltanV1PartitionFilter::RequestInformation(
                inInfo->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT()),
                6);
 
-  if (outInfo->Has(vtkZoltanV1PartitionFilter::ZOLTAN_SAMPLE_ORIGIN())) {
+  if (outInfo->Has(vtkZoltanV2PartitionFilter::ZOLTAN_SAMPLE_ORIGIN())) {
     std::cout << "Zoltan received an origin request " << std::endl;
   };
 
@@ -554,8 +554,81 @@ int vtkZoltanV1PartitionFilter::RequestInformation(
   return 1;
 }
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
+void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
 {
+  // TODO : To be removed later
+  #ifdef HAVE_ZOLTAN2_MPI                   
+    int rank, nprocs;
+    MPI_Comm_size(this->GetMPIComm(), &nprocs);
+    MPI_Comm_rank(this->GetMPIComm(), &rank);
+  #else
+    int rank=0, nprocs=1;
+  #endif
+
+  // Zoltan 2 parameters
+  double tolerance = 1.1;
+  this->ZoltanParams = Teuchos::ParameterList("test params");
+  this->ZoltanParams.set("debug_level", "basic_status");
+  this->ZoltanParams.set("debug_procs", "0");
+  this->ZoltanParams.set("error_check_level", "debug_mode_assertions");
+  this->ZoltanParams.set("compute_metrics", "true");
+  this->ZoltanParams.set("algorithm", "rcb");
+  this->ZoltanParams.set("imbalance_tolerance", tolerance );
+  this->ZoltanParams.set("num_global_parts", nprocs);
+  this->ZoltanParams.set("bisection_num_test_cuts", 1);
+  this->ZoltanParams.set("mj_keep_part_boxes", 1);
+    
+  /*
+  Zoltan2 all parameters
+  {
+    "error_check_level" : string = basic_assertions
+    "debug_level" : string = basic_status
+    "timer_type" : string = no_timers
+    "debug_output_stream" : string = cout
+    "timer_output_stream" : string = cout
+    "memory_output_stream" : string = cout
+    "debug_output_file" : string = /dev/null
+    "timer_output_file" : string = /dev/null
+    "memory_output_file" : string = /dev/null
+    "debug_procs" : string = 0
+    "mj_parts" : string = 0
+    "memory_procs" : string = 0
+    "speed_versus_quality" : string = balance
+    "memory_versus_speed" : string = balance
+    "random_seed" : string = 0.5
+    "order_method" : string = rcm
+    "order_package" : string = amd
+    "compute_metrics" : string = no
+    "topology" : string = 
+    "randomize_input" : string = no
+    "partitioning_objective" : string = balance_object_weight
+    "imbalance_tolerance" : string = 1.1
+    "num_global_parts" : string = 0
+    "num_local_parts" : string = 0
+    "partitioning_approach" : string = partition
+    "objects_to_partition" : string = graph_vertices
+    "model" : string = graph
+    "algorithm" : string = random
+    "rectilinear" : string = no
+    "average_cuts" : string = no
+    "bisection_num_test_cuts" : int = 1
+    "symmetrize_input" : string = no
+    "subset_graph" : string = no
+    "mj_concurrent_part_count" : int = 1
+    "mj_minimum_migration_imbalance" : string = 1.1
+    "mj_migration_option" : int = 1
+    "remap_parts" : string = no
+    "mapping_type" : int = -1
+    "mj_keep_part_boxes" : int = -1
+    "mj_enable_rcb" : int = 0
+    "mj_recursion_depth" : int = -1
+    "color_method" : string = rcm
+    "color_choice" : string = amd
+  }
+
+  */
+
+
   //***************************************************************
   //* Create a Zoltan library structure for this instance of load
   //* balancing.  Set the parameters and query functions that will
@@ -632,7 +705,7 @@ void vtkZoltanV1PartitionFilter::InitializeZoltanLoadBalance()
   }
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
+int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
                                  vtkInformationVector** inputVector,
                                  vtkInformationVector* outputVector)
 {
@@ -844,7 +917,7 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
   return 1;
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::RequestData(vtkInformation* info,
+int vtkZoltanV2PartitionFilter::RequestData(vtkInformation* info,
                                  vtkInformationVector** inputVector,
                                  vtkInformationVector* outputVector)
 {
@@ -852,7 +925,7 @@ int vtkZoltanV1PartitionFilter::RequestData(vtkInformation* info,
   return 0;
 }
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID) {
+void vtkZoltanV2PartitionFilter::add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID) {
   vtkIdType diff = GID-LID;
   std::map<vtkIdType,vtkIdType>::reverse_iterator prev = data->ReceivedGlobalToLocalIdMap.rbegin();
   if (prev!=data->ReceivedGlobalToLocalIdMap.rend()) {
@@ -872,7 +945,7 @@ void vtkZoltanV1PartitionFilter::add_Id_to_interval_map(CallbackData *data, vtkI
   }
 }
 //----------------------------------------------------------------------------
-vtkIdType vtkZoltanV1PartitionFilter::global_to_local_Id(vtkIdType GID) {
+vtkIdType vtkZoltanV2PartitionFilter::global_to_local_Id(vtkIdType GID) {
   std::map<vtkIdType,vtkIdType>::iterator ub = this->ZoltanCallbackData.ReceivedGlobalToLocalIdMap.upper_bound(GID);
     ub--;
     vtkIdType key = ub->first;
@@ -880,7 +953,7 @@ vtkIdType vtkZoltanV1PartitionFilter::global_to_local_Id(vtkIdType GID) {
     return GID - delta;
 }
 //----------------------------------------------------------------------------
-MPI_Comm vtkZoltanV1PartitionFilter::GetMPIComm() {
+MPI_Comm vtkZoltanV2PartitionFilter::GetMPIComm() {
 #ifdef VTK_USE_MPI
   vtkMPICommunicator *communicator = vtkMPICommunicator::SafeDownCast(this->Controller->GetCommunicator());
   MPI_Comm mpiComm = MPI_COMM_NULL;
@@ -893,7 +966,7 @@ MPI_Comm vtkZoltanV1PartitionFilter::GetMPIComm() {
   return mpiComm;
 }
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::InitializeFieldDataArrayPointers(
+void vtkZoltanV2PartitionFilter::InitializeFieldDataArrayPointers(
   CallbackData *callbackdata, 
   vtkFieldData *infielddata, 
   vtkFieldData *outfielddata,
@@ -922,7 +995,7 @@ void vtkZoltanV1PartitionFilter::InitializeFieldDataArrayPointers(
   }
 }
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::ComputeInvertLists(MigrationLists &migrationLists)
+void vtkZoltanV2PartitionFilter::ComputeInvertLists(MigrationLists &migrationLists)
 {
   //
   // Ask zoltan to create the inverse map of who sends/receives from who
@@ -963,7 +1036,7 @@ void vtkZoltanV1PartitionFilter::ComputeInvertLists(MigrationLists &migrationLis
 
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::ManualPointMigrate(MigrationLists &migrationLists, bool keepinformation)
+int vtkZoltanV2PartitionFilter::ManualPointMigrate(MigrationLists &migrationLists, bool keepinformation)
 {
 
   int num_known                = static_cast<int>(migrationLists.known.nIDs ? migrationLists.known.nIDs : migrationLists.known.GlobalIds.size());
@@ -1014,7 +1087,7 @@ int vtkZoltanV1PartitionFilter::ManualPointMigrate(MigrationLists &migrationList
   return this->ZoltanPointMigrate(migrationLists, keepinformation);
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLists, bool keepinformation)
+int vtkZoltanV2PartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLists, bool keepinformation)
 {
   int num_known                = static_cast<int>(migrationLists.known.nIDs ? migrationLists.known.nIDs : migrationLists.known.GlobalIds.size());
   ZOLTAN_ID_TYPE *GlobalIdsPtr = migrationLists.known.GlobalIdsPtr ? migrationLists.known.GlobalIdsPtr : (migrationLists.known.GlobalIds.size()>0 ? &migrationLists.known.GlobalIds[0] : NULL);
@@ -1106,7 +1179,7 @@ int vtkZoltanV1PartitionFilter::ZoltanPointMigrate(MigrationLists &migrationList
 //   npoints - optional number of points in the spatial region
 
 //----------------------------------------------------------------------------
-vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
+vtkSmartPointer<vtkPKdTree> vtkZoltanV2PartitionFilter::CreatePkdTree()
 {
   vtkSmartPointer<vtkBSPCuts> cuts = vtkSmartPointer<vtkBSPCuts>::New();
   //
@@ -1235,7 +1308,7 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanV1PartitionFilter::CreatePkdTree()
 }
 //----------------------------------------------------------------------------
 template<typename T>
-void vtkZoltanV1PartitionFilter::CopyPointsToSelf(
+void vtkZoltanV2PartitionFilter::CopyPointsToSelf(
   std::vector<vtkIdType> &LocalPointsToKeep, vtkIdType num_reserved,
   void *data, int num_gid_entries, int num_lid_entries,
   int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
@@ -1312,7 +1385,7 @@ void vtkZoltanV1PartitionFilter::CopyPointsToSelf(
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::zoltan_obj_size_function_pointdata(void *data, 
+int vtkZoltanV2PartitionFilter::zoltan_obj_size_function_pointdata(void *data, 
   int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id, 
   ZOLTAN_ID_PTR local_id, int *ierr)
 {
@@ -1324,7 +1397,7 @@ int vtkZoltanV1PartitionFilter::zoltan_obj_size_function_pointdata(void *data,
 //----------------------------------------------------------------------------
 // Zoltan callback to pack all the data for one point into a buffer
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::zoltan_pack_obj_function_pointdata(void *data, int num_gid_entries, int num_lid_entries,
+void vtkZoltanV2PartitionFilter::zoltan_pack_obj_function_pointdata(void *data, int num_gid_entries, int num_lid_entries,
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr)
 {
   INC_PACK_COUNT
@@ -1344,7 +1417,7 @@ void vtkZoltanV1PartitionFilter::zoltan_pack_obj_function_pointdata(void *data, 
 //----------------------------------------------------------------------------
 // Zoltan callback to unpack all the data for one point from a buffer
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::zoltan_unpack_obj_function_pointdata(void *data, int num_gid_entries,
+void vtkZoltanV2PartitionFilter::zoltan_unpack_obj_function_pointdata(void *data, int num_gid_entries,
   ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr)
 {
   INC_UNPACK_COUNT
@@ -1363,7 +1436,7 @@ void vtkZoltanV1PartitionFilter::zoltan_unpack_obj_function_pointdata(void *data
   return;
 }
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::zoltan_pre_migrate_function_pointdata(
+void vtkZoltanV2PartitionFilter::zoltan_pre_migrate_function_pointdata(
   void *data, int num_gid_entries, int num_lid_entries,
   int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
@@ -1377,7 +1450,7 @@ void vtkZoltanV1PartitionFilter::zoltan_pre_migrate_function_pointdata(
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
-bool vtkZoltanV1PartitionFilter::MigratePointData(vtkDataSetAttributes *inPointData, vtkDataSetAttributes *outPointData)
+bool vtkZoltanV2PartitionFilter::MigratePointData(vtkDataSetAttributes *inPointData, vtkDataSetAttributes *outPointData)
 {
   // we cannot operate if we don't have the right lists
   if (!this->KeepInversePointLists || this->MigrateLists.num_found == -1) {

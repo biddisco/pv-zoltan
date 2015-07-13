@@ -15,16 +15,16 @@
 
 =========================================================================*/
 //
-// .NAME vtkZoltanV1PartitionFilter Efficiently distribute datasets in parallel
+// .NAME vtkZoltanV2PartitionFilter Efficiently distribute datasets in parallel
 // .SECTION Description
-// vtkZoltanV1PartitionFilter is the abstract base class used for parallel 
+// vtkZoltanV2PartitionFilter is the abstract base class used for parallel 
 // load balancing/partitioning using the Zoltan library from Trilinos.
 //
 // .SECTION See Also
 // vtkParticlePartitionFilter, vtkMeshPartitionFilter
 //
-#ifndef __vtkZoltanV1PartitionFilter_h
-#define __vtkZoltanV1PartitionFilter_h
+#ifndef __vtkZoltanV2PartitionFilter_h
+#define __vtkZoltanV2PartitionFilter_h
 //
 #include <vector>                // std used throughout
 #include <map>                   // std used throughout
@@ -35,6 +35,12 @@
 #include "vtkSmartPointer.h"     // for memory safety
 //
 #include "zoltan.h"              // required for definitions
+
+#include <Zoltan2_PartitioningSolution.hpp>
+#include <Zoltan2_PartitioningProblem.hpp>
+#include <Zoltan2_BasicVectorAdapter.hpp>
+#include <Zoltan2_InputTraits.hpp>
+
 
 // standard vtk classes
 class  vtkMultiProcessController;
@@ -103,11 +109,11 @@ class vtkInformationDoubleKey;
 class vtkInformationDoubleVectorKey;
 class vtkInformationIntegerKey;
 //----------------------------------------------------------------------------
-class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
+class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
 {
   public:
-    static vtkZoltanV1PartitionFilter *New();
-    vtkTypeMacro(vtkZoltanV1PartitionFilter,vtkDataSetAlgorithm);
+    static vtkZoltanV2PartitionFilter *New();
+    vtkTypeMacro(vtkZoltanV2PartitionFilter,vtkDataSetAlgorithm);
     void PrintSelf(ostream& os, vtkIndent indent);
 
     static vtkInformationDoubleVectorKey* ZOLTAN_SAMPLE_RESOLUTION();
@@ -154,7 +160,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     // and from zoltan during points/cell migration callbacks
     //----------------------------------------------------------------------------
     typedef struct CallbackData {
-      vtkZoltanV1PartitionFilter   *self;
+      vtkZoltanV2PartitionFilter   *self;
       int                           ProcessRank;
       vtkSmartPointer<vtkPointSet>  Input;
       vtkSmartPointer<vtkPointSet>  Output;
@@ -340,8 +346,8 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
   bool MigratePointData(vtkDataSetAttributes *inPointData, vtkDataSetAttributes *outPointData);
 
   protected:
-     vtkZoltanV1PartitionFilter();
-    ~vtkZoltanV1PartitionFilter();
+     vtkZoltanV2PartitionFilter();
+    ~vtkZoltanV2PartitionFilter();
 
     virtual void ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells);
 
@@ -400,6 +406,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     CallbackData                ZoltanCallbackData;
     ZoltanLoadBalanceData       LoadBalanceData;
 
+    Teuchos::ParameterList ZoltanParams;
 #ifdef EXTRA_ZOLTAN_DEBUG
     //
     // For debugging
@@ -410,8 +417,8 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 #endif
 
   private:
-    vtkZoltanV1PartitionFilter(const vtkZoltanV1PartitionFilter&);  // Not implemented.
-    void operator=(const vtkZoltanV1PartitionFilter&);  // Not implemented.
+    vtkZoltanV2PartitionFilter(const vtkZoltanV2PartitionFilter&);  // Not implemented.
+    void operator=(const vtkZoltanV2PartitionFilter&);  // Not implemented.
 };
 
 #endif
