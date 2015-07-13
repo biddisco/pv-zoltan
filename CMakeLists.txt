@@ -99,6 +99,8 @@ ELSE(USE_SYSTEM_TRILINOS)
   SET(Trilinos_ENABLE_TESTS OFF CACHE BOOL "Do not change")
   SET(Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES OFF CACHE BOOL "Do not change")
   SET(Trilinos_ENABLE_Zoltan ON CACHE BOOL "Do not change")
+  SET(Trilinos_ENABLE_Zoltan2 ON CACHE BOOL "Do not change")
+  SET(Zoltan2_ENABLE_Experimental ON CACHE BOOL "Do not change")
   SET(Trilinos_ENABLE_Fortran OFF CACHE BOOL "Do not change")
   IF (WIN32)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS)
@@ -113,21 +115,25 @@ ENDIF(USE_SYSTEM_TRILINOS)
 IF(Trilinos_FOUND)
   INCLUDE_DIRECTORIES("${Trilinos_INCLUDE_DIRS}")
   LINK_DIRECTORIES("${Trilinos_LIBRARY_DIRS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
   # MESSAGE("Trilinos Include Dirs ${Trilinos_INCLUDE_DIRS} and Trilinos Link Dirs ${Trilinos_LIBRARY_DIRS} ")
   #
   # Add source which depends on trilinos to our plugin
   #
   SET(TRILINOS_CXX 
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV2PartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.cxx
   )
   SET(TRILINOS_XML 
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.xml
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV2PartitionFilter.xml
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.xml
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.xml
   )
-  SET(TRILINOS_LIBS zoltan)
+  SET(TRILINOS_LIBS zoltan zoltan2)
   SET(TRILINOS_ENABLED 1)
   ADD_DEFINITIONS(-DPLUGIN_USE_TRILINOS)
 ELSE(Trilinos_FOUND)
@@ -208,6 +214,13 @@ set (${PROJECT_NAME}_INCLUDES_BUILD_TIME
   "${PROJECT_BINARY_DIR}"
   "${PROJECT_BINARY_DIR}/trilinos/packages/zoltan/src"
   "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan/src/include"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/algorithms"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/environment"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/input"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/models"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/problems"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/util"
 )
 if(WIN32)
   set(${PROJECT_NAME}_INCLUDES_BUILD_TIME 

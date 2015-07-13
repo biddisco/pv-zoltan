@@ -9,8 +9,8 @@
     <!-- Base class for Partitioning datasets between parallel processes  -->
     <!-- ================================================================ -->
     <SourceProxy
-      name="ZoltanPartitionFilter"
-      class="vtkZoltanV1PartitionFilter">
+      name="Zoltan2PartitionFilter"
+      class="vtkZoltanV2PartitionFilter">
 
       <InputProperty
         name="Input"
