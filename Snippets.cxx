@@ -9,7 +9,7 @@
 //----------------------------------------------------------------------------
 // Zoltan callback which fills the Ids for each object in the exchange
 //----------------------------------------------------------------------------
-void vtkZoltanV1PartitionFilter::get_object_list_points(void *data, int sizeGID, int sizeLID,
+void vtkZoltanV2PartitionFilter::get_object_list_points(void *data, int sizeGID, int sizeLID,
   ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID, int wgt_dim, float *obj_wgts, int *ierr)
 {
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
@@ -29,7 +29,7 @@ void vtkZoltanV1PartitionFilter::get_object_list_points(void *data, int sizeGID,
 // is that we only add new points and do not remove any.
 //----------------------------------------------------------------------------
 template <typename T>
-void vtkZoltanV1PartitionFilter::zoltan_pre_migrate_function_points_add(
+void vtkZoltanV2PartitionFilter::zoltan_pre_migrate_function_points_add(
   void *data, int num_gid_entries, int num_lid_entries,
   int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,

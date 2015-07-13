@@ -20,7 +20,7 @@
 #include "vtkStreamingDemandDrivenPipeline.h"
 
 // only defined if trilinos used
-class vtkZoltanV1PartitionFilter;
+class vtkZoltanV2PartitionFilter;
 class vtkXMLPolyDataReader;
 //----------------------------------------------------------------------------
 #if 0
@@ -49,7 +49,7 @@ class TestStruct {
  public:
   //
   vtkSmartPointer<vtkMultiProcessController>  controller;
-  vtkSmartPointer<vtkZoltanV1PartitionFilter> partitioner;
+  vtkSmartPointer<vtkZoltanV2PartitionFilter> partitioner;
   vtkSmartPointer<vtkAlgorithm>               sphResampler;
   vtkSmartPointer<vtkXMLPolyDataReader>       xmlreader;
   //
