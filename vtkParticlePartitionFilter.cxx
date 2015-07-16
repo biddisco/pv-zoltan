@@ -195,8 +195,8 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   //
   // build a tree of bounding boxes to use for rendering info/hints or other spatial tests
   //
-  this->CreatePkdTree();
-  this->ExtentTranslator->SetKdTree(this->GetKdtree());
+//  this->CreatePkdTree();
+//  this->ExtentTranslator->SetKdTree(this->GetKdtree());
 
   //
   //*****************************************************************
