@@ -61,6 +61,17 @@ TARGET_LINK_LIBRARIES(TestParticlePartitionFilter
   pv_zoltan 
   ${Trilinos_LIBRARIES}
 )
+
+ADD_EXECUTABLE(TestCubeParticlePartitionFilter 
+  TestCubeParticlePartitionFilter.cxx
+  TestUtils.cxx
+)
+TARGET_LINK_LIBRARIES(TestCubeParticlePartitionFilter
+  vtkTestingRendering
+  pv_zoltan 
+  ${Trilinos_LIBRARIES}
+)
+ 
   
 ADD_EXECUTABLE(TestMeshPartitionFilter 
   TestMeshPartitionFilter.cxx
@@ -102,6 +113,22 @@ IF (processors)
     COMMAND 
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
       $<TARGET_FILE:TestParticlePartitionFilter> 
+      -testName ${test_name}
+      -T "${PLUGIN_TEST_DIR}"
+      -generateParticles 1000
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition.png
+      -doRender 1
+      -windowSize "400 400"
+  )
+ENDIF (processors)
+
+SET(test_name "TestCubeParticlePartitionFilter-P4")
+IF (processors)
+  ADD_TEST(
+    NAME ${test_name}
+    COMMAND 
+      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestCubeParticlePartitionFilter> 
       -testName ${test_name}
       -T "${PLUGIN_TEST_DIR}"
       -generateParticles 1000

@@ -130,7 +130,11 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
 
   // we want to reserve some extra space for the ghost particles when they are sent in
   this->MigrateLists.num_reserved = ghost_info.num_found;
-
+//    if (this->UpdatePiece==0) {
+//        for (int i=0; i<this->MigrateLists.known.nIDs; i++) {
+//            cout<<"##\t\t"<<i<<"\t"<<this->MigrateLists.known.GlobalIdsPtr[i]<<"\t"<<this->MigrateLists.known.ProcsPtr[i]<<endl;
+//        }
+//    }
   //
   // Based on the original load balance step perform the point exchange for core particles
   // pass in ghost info so that space can be allocated for the final 
@@ -266,13 +270,14 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
   std::vector<int> localId_to_process_map(numPts, this->UpdatePiece); 
   std::vector<int> ghost_flag(numPts, 0); 
   // 2) loop over all to be exported and note the destination
+  int offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
   for (vtkIdType i=0; i<loadBalanceData.numExport; i++) {
-    vtkIdType id               = loadBalanceData.exportGlobalGids[i] - this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
+    vtkIdType id               = loadBalanceData.exportGlobalGids[i] - offset;
+    // cout<<"i: "<<i<<" \tlocal_id:"<<id<<"\tproc:"<<loadBalanceData.exportProcs[i]<<">>"<<this->UpdatePiece<<endl;
     localId_to_process_map[id] = loadBalanceData.exportProcs[i];
     // points marked for export by load balance are not ghost points
     ghost_flag[i] = 0;
   }
-
   // Since we already have a list of points to export, we don't want to
   // duplicate them, so traverse the points list once per process
   // skipping those already flagged for export

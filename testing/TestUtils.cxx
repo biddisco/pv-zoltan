@@ -85,6 +85,20 @@ void SpherePoints(int n, float radius, float X[]) {
     X[3*i+2] = static_cast<float>(z*radius);
   }
 }
+
+//----------------------------------------------------------------------------
+void CubePoints(int n, float radius, float X[]) {
+  Random r(12345);
+  double rmin=1E6, rmax=-1E6;
+  for(int i=0; i<n; i++ ) {
+    double r1 = r.nextNumber(); // double(rand())/RAND_MAX;
+    double r2 = r.nextNumber(); // double(rand())/RAND_MAX;
+    double r3 = r.nextNumber(); // double(rand())/RAND_MAX;
+    X[3*i+0] = static_cast<float>(radius*r1);
+    X[3*i+1] = static_cast<float>(radius*r2);
+    X[3*i+2] = static_cast<float>(radius*r3);
+  }
+}
 //----------------------------------------------------------------------------
 int initTest(int argc, char* argv[], TestStruct &test)
 {
@@ -199,6 +213,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.gridSpacing[2] = test.gridSpacing[1] = test.gridSpacing[0];
   test.gridResolution[2] = test.gridResolution[1] = test.gridResolution[0];
   //
+  DisplayParameter<vtkTypeInt64>("No. of Processes", "", &test.numProcs, 1, (test.myRank==0)?0:-1);
   DisplayParameter<char *>("--------------------", "", &empty, 1, (test.myRank==0)?0:-1);
   //
   return 1;

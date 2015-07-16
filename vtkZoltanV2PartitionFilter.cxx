@@ -859,6 +859,10 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
     }
   }
   else {
+
+    #define ZOLTAN2_ 1
+
+    #if !ZOLTAN2_
     //
     // Zoltan can now partition our points. 
     // After this returns, we have redistributed points and the Output holds
@@ -891,7 +895,21 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
       " numImport : " << this->LoadBalanceData.numImport <<
       " numExport : " << this->LoadBalanceData.numExport 
      );
+    #endif
 
+    // for (int i = 0; i < this->LoadBalanceData.numExport; ++i)
+    // {
+    //   // vtkIdType id = 
+    //   // ;
+    //   cout<<i<<": "<<this->LoadBalanceData.exportGlobalGids[i]
+    //     // <<" "<<this->LoadBalanceData.exportLocalGids[i]
+    //     // <<" "<<this->LoadBalanceData.exportProcs[i]
+    //     <<" "<<this->LoadBalanceData.exportToPart[i]
+    //   <<endl;
+    // }
+
+
+    #if ZOLTAN2_
     //////////////////////////////////////////////////////////////////////
     // Zoltan 2 partining 
     //////////////////////////////////////////////////////////////////////
@@ -908,19 +926,14 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
     typedef inputAdapter_t::part_t part_t;
 
 
-    #ifdef HAVE_ZOLTAN2_MPI                   
-      int rank, nprocs;
-      MPI_Comm_size(this->GetMPIComm(), &nprocs);
-      MPI_Comm_rank(this->GetMPIComm(), &rank);
-    #else
-      int rank=0, nprocs=1;
-    #endif
+    int rank = this->UpdatePiece;
+    int nprocs = this->UpdateNumPieces;
 
       // cout<<"rank " <<rank<<" of "<<nprocs<<endl;
 
     int localCount = input->GetNumberOfPoints();
     globalId_t *globalIds = new globalId_t [localCount];
-    globalId_t offset = this->ZoltanCallbackData.ProcessOffsetsPointId[0];
+    globalId_t offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
 
     for (size_t i=0; i < localCount; i++)
       globalIds[i] = offset++;
@@ -954,35 +967,118 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
      
     // Solve the problem
     problem1->solve();
-    cout<<"\n\n** Now printing Metrics **\n\n";
-    if (rank == 0)
-      problem1->printMetrics(cout);
 
-    const Zoltan2::PartitioningSolution<inputAdapter_t> &solution4 =
-    problem1->getSolution();
+    const Zoltan2::PartitioningSolution<inputAdapter_t> &solution1 = problem1->getSolution();
+    // if (solution1.oneToOnePartDistribution()){
+    //   cout<<"Part to process one to one mapping.";
+    // }else{
+    //   cout<<"Part to process complex mapping.";
+    // }
+
+
+    // Teuchos::ArrayRCP< part_t >  comXAdj;
+    // Teuchos::ArrayRCP< part_t >  comAdj; 
+    // solution1.getCommunicationGraph(comXAdj, comAdj);
+    // cout<<"comXadj Size:"<<comXAdj.size()<<endl;
+    // for (int i = 0; i < comXAdj.size(); ++i)
+    // {
+    //   cout<<i<<": "<<comXAdj[i]<<" "<<comAdj[i]<<endl;
+    // }
+    
+    int numExport = 0;
+    // const int *procd = solution1.getProcListView();
+    // if (procd==NULL){
+      const part_t *partd = solution1.getPartListView();
+      for (int i = 0; i < localCount; ++i)
+      {
+        if (partd[i]!=this->UpdatePiece)
+        {
+          numExport++;
+        }
+      }
+      unsigned int exportLocalGids[numExport];
+      unsigned int exportGlobalGids[numExport];
+      int exportProcs[numExport];
+      int k = 0;
+      offset = offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
+      for (int i = 0; i < localCount; ++i)
+      {
+        if (partd[i]!=this->UpdatePiece){
+          exportLocalGids[k] = i;
+          exportGlobalGids[k] = i + offset;
+          exportProcs[k] = partd[i];
+          k++;
+        }
+      }
+      this->LoadBalanceData.numExport = numExport;            
+      this->LoadBalanceData.exportGlobalGids = exportGlobalGids; 
+      this->LoadBalanceData.exportLocalGids  = exportLocalGids;    
+      this->LoadBalanceData.exportProcs = exportProcs;
+      this->LoadBalanceData.exportToPart = exportProcs;
+      cout<<this->UpdatePiece<<" EXPORTING "<<numExport<<" OUT OF "<<localCount<<endl;
+    // }
+    // else{
+    //   for (int i=0; i<localCount; i++){
+    //     cout<<i<<": "<<procd[i]<<endl;
+    //   }
+    // }
+
+    // for(int i=0; i<localCount; i++){
+      // scalar_t pp[3];
+      // pp[0] = x[i];
+      // pp[1] = y[i];
+      // pp[2] = z[i];
+      // cout<<i<<": "<<solution1.pointAssign(3, pp)<<endl;
+    // }
+    // this->LoadBalanceData.changes = 1;              // 1 if partitioning was changed, 0 otherwise 
+    // this->LoadBalanceData.numGidEntries         // Number of integers used for a global ID
+    // this->LoadBalanceData.numLidEntries         // Number of integers used for a local ID
+    // this->LoadBalanceData.numImport             // Number of vertices to be sent to me
+    // this->LoadBalanceData.importGlobalGids     // Global IDs of vertices to be sent to me
+    // this->LoadBalanceData.importLocalGids      // Local IDs of vertices to be sent to me
+    // this->LoadBalanceData.importProcs          // Process rank for source of each incoming vertex
+    // this->LoadBalanceData.importToPart         // New partition for each incoming vertex
+    // this->LoadBalanceData.numExport            // Number of vertices I must send to other processes
+    // this->LoadBalanceData.exportGlobalGids     // Global IDs of the vertices I must send
+    // this->LoadBalanceData.exportLocalGids      // Local IDs of the vertices I must send
+    // this->LoadBalanceData.exportProcs          // Process to which I send each of the vertices
+    // this->LoadBalanceData.exportToPart;        // Partition to which each vertex will belong
+
+
+
 
     // Zoltan 2 bounding box code
-    std::vector<Zoltan2::coordinateModelPartBox<scalar_t, part_t> > &boxView = solution4.getPartBoxesView();
+    this->BoxList.clear();
+    std::vector<Zoltan2::coordinateModelPartBox<scalar_t, part_t> > &boxView = solution1.getPartBoxesView();
     for (int i=0; i<boxView.size(); i++){
+      double bounds[6];
       scalar_t *minss = boxView[i].getlmins();
       scalar_t *maxss = boxView[i].getlmaxs();
-      for (int i = 0; i < 3; ++i)
-      {
-        cout<<" ("<<minss[i]<<", "<<maxss[i]<<")\t";
-      }
-      cout<<endl;
+      bounds[0] = minss[0];
+      bounds[1] = maxss[0];
+      bounds[2] = minss[1];
+      bounds[3] = maxss[1];
+      bounds[4] = minss[2];
+      bounds[5] = maxss[2];
+      vtkBoundingBox box(bounds);
+      this->BoxList.push_back(box);
+      this->ExtentTranslator->SetBoundsForPiece(i, bounds);
+      // for (int i = 0; i < 3; ++i)
+      // {
+      //   // cout<<" ("<<minss[i]<<", "<<maxss[i]<<")\t";
+      // }
+      // cout<<endl;
     }
-
-    //   cout<<"UpdateNumPieces:"<<this->UpdateNumPieces<<endl;
-
 
     //////////////////////////////////////////////////////////////////////
     // Zoltan 2 partining ends here
     //////////////////////////////////////////////////////////////////////
+    #endif
 
     //
     // Get bounding boxes from zoltan and set them in the ExtentTranslator
     //
+    #if !ZOLTAN2_
     this->BoxList.clear();
     for (int p=0; p<this->UpdateNumPieces; p++) {
       double bounds[6];
@@ -997,10 +1093,11 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
         vtkBoundingBox box(bounds);
         this->BoxList.push_back(box);
         this->ExtentTranslator->SetBoundsForPiece(p, bounds);
-        cout<<"###"<<" ("<<bounds[0]<<", "<<bounds[1]<<")\t"<<" ("<<bounds[2]<<", "<<bounds[3]<<")\t"<<" ("<<bounds[4]<<", "<<bounds[5]<<")\t";
+        // cout<<"###"<<" ("<<bounds[0]<<", "<<bounds[1]<<")\t"<<" ("<<bounds[2]<<", "<<bounds[3]<<")\t"<<" ("<<bounds[4]<<", "<<bounds[5]<<")\t";
       }
-      cout<<endl;
+      // cout<<endl;
     }
+    #endif
     this->ExtentTranslator->InitWholeBounds();
   }
   return 1;
@@ -1110,8 +1207,13 @@ void vtkZoltanV2PartitionFilter::ComputeInvertLists(MigrationLists &migrationLis
     &migrationLists.found_local_ids,
     &migrationLists.found_procs,
     &migrationLists.found_to_part); 
-  //
-  if (zoltan_error != ZOLTAN_OK){
+    
+  
+  if ( (zoltan_error != ZOLTAN_OK) || (migrationLists.found_global_ids==NULL) 
+    /*|| (migrationLists.found_local_ids==NULL) */
+    || (migrationLists.found_procs==NULL) 
+    /*|| (migrationLists.found_to_part==NULL)*/
+     ){
     printf("Zoltan_LB_Partition NOT OK...\n");
     MPI_Finalize();
     Zoltan_Destroy(&this->ZoltanData);
@@ -1140,8 +1242,7 @@ int vtkZoltanV2PartitionFilter::ManualPointMigrate(MigrationLists &migrationList
   // so now we can allocate just once the whole set of final arrays
   // instead of using a pre_migrate callback, we'll manually do it here
   // because we can use some local info and then delete some lists prior to the main exchange
-  // 
-
+  //
   int err;
   if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
     this->CopyPointsToSelf<float>(
@@ -1151,7 +1252,7 @@ int vtkZoltanV2PartitionFilter::ManualPointMigrate(MigrationLists &migrationList
       migrationLists.found_procs, migrationLists.found_to_part, 
       num_known, 
       (num_known>0 ? GlobalIdsPtr : NULL),
-      NULL, 
+      NULL,
       (num_known>0 ? ProcsPtr : NULL), 
       NULL,
       &err
@@ -1171,6 +1272,12 @@ int vtkZoltanV2PartitionFilter::ManualPointMigrate(MigrationLists &migrationList
       &err
     );
   }
+//        if (this->UpdatePiece==0) {
+//            for (int i=0; i<migrationLists.known.nIDs; i++) {
+//                cout<<"##>>\t\t"<<i<<"\t"<<migrationLists.known.GlobalIdsPtr[i]<<"\t"<<migrationLists.known.ProcsPtr[i]<<endl;
+//            }
+//        }
+
 
   vtkDebugMacro(<<"ManualPointMigrate (CopyPointsToSelf) ");
   return this->ZoltanPointMigrate(migrationLists, keepinformation);
@@ -1211,6 +1318,44 @@ int vtkZoltanV2PartitionFilter::ZoltanPointMigrate(MigrationLists &migrationList
   //
   // Now let zoltan perform the send/receive exchange of data
   //
+  cout.flush();
+  cout<<"Migrate starting: "<<migrationLists.num_found<<" points to be recieved and "<<num_known<<" points to be sent "<<" >>"<<this->UpdatePiece<<endl;
+  this->Controller->Barrier();
+ 
+//        cout<<"Num Found: "<<migrationLists.num_found
+//        <<"\n Found Global Ids: "<<migrationLists.found_global_ids
+//        <<"\n Found Local Ids: "<<migrationLists.found_local_ids
+//        <<"\n Found Procs: "<<migrationLists.found_procs
+//        <<"\n Found To Part: "<<migrationLists.found_to_part<<endl;
+//        for (int i=0; i<migrationLists.num_found; i++) {
+//
+//            //<<"\t"<<this->UpdatePiece<<">>> GID: "<<
+//            migrationLists.found_global_ids[i];
+//            //<<"\t LID:"<<(migrationLists.found_local_ids?migrationLists.found_local_ids[i]:NULL)
+//            //<<"\t Proc:"<<
+//            migrationLists.found_procs[i];
+//            //<<"\t Part:"<<(migrationLists.found_to_part?migrationLists.found_to_part[i]:NULL)<<endl;
+//        }
+    
+//    if (this->UpdatePiece==0){
+//        cout<<"Num Known: "<<num_known
+//        <<"\n Global Ids: "<<GlobalIdsPtr
+//        <<"\n Procs: "<<ProcsPtr<<endl;
+//        for (int i=0; i<migrationLists.num_found; i++) {
+//            
+//            cout<<i<<"\t"<<this->UpdatePiece<<">>> GID: "<<GlobalIdsPtr[i]
+//            //<<"\t LID:"<<(migrationLists.found_local_ids?migrationLists.found_local_ids[i]:NULL)
+//            <<"\t Proc:"<<ProcsPtr[i]
+//            //<<"\t Part:"<<(migrationLists.found_to_part?migrationLists.found_to_part[i]:NULL)
+//            <<endl;
+//        }
+//    }
+//    cout<<"Doneee "<<this->UpdatePiece<<endl;
+  
+  // for (int i = 0; i < migrationLists.num_found; ++i)
+  // {
+  //   cout<<i<<"--> "<<migrationLists.found_local_ids[i]<<" "<<migrationLists.found_global_ids[i]<<" to "<<migrationLists.found_procs[i]<<" part:"<<migrationLists.found_to_part[i]<<" >>> "<<this->UpdatePiece<<endl;
+  // }
   int zoltan_error = Zoltan_Migrate (this->ZoltanData,
     migrationLists.num_found,
     migrationLists.found_global_ids,
@@ -1223,6 +1368,7 @@ int vtkZoltanV2PartitionFilter::ZoltanPointMigrate(MigrationLists &migrationList
     (num_known>0 ? ProcsPtr : NULL), 
     NULL
     );
+  cout<<"Migrate ended >>"<<this->UpdatePiece<<endl;
 
 
 #ifdef EXTRA_ZOLTAN_DEBUG
@@ -1407,6 +1553,11 @@ void vtkZoltanV2PartitionFilter::CopyPointsToSelf(
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
   // newTotal = original points - sent away + received
   vtkIdType N  = callbackdata->Input->GetNumberOfPoints();
+//    if (this->UpdatePiece==0)
+//    for (int i=0 ; i<num_export; i++) {
+//        cout<<i<<"...."<<export_global_ids[i]<<"\t"<<export_procs[i]<<endl;
+//    }
+//    cout<<"Smooth"<<endl;
   //
   // our size estimates of the final number of points can be messed up because the list of points being sent away
   // contains some points which are sent to multiple remote processes. We can't therefore use the size of this list
@@ -1418,24 +1569,45 @@ void vtkZoltanV2PartitionFilter::CopyPointsToSelf(
   vtkIdType uniqueSends = 0;
   for (vtkIdType i=0; i<num_export; i++) {
     vtkIdType GID = export_global_ids[i];
-    vtkIdType LID = GID - callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];    
+    vtkIdType LID = GID - callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
     if (callbackdata->LocalToLocalIdMap[LID]==0) {
       callbackdata->LocalToLocalIdMap[LID] = -1;
       uniqueSends++;
     }
   }
-  // now compute the final number of points we'll have 
+
+
+  // now compute the final number of points we'll have
   vtkIdType N2 = N + num_reserved + num_import - (uniqueSends - LocalPointsToKeep.size());
+    this->Controller->Barrier();
+    
+    cout<<this->UpdatePiece
+    <<"\tN2:"<<N2
+    <<"\tN:"<<N
+    <<"\tnum_reserved:"<<num_reserved
+    <<"\tnum_import:"<<num_import
+    <<"\tuniqueSends:"<<uniqueSends
+    <<"\tLocalPointsToKeep:"<<LocalPointsToKeep.size()
+    <<endl;
   callbackdata->Output->GetPoints()->SetNumberOfPoints(N2);
   callbackdata->OutputPointsData = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
   vtkPointData    *inPD  = callbackdata->Input->GetPointData();
   vtkPointData    *outPD = callbackdata->Output->GetPointData();
+        if (this->UpdatePiece==0) {
+            for (int i=0; i<this->MigrateLists.known.nIDs; i++) {
+                cout<<"Data:\t\t"<<i<<"\t"<<this->MigrateLists.known.GlobalIdsPtr[i]<<"\t"<<this->MigrateLists.known.ProcsPtr[i]<<endl;
+            }
+        }
   outPD->CopyAllocate(inPD, N2);
+        if (this->UpdatePiece==0) {
+            for (int i=0; i<this->MigrateLists.known.nIDs; i++) {
+                cout<<"Corrupted:\t\t"<<i<<"\t"<<this->MigrateLists.known.GlobalIdsPtr[i]<<"\t"<<this->MigrateLists.known.ProcsPtr[i]<<endl;
+            }
+        }
   //
   // prepare for copying data by setting up pointers to field arrays
   //
   callbackdata->self->InitializeFieldDataArrayPointers(callbackdata, inPD, outPD, N2);
-
   // Loop over each local point and copy it to the output.
   // WARNING: point Ids are changing so any cells referencing the points
   // must have their Ids updated to the new index - create an IdMap to hold this info.
