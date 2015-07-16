@@ -996,9 +996,9 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
           numExport++;
         }
       }
-      unsigned int exportLocalGids[numExport];
-      unsigned int exportGlobalGids[numExport];
-      int exportProcs[numExport];
+      unsigned int *exportLocalGids = new unsigned int[numExport];
+      unsigned int *exportGlobalGids = new unsigned int[numExport];
+      int *exportProcs = new int[numExport];
       int k = 0;
       offset = offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
       for (int i = 0; i < localCount; ++i)
