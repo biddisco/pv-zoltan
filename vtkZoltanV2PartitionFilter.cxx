@@ -321,6 +321,7 @@ vtkZoltanV2PartitionFilter::vtkZoltanV2PartitionFilter()
   if (this->Controller == NULL) {
     this->SetController(vtkSmartPointer<vtkDummyController>::New());
   }
+  this->weights                       = NULL;
 }
 //----------------------------------------------------------------------------
 vtkZoltanV2PartitionFilter::~vtkZoltanV2PartitionFilter()
@@ -707,7 +708,8 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
 //----------------------------------------------------------------------------
 int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
                                  vtkInformationVector** inputVector,
-                                 vtkInformationVector* outputVector)
+                                  vtkInformationVector* outputVector,
+                                                const scalar_t* weights)
 {
   CLEAR_ZOLTAN_DEBUG
   //
@@ -913,13 +915,6 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
     //////////////////////////////////////////////////////////////////////
     // Zoltan 2 partining 
     //////////////////////////////////////////////////////////////////////
-    typedef double scalar_t;
-    typedef int localId_t;
-    #ifdef HAVE_ZOLTAN2_LONG_LONG_INT
-      typedef long long globalId_t;
-    #else
-      typedef int globalId_t;
-    #endif
     typedef Zoltan2::BasicUserTypes<scalar_t, globalId_t, localId_t, globalId_t> myTypes;
     
     typedef Zoltan2::BasicVectorAdapter<myTypes> inputAdapter_t;
@@ -959,15 +954,36 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
   //   // for (int i=0; i<localCount; ++i){
   //   //   myInput[i] = myVtkPoints(myInPoints[i]);
   //   // }
-    inputAdapter_t InputAdapter(localCount, globalIds, x, y, z, 1, 1, 1);
-
-
-    Zoltan2::PartitioningProblem<inputAdapter_t> *problem1 =
-             new Zoltan2::PartitioningProblem<inputAdapter_t>(&InputAdapter, &this->ZoltanParams);
-     
+    Zoltan2::PartitioningProblem<inputAdapter_t> *problem1 = nullptr;
+    inputAdapter_t *InputAdapter = nullptr;
+    if (weights==NULL) {
+      std::cout<<"weights are NULL"<<std::endl;
+      InputAdapter = new inputAdapter_t(localCount, globalIds, x, y, z, 1, 1, 1);
+      problem1    = new Zoltan2::PartitioningProblem<inputAdapter_t>(InputAdapter, &this->ZoltanParams);
+    }else {
+      std::cout<<"weights are not NULL"<<std::endl;
+      vector<const scalar_t *>coordVec(3);
+      vector<int> coordStrides(3);
+      coordVec[0] = x; coordStrides[0] = 1;
+      coordVec[1] = y; coordStrides[1] = 1;
+      coordVec[2] = z; coordStrides[2] = 1;
+      
+      vector<const scalar_t *>weightVec(1);
+      vector<int> weightStrides(1);
+      
+      weightVec[0] = weights; weightStrides[0] = 1;
+      
+      InputAdapter = new inputAdapter_t(localCount, globalIds,
+                                  coordVec, coordStrides,
+                                  weightVec, weightStrides);
+      problem1    = new Zoltan2::PartitioningProblem<inputAdapter_t>(InputAdapter, &this->ZoltanParams);
+    }
+    
+    std::cout<<"Problem created."<<std::endl;
     // Solve the problem
     problem1->solve();
-
+    std::cout<<"Problem solution."<<std::endl;
+  
     const Zoltan2::PartitioningSolution<inputAdapter_t> &solution1 = problem1->getSolution();
     // if (solution1.oneToOnePartDistribution()){
     //   cout<<"Part to process one to one mapping.";
@@ -1109,6 +1125,11 @@ int vtkZoltanV2PartitionFilter::RequestData(vtkInformation* info,
 {
   // This is an abstract class and subclasses must override this function
   return 0;
+}
+
+//----------------------------------------------------------------------------
+void vtkZoltanV2PartitionFilter::SetWeights(scalar_t* weights){
+  this->weights = weights;
 }
 //----------------------------------------------------------------------------
 void vtkZoltanV2PartitionFilter::add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID) {
@@ -1318,44 +1339,7 @@ int vtkZoltanV2PartitionFilter::ZoltanPointMigrate(MigrationLists &migrationList
   //
   // Now let zoltan perform the send/receive exchange of data
   //
-  cout.flush();
-  cout<<"Migrate starting: "<<migrationLists.num_found<<" points to be recieved and "<<num_known<<" points to be sent "<<" >>"<<this->UpdatePiece<<endl;
-  this->Controller->Barrier();
- 
-//        cout<<"Num Found: "<<migrationLists.num_found
-//        <<"\n Found Global Ids: "<<migrationLists.found_global_ids
-//        <<"\n Found Local Ids: "<<migrationLists.found_local_ids
-//        <<"\n Found Procs: "<<migrationLists.found_procs
-//        <<"\n Found To Part: "<<migrationLists.found_to_part<<endl;
-//        for (int i=0; i<migrationLists.num_found; i++) {
-//
-//            //<<"\t"<<this->UpdatePiece<<">>> GID: "<<
-//            migrationLists.found_global_ids[i];
-//            //<<"\t LID:"<<(migrationLists.found_local_ids?migrationLists.found_local_ids[i]:NULL)
-//            //<<"\t Proc:"<<
-//            migrationLists.found_procs[i];
-//            //<<"\t Part:"<<(migrationLists.found_to_part?migrationLists.found_to_part[i]:NULL)<<endl;
-//        }
-    
-//    if (this->UpdatePiece==0){
-//        cout<<"Num Known: "<<num_known
-//        <<"\n Global Ids: "<<GlobalIdsPtr
-//        <<"\n Procs: "<<ProcsPtr<<endl;
-//        for (int i=0; i<migrationLists.num_found; i++) {
-//            
-//            cout<<i<<"\t"<<this->UpdatePiece<<">>> GID: "<<GlobalIdsPtr[i]
-//            //<<"\t LID:"<<(migrationLists.found_local_ids?migrationLists.found_local_ids[i]:NULL)
-//            <<"\t Proc:"<<ProcsPtr[i]
-//            //<<"\t Part:"<<(migrationLists.found_to_part?migrationLists.found_to_part[i]:NULL)
-//            <<endl;
-//        }
-//    }
-//    cout<<"Doneee "<<this->UpdatePiece<<endl;
-  
-  // for (int i = 0; i < migrationLists.num_found; ++i)
-  // {
-  //   cout<<i<<"--> "<<migrationLists.found_local_ids[i]<<" "<<migrationLists.found_global_ids[i]<<" to "<<migrationLists.found_procs[i]<<" part:"<<migrationLists.found_to_part[i]<<" >>> "<<this->UpdatePiece<<endl;
-  // }
+
   int zoltan_error = Zoltan_Migrate (this->ZoltanData,
     migrationLists.num_found,
     migrationLists.found_global_ids,
@@ -1368,7 +1352,6 @@ int vtkZoltanV2PartitionFilter::ZoltanPointMigrate(MigrationLists &migrationList
     (num_known>0 ? ProcsPtr : NULL), 
     NULL
     );
-  cout<<"Migrate ended >>"<<this->UpdatePiece<<endl;
 
 
 #ifdef EXTRA_ZOLTAN_DEBUG
@@ -1581,29 +1564,19 @@ void vtkZoltanV2PartitionFilter::CopyPointsToSelf(
   vtkIdType N2 = N + num_reserved + num_import - (uniqueSends - LocalPointsToKeep.size());
     this->Controller->Barrier();
     
-    cout<<this->UpdatePiece
-    <<"\tN2:"<<N2
-    <<"\tN:"<<N
-    <<"\tnum_reserved:"<<num_reserved
-    <<"\tnum_import:"<<num_import
-    <<"\tuniqueSends:"<<uniqueSends
-    <<"\tLocalPointsToKeep:"<<LocalPointsToKeep.size()
-    <<endl;
+//    cout<<this->UpdatePiece
+//    <<"\tN2:"<<N2
+//    <<"\tN:"<<N
+//    <<"\tnum_reserved:"<<num_reserved
+//    <<"\tnum_import:"<<num_import
+//    <<"\tuniqueSends:"<<uniqueSends
+//    <<"\tLocalPointsToKeep:"<<LocalPointsToKeep.size()
+//    <<endl;
   callbackdata->Output->GetPoints()->SetNumberOfPoints(N2);
   callbackdata->OutputPointsData = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
   vtkPointData    *inPD  = callbackdata->Input->GetPointData();
   vtkPointData    *outPD = callbackdata->Output->GetPointData();
-        if (this->UpdatePiece==0) {
-            for (int i=0; i<this->MigrateLists.known.nIDs; i++) {
-                cout<<"Data:\t\t"<<i<<"\t"<<this->MigrateLists.known.GlobalIdsPtr[i]<<"\t"<<this->MigrateLists.known.ProcsPtr[i]<<endl;
-            }
-        }
   outPD->CopyAllocate(inPD, N2);
-        if (this->UpdatePiece==0) {
-            for (int i=0; i<this->MigrateLists.known.nIDs; i++) {
-                cout<<"Corrupted:\t\t"<<i<<"\t"<<this->MigrateLists.known.GlobalIdsPtr[i]<<"\t"<<this->MigrateLists.known.ProcsPtr[i]<<endl;
-            }
-        }
   //
   // prepare for copying data by setting up pointers to field arrays
   //

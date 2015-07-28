@@ -117,12 +117,21 @@ int main (int argc, char* argv[])
   test.ghostOverlap = radius*0.1; // ghost_region
   
   known_seed();
-  CubePoints(test.generateN, radius*(1.5+test.myRank)/(test.numProcs+0.5), vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0));
+  float rscale = radius*(1.5+test.myRank)/(test.numProcs+0.5);
+  scalar_t* weights = new scalar_t[test.generateN];
+//  SpherePoints(test.generateN, radius*(1.5+test.myRank)/(test.numProcs+0.5), vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0));
+  CubePoints(test.generateN, rscale, vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0), weights);
   for (vtkIdType Id=0; Id<test.generateN; Id++) {
     Ids->SetTuple1(Id, Id + test.myRank*test.generateN);
     Ranks->SetTuple1(Id, test.myRank);
     verts->InsertNextCell(1,&Id);
   }
+//  Print Points
+//  double x[3];
+//  for (int i=0; i<test.generateN; i++) {
+//    points->GetPoint(i, x);
+//    cout<<"i:"<<i<<" ("<<x[0]<<", "<<x[1]<<", "<<x[2]<<") \n";
+//  }
 /*
   // Randomly give some processes zero points to improve test coverage
   random_seed();
@@ -136,9 +145,11 @@ int main (int argc, char* argv[])
   //--------------------------------------------------------------
   test.CreatePartitioner_Particles();
   test.partitioner->SetInputData(Sprites);
+  test.partitioner->SetWeights(weights);
 //  test.partitioner->SetIdChannelArray("PointIds");
   static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
   partition_elapsed = test.UpdatePartitioner();
+  cout<<"Generated "<<test.generateN<<" points of scale "<<rscale<<"by >>> "<<test.myRank<<endl;
 
   //--------------------------------------------------------------
   // Add process Id's

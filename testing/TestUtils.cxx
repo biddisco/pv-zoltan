@@ -15,8 +15,6 @@
 #include <vtksys/SystemTools.hxx>
 //
 #include "vtkXMLPolyDataReader.h"
-#include "vtkParticlePartitionFilter.h"
-#include "vtkMeshPartitionFilter.h"
 //
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -87,7 +85,7 @@ void SpherePoints(int n, float radius, float X[]) {
 }
 
 //----------------------------------------------------------------------------
-void CubePoints(int n, float radius, float X[]) {
+void CubePoints(int n, float radius, float X[], scalar_t W[]) {
   Random r(12345);
   double rmin=1E6, rmax=-1E6;
   for(int i=0; i<n; i++ ) {
@@ -97,6 +95,7 @@ void CubePoints(int n, float radius, float X[]) {
     X[3*i+0] = static_cast<float>(radius*r1);
     X[3*i+1] = static_cast<float>(radius*r2);
     X[3*i+2] = static_cast<float>(radius*r3);
+    W[i] = r1*r2*r3;
   }
 }
 //----------------------------------------------------------------------------
@@ -260,6 +259,7 @@ double TestStruct::UpdatePartitioner()
   testDebugMacro( "Partition Update coming " << this->myRank << " of " << this->numProcs );
   partition_sddp->Update();
   testDebugMacro( "Partition Updated " << this->myRank << " of " << this->numProcs );
+        cout<<"Here "<<1<<"by >>> "<<this->myRank<<endl;
   this->controller->Barrier();
   partitiontimer->StopTimer();
   double partition_elapsed = partitiontimer->GetElapsedTime();

@@ -76,7 +76,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // This step only performs the load balance analysis, 
   // no actual sending of data takes place yet.
   //
-  this->PartitionPoints(info, inputVector, outputVector);
+    this->PartitionPoints(info, inputVector, outputVector, weights);
 
   if (this->UpdateNumPieces==1) {
     // input has been copied to output during PartitionPoints

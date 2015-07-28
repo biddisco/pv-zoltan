@@ -104,6 +104,15 @@ typedef int  (*zsize_fn) (void *, int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , in
 typedef void (*zpack_fn) (void *, int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int , int , char *, int *);
 typedef void (*zupack_fn)(void *, int , ZOLTAN_ID_PTR , int , char *, int *);
 typedef void (*zprem_fn) (void *, int , int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int *, int *, int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int *, int *, int *);
+
+// Zoltan 2 typedefs
+typedef double scalar_t;
+typedef int localId_t;
+#ifdef HAVE_ZOLTAN2_LONG_LONG_INT
+typedef long long globalId_t;
+#else
+typedef int globalId_t;
+#endif
 //----------------------------------------------------------------------------
 class vtkInformationDoubleKey;
 class vtkInformationDoubleVectorKey;
@@ -313,6 +322,9 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
     void        InitializeZoltanLoadBalance();
     static void add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID);
     vtkIdType   global_to_local_Id(vtkIdType GID);
+  
+    const scalar_t* weights;
+    void SetWeights(scalar_t* weights);
 
     template<typename T>
     void CopyPointsToSelf(
@@ -376,8 +388,9 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
                             vtkInformationVector*);
 
     MPI_Comm GetMPIComm();
-    int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
-    
+    int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector,
+                      const scalar_t* weights = NULL);
+  
     void ComputeInvertLists(MigrationLists &migrationLists);
     int ManualPointMigrate(MigrationLists &migrationLists, bool keepinformation);
     int ZoltanPointMigrate(MigrationLists &migrationLists, bool keepinformation);
