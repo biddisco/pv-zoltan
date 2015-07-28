@@ -241,10 +241,11 @@ int main (int argc, char* argv[])
         bactor->SetMapper(bmapper);
         ren->AddActor(bactor);
       }
-      
-      ren->GetActiveCamera()->SetPosition(0,4*radius,0);
+//      ren->GetActiveCamera()->SetPosition(0,4*radius,0);
+      ren->GetActiveCamera()->SetPosition(0,0,4*radius);
       ren->GetActiveCamera()->SetFocalPoint(0,0,0);
-      ren->GetActiveCamera()->SetViewUp(0,0,-1);
+//      ren->GetActiveCamera()->SetViewUp(0,0,-1);
+      ren->GetActiveCamera()->SetViewUp(0,1,0);
       ren->ResetCamera();
       testDebugMacro( "Process Id : " << test.myRank << " About to Render" );
       renWindow->Render();
