@@ -76,7 +76,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // This step only performs the load balance analysis, 
   // no actual sending of data takes place yet.
   //
-    this->PartitionPoints(info, inputVector, outputVector, weights);
+    this->PartitionPoints(info, inputVector, outputVector);
 
   if (this->UpdateNumPieces==1) {
     // input has been copied to output during PartitionPoints
@@ -174,8 +174,8 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // clean up arrays that zoltan passed back to us
   //
   if (this->LoadBalanceData.importGlobalGids) {
-    Zoltan_LB_Free_Part(&this->LoadBalanceData.importGlobalGids, &this->LoadBalanceData.importLocalGids, &this->LoadBalanceData.importProcs, &this->LoadBalanceData.importToPart);
-    Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
+//    Zoltan_LB_Free_Part(&this->LoadBalanceData.importGlobalGids, &this->LoadBalanceData.importLocalGids, &this->LoadBalanceData.importProcs, &this->LoadBalanceData.importToPart);
+//    Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
   }
   
   //

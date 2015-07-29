@@ -106,7 +106,6 @@ typedef void (*zupack_fn)(void *, int , ZOLTAN_ID_PTR , int , char *, int *);
 typedef void (*zprem_fn) (void *, int , int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int *, int *, int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int *, int *, int *);
 
 // Zoltan 2 typedefs
-typedef double scalar_t;
 typedef int localId_t;
 #ifdef HAVE_ZOLTAN2_LONG_LONG_INT
 typedef long long globalId_t;
@@ -153,6 +152,11 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
     vtkSetMacro(InputDisposable, int);
     vtkGetMacro(InputDisposable, int);
     vtkBooleanMacro(InputDisposable, int);
+
+    // Description:
+    // Specify the name of the array to be used for point weights
+    vtkSetStringMacro(PointWeightsArrayName);
+    vtkGetStringMacro(PointWeightsArrayName);
 
     // Description:
     // Return the Bounding Box for a partition
@@ -323,9 +327,6 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
     static void add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID);
     vtkIdType   global_to_local_Id(vtkIdType GID);
   
-    const scalar_t* weights;
-    void SetWeights(scalar_t* weights);
-
     template<typename T>
     void CopyPointsToSelf(
       std::vector<vtkIdType> &LocalPointsToKeep, vtkIdType num_reserved,
@@ -357,6 +358,10 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
   // initial partitioning takes place.
   bool MigratePointData(vtkDataSetAttributes *inPointData, vtkDataSetAttributes *outPointData);
 
+//BTX
+  template<typename U>
+  friend struct vtkZoltan2Helper;
+//ETX
   protected:
      vtkZoltanV2PartitionFilter();
     ~vtkZoltanV2PartitionFilter();
@@ -388,8 +393,7 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
                             vtkInformationVector*);
 
     MPI_Comm GetMPIComm();
-    int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector,
-                      const scalar_t* weights = NULL);
+    int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
   
     void ComputeInvertLists(MigrationLists &migrationLists);
     int ManualPointMigrate(MigrationLists &migrationLists, bool keepinformation);
@@ -413,7 +417,8 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
     vtkSmartPointer<vtkPKdTree>                 KdTree;
     vtkSmartPointer<vtkTimerLog>                Timer;
     MigrationLists                              MigrateLists;
-
+    //
+    char                                       *PointWeightsArrayName;
     //
     struct Zoltan_Struct       *ZoltanData;
     CallbackData                ZoltanCallbackData;

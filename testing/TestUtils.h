@@ -152,7 +152,7 @@ class Random {
 unsigned long int random_seed();
 void known_seed();
 void SpherePoints(int n, float radius, float X[]);
-void CubePoints(int n, float radius, float X[], scalar_t W[]);
+void CubePoints(int n, float radius, float X[], float W[]);
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
