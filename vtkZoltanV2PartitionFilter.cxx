@@ -35,6 +35,8 @@
 #include "vtkInformationDoubleKey.h"
 #include "vtkInformationDoubleVectorKey.h"
 #include "vtkInformationIntegerKey.h"
+#include "vtkFloatArray.h"
+#include "vtkDoubleArray.h"
 //
 // For PARAVIEW_USE_MPI
 #include "vtkPVConfig.h"
@@ -315,17 +317,18 @@ vtkZoltanV2PartitionFilter::vtkZoltanV2PartitionFilter()
   this->InputExtentTranslator          = NULL;
   this->ZoltanData                     = NULL;
   this->InputDisposable                = 0;
-  this->KeepInversePointLists  = 0;
+  this->KeepInversePointLists          = 0;
+  this->PointWeightsArrayName          = 0;
   this->Controller                     = NULL;
   this->SetController(vtkMultiProcessController::GetGlobalController());
   if (this->Controller == NULL) {
     this->SetController(vtkSmartPointer<vtkDummyController>::New());
   }
-  this->weights                       = NULL;
 }
 //----------------------------------------------------------------------------
 vtkZoltanV2PartitionFilter::~vtkZoltanV2PartitionFilter()
 {
+  this->SetPointWeightsArrayName(NULL);
   // make sure we do not leave any memory unfreed
   if (this->MigrateLists.num_found!=-1) {
     vtkDebugMacro(<<"Deleting InverseMigrationLists");
@@ -705,11 +708,161 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
     Zoltan_Set_Geom_Multi_Fn(this->ZoltanData, get_geometry_list<double>, &this->ZoltanCallbackData);
   }
 }
+
+//----------------------------------------------------------------------------
+void FloatOrDoubleArrayPointer(vtkDataArray *dataarray, float *&F, double *&D) {
+  if (dataarray && vtkFloatArray::SafeDownCast(dataarray)) {
+    F = vtkFloatArray::SafeDownCast(dataarray)->GetPointer(0);
+    D = NULL;
+  }
+  if (dataarray && vtkDoubleArray::SafeDownCast(dataarray)) {
+    D = vtkDoubleArray::SafeDownCast(dataarray)->GetPointer(0);
+    F = NULL;
+  }
+  //
+  if (dataarray && !F && !D) {
+    vtkGenericWarningMacro(<< dataarray->GetName() << "must be float or double");
+  }
+}
+
+//----------------------------------------------------------------------------
+#define FloatOrDouble(F, D, index) F ? F[index] : D[index]
+#define FloatOrDoubleorDefault(F, D, def, index) F ? F[index] : (D ? D[index] : def)
+#define FloatOrDoubleSet(F, D) ((F!=NULL) || (D!=NULL))
+
+//----------------------------------------------------------------------------
+template <typename scalar_t>
+struct vtkZoltan2Helper
+{
+    typedef Zoltan2::BasicUserTypes<scalar_t, globalId_t, localId_t, globalId_t> myTypes;
+    typedef Zoltan2::BasicVectorAdapter<myTypes> inputAdapter_t;
+    typedef typename inputAdapter_t::part_t part_t;
+    typedef Zoltan2::PartitioningProblem<inputAdapter_t> result_type;
+
+    static result_type *SolveZoltan2Partition(
+            vtkDataArray *datarray, vtkIdType localCount,
+            globalId_t *globalIds, const scalar_t *weightarray,
+            vtkZoltanV2PartitionFilter *self, vtkPointSet *input)
+    {
+#ifdef ZERO_COPY_DATA
+        // points are {x,y,z} in a single array
+        const scalar_t *x = static_cast<const scalar_t *>(datarray->GetVoidPointer(0));
+        const scalar_t *y = static_cast<const scalar_t *>(datarray->GetVoidPointer(1));
+        const scalar_t *z = static_cast<const scalar_t *>(datarray->GetVoidPointer(2));
+        const int stride = 3;
+        std::cout << "USING ZERO COPY " << std::endl;
+#else
+        scalar_t *coords = new scalar_t[3*localCount];
+        scalar_t *x = coords;
+        scalar_t *y = x + localCount;
+        scalar_t *z = y + localCount;
+        const int stride = 1;
+        const scalar_t *p = static_cast<const scalar_t *>(datarray->GetVoidPointer(0));
+        for (int i = 0; i < localCount; ++i)
+        {
+          x[i] = p[i*3 + 0];
+          y[i] = p[i*3 + 1];
+          z[i] = p[i*3 + 2];
+        }
+#endif
+        // create an adapter that will point to the correct coordinates
+        inputAdapter_t *InputAdapter = nullptr;
+        result_type *problem1 = nullptr;
+
+        if (weightarray==NULL) {
+            std::cout << "weights are NULL" << std::endl;
+            InputAdapter = new inputAdapter_t(localCount, globalIds, x, y, z, stride, stride, stride);
+            problem1     = new result_type(InputAdapter, &self->ZoltanParams);
+        }
+        else {
+            std::cout<<"weights are not NULL" << std::endl;
+            // coordinates
+            vector<const scalar_t *> coordVec = {x, y, z};
+            vector<int> coordStrides = {stride, stride, stride};
+            // weights
+            vector<const scalar_t*> weightVec = {weightarray};
+            vector<int> weightStrides = {1};
+
+            InputAdapter = new inputAdapter_t(
+                    localCount, globalIds,
+                    coordVec, coordStrides,
+                    weightVec, weightStrides);
+            problem1    = new Zoltan2::PartitioningProblem<inputAdapter_t>(InputAdapter, &self->ZoltanParams);
+        }
+
+        std::cout<<"Problem created."<<std::endl;
+        // Solve the problem
+        problem1->solve();
+        std::cout<<"Problem solution."<<std::endl;
+
+        const Zoltan2::PartitioningSolution<inputAdapter_t> &solution1 = problem1->getSolution();
+
+        int numExport = 0;
+        const part_t *partd = solution1.getPartListView();
+        for (int i = 0; i < localCount; ++i)
+        {
+            if (partd[i]!=self->UpdatePiece)
+            {
+                numExport++;
+            }
+        }
+        unsigned int *exportLocalGids = new unsigned int[numExport];
+        unsigned int *exportGlobalGids = new unsigned int[numExport];
+        int *exportProcs = new int[numExport];
+        int k = 0;
+        int offset = self->ZoltanCallbackData.ProcessOffsetsPointId[self->ZoltanCallbackData.ProcessRank];
+        for (int i = 0; i < localCount; ++i)
+        {
+            if (partd[i]!=self->UpdatePiece){
+                exportLocalGids[k] = i;
+                exportGlobalGids[k] = i + offset;
+                exportProcs[k] = partd[i];
+                k++;
+            }
+        }
+        self->LoadBalanceData.numExport = numExport;
+        self->LoadBalanceData.exportGlobalGids = exportGlobalGids;
+        self->LoadBalanceData.exportLocalGids  = exportLocalGids;
+        self->LoadBalanceData.exportProcs = exportProcs;
+        self->LoadBalanceData.exportToPart = exportProcs;
+        cout << self->UpdatePiece << " EXPORTING " << numExport << " OUT OF " << localCount << endl;
+
+        // Zoltan 2 bounding box code
+        self->BoxList.clear();
+        std::vector<Zoltan2::coordinateModelPartBox<scalar_t, part_t> > &boxView = solution1.getPartBoxesView();
+        for (int i=0; i<boxView.size(); i++) {
+            double bounds[6];
+            scalar_t *minss = boxView[i].getlmins();
+            scalar_t *maxss = boxView[i].getlmaxs();
+            bounds[0] = minss[0];
+            bounds[1] = maxss[0];
+            bounds[2] = minss[1];
+            bounds[3] = maxss[1];
+            bounds[4] = minss[2];
+            bounds[5] = maxss[2];
+            vtkBoundingBox box(bounds);
+            self->BoxList.push_back(box);
+            self->ExtentTranslator->SetBoundsForPiece(i, bounds);
+        }
+
+        delete []coords;
+        return problem1;
+    }
+};
+
+//----------------------------------------------------------------------------
+#undef vtkTemplateMacroCase
+#define vtkTemplateMacroCase(typeN, type, call)     \
+  case typeN: { typedef type VTK_TT; call; }; break
+#define vtkZoltanTemplateMacro(call)                                        \
+  vtkTemplateMacroCase(VTK_DOUBLE, double, call);                           \
+  vtkTemplateMacroCase(VTK_FLOAT, float, call);
+//  vtkTemplateMacroCase(VTK_INT, int, call);
+
 //----------------------------------------------------------------------------
 int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
                                  vtkInformationVector** inputVector,
-                                  vtkInformationVector* outputVector,
-                                                const scalar_t* weights)
+                                  vtkInformationVector* outputVector)
 {
   CLEAR_ZOLTAN_DEBUG
   //
@@ -862,239 +1015,63 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
   }
   else {
 
-    #define ZOLTAN2_ 1
-
-    #if !ZOLTAN2_
-    //
-    // Zoltan can now partition our points. 
-    // After this returns, we have redistributed points and the Output holds
-    // the list of correct points/fields etc for each process
-    //
-    int zoltan_error = Zoltan_LB_Partition(
-      this->ZoltanData,                            // input (all remaining fields are output)
-      &this->LoadBalanceData.changes,              // 1 if partitioning was changed, 0 otherwise 
-      &this->LoadBalanceData.numGidEntries,        // Number of integers used for a global ID
-      &this->LoadBalanceData.numLidEntries,        // Number of integers used for a local ID
-      &this->LoadBalanceData.numImport,            // Number of vertices to be sent to me
-      &this->LoadBalanceData.importGlobalGids,     // Global IDs of vertices to be sent to me
-      &this->LoadBalanceData.importLocalGids,      // Local IDs of vertices to be sent to me
-      &this->LoadBalanceData.importProcs,          // Process rank for source of each incoming vertex
-      &this->LoadBalanceData.importToPart,         // New partition for each incoming vertex
-      &this->LoadBalanceData.numExport,            // Number of vertices I must send to other processes
-      &this->LoadBalanceData.exportGlobalGids,     // Global IDs of the vertices I must send
-      &this->LoadBalanceData.exportLocalGids,      // Local IDs of the vertices I must send
-      &this->LoadBalanceData.exportProcs,          // Process to which I send each of the vertices
-      &this->LoadBalanceData.exportToPart);        // Partition to which each vertex will belong
-
-    if (zoltan_error != ZOLTAN_OK){
-      printf("Zoltan_LB_Partition NOT OK...\n");
-      MPI_Finalize();
-      Zoltan_Destroy(&this->ZoltanData);
-      exit(0);
-    }
-
     vtkDebugMacro(<<"Partitioning "  << 
       " numImport : " << this->LoadBalanceData.numImport <<
       " numExport : " << this->LoadBalanceData.numExport 
      );
-    #endif
 
-    // for (int i = 0; i < this->LoadBalanceData.numExport; ++i)
-    // {
-    //   // vtkIdType id = 
-    //   // ;
-    //   cout<<i<<": "<<this->LoadBalanceData.exportGlobalGids[i]
-    //     // <<" "<<this->LoadBalanceData.exportLocalGids[i]
-    //     // <<" "<<this->LoadBalanceData.exportProcs[i]
-    //     <<" "<<this->LoadBalanceData.exportToPart[i]
-    //   <<endl;
-    // }
-
-
-    #if ZOLTAN2_
-    //////////////////////////////////////////////////////////////////////
-    // Zoltan 2 partining 
-    //////////////////////////////////////////////////////////////////////
-    typedef Zoltan2::BasicUserTypes<scalar_t, globalId_t, localId_t, globalId_t> myTypes;
+    //
+    // Get the input arrays, points coordinates and weights
+    //
     
-    typedef Zoltan2::BasicVectorAdapter<myTypes> inputAdapter_t;
-    typedef inputAdapter_t::part_t part_t;
+    // get the array that is used for coordinates, it might be float or double
+    vtkPoints    *myInPoints = input->GetPoints();
+    vtkDataArray *coordArray = myInPoints->GetData();
 
+    // get the array that is used for weights, check it the same as coords because
+    // @TODO, zoltan only allows one template param for coords and weights
+    // so we can't use different types yet
+    vtkDataArray *weightsArray = this->PointWeightsArrayName ?
+            input->GetPointData()->GetArray(this->PointWeightsArrayName) : NULL;
+    void *weights_data_ptr = NULL;
+    //
+    if (weightsArray && (coordArray->GetDataType() != weightsArray->GetDataType())) {
+        vtkWarningMacro(<<"Weights datatype must be the same as coordinate type");
+        weightsArray = NULL;
+    }
+    if (weightsArray) {
+        // get the pointer to the actual data
+        weights_data_ptr = weightsArray->GetVoidPointer(0);
+    }
 
-    int rank = this->UpdatePiece;
-    int nprocs = this->UpdateNumPieces;
+  //////////////////////////////////////////////////////////////////////
+  // Zoltan 2 partitioning
+  //////////////////////////////////////////////////////////////////////
+  int rank = this->UpdatePiece;
+  int nprocs = this->UpdateNumPieces;
 
-      // cout<<"rank " <<rank<<" of "<<nprocs<<endl;
+  int localCount = coordArray->GetNumberOfTuples();
+  // global Ids should be optional, fix this when they are
+  globalId_t *globalIds = new globalId_t [localCount];
+  globalId_t offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
+  for (size_t i=0; i < localCount; i++)
+    globalIds[i] = offset++;
 
-    int localCount = input->GetNumberOfPoints();
-    globalId_t *globalIds = new globalId_t [localCount];
-    globalId_t offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
-
-    for (size_t i=0; i < localCount; i++)
-      globalIds[i] = offset++;
-
-    scalar_t *coords = new scalar_t[3*localCount];
-
-    scalar_t *x = coords; 
-    scalar_t *y = x + localCount; 
-    scalar_t *z = y + localCount; 
-
-    double p[3];
-    for (int i = 0; i < localCount; ++i)
+    switch(coordArray->GetDataType())
     {
-      input->GetPoint(i, p);
-      x[i] = p[0];
-      y[i] = p[1];
-      z[i] = p[2];
-      // cout<<"Point "<<i<<" x:"<<x[i]<<" y:"<<y[i]<<" z:"<<z[i]<<endl;
+      vtkZoltanTemplateMacro(
+              vtkZoltan2Helper<VTK_TT>::SolveZoltan2Partition(
+                      coordArray, localCount, globalIds, static_cast<VTK_TT*>(weights_data_ptr), this, input));
     }
 
-  //   // vtkPoints *myInPoints = input->GetPoints();
-  //   // myVtkPoints myInput[localCount];
-  //   // for (int i=0; i<localCount; ++i){
-  //   //   myInput[i] = myVtkPoints(myInPoints[i]);
-  //   // }
-    Zoltan2::PartitioningProblem<inputAdapter_t> *problem1 = nullptr;
-    inputAdapter_t *InputAdapter = nullptr;
-    if (weights==NULL) {
-      std::cout<<"weights are NULL"<<std::endl;
-      InputAdapter = new inputAdapter_t(localCount, globalIds, x, y, z, 1, 1, 1);
-      problem1    = new Zoltan2::PartitioningProblem<inputAdapter_t>(InputAdapter, &this->ZoltanParams);
-    }else {
-      std::cout<<"weights are not NULL"<<std::endl;
-      vector<const scalar_t *>coordVec(3);
-      vector<int> coordStrides(3);
-      coordVec[0] = x; coordStrides[0] = 1;
-      coordVec[1] = y; coordStrides[1] = 1;
-      coordVec[2] = z; coordStrides[2] = 1;
-      
-      vector<const scalar_t *>weightVec(1);
-      vector<int> weightStrides(1);
-      
-      weightVec[0] = weights; weightStrides[0] = 1;
-      
-      InputAdapter = new inputAdapter_t(localCount, globalIds,
-                                  coordVec, coordStrides,
-                                  weightVec, weightStrides);
-      problem1    = new Zoltan2::PartitioningProblem<inputAdapter_t>(InputAdapter, &this->ZoltanParams);
-    }
-    
-    std::cout<<"Problem created."<<std::endl;
-    // Solve the problem
-    problem1->solve();
-    std::cout<<"Problem solution."<<std::endl;
-  
-    const Zoltan2::PartitioningSolution<inputAdapter_t> &solution1 = problem1->getSolution();
-    // if (solution1.oneToOnePartDistribution()){
-    //   cout<<"Part to process one to one mapping.";
-    // }else{
-    //   cout<<"Part to process complex mapping.";
-    // }
-
-
-    // Teuchos::ArrayRCP< part_t >  comXAdj;
-    // Teuchos::ArrayRCP< part_t >  comAdj; 
-    // solution1.getCommunicationGraph(comXAdj, comAdj);
-    // cout<<"comXadj Size:"<<comXAdj.size()<<endl;
-    // for (int i = 0; i < comXAdj.size(); ++i)
-    // {
-    //   cout<<i<<": "<<comXAdj[i]<<" "<<comAdj[i]<<endl;
-    // }
-    
-    int numExport = 0;
-    // const int *procd = solution1.getProcListView();
-    // if (procd==NULL){
-      const part_t *partd = solution1.getPartListView();
-      for (int i = 0; i < localCount; ++i)
-      {
-        if (partd[i]!=this->UpdatePiece)
-        {
-          numExport++;
-        }
-      }
-      unsigned int *exportLocalGids = new unsigned int[numExport];
-      unsigned int *exportGlobalGids = new unsigned int[numExport];
-      int *exportProcs = new int[numExport];
-      int k = 0;
-      offset = offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
-      for (int i = 0; i < localCount; ++i)
-      {
-        if (partd[i]!=this->UpdatePiece){
-          exportLocalGids[k] = i;
-          exportGlobalGids[k] = i + offset;
-          exportProcs[k] = partd[i];
-          k++;
-        }
-      }
-      this->LoadBalanceData.numExport = numExport;            
-      this->LoadBalanceData.exportGlobalGids = exportGlobalGids; 
-      this->LoadBalanceData.exportLocalGids  = exportLocalGids;    
-      this->LoadBalanceData.exportProcs = exportProcs;
-      this->LoadBalanceData.exportToPart = exportProcs;
-      cout<<this->UpdatePiece<<" EXPORTING "<<numExport<<" OUT OF "<<localCount<<endl;
-    // }
-    // else{
-    //   for (int i=0; i<localCount; i++){
-    //     cout<<i<<": "<<procd[i]<<endl;
-    //   }
-    // }
-
-    // for(int i=0; i<localCount; i++){
-      // scalar_t pp[3];
-      // pp[0] = x[i];
-      // pp[1] = y[i];
-      // pp[2] = z[i];
-      // cout<<i<<": "<<solution1.pointAssign(3, pp)<<endl;
-    // }
-    // this->LoadBalanceData.changes = 1;              // 1 if partitioning was changed, 0 otherwise 
-    // this->LoadBalanceData.numGidEntries         // Number of integers used for a global ID
-    // this->LoadBalanceData.numLidEntries         // Number of integers used for a local ID
-    // this->LoadBalanceData.numImport             // Number of vertices to be sent to me
-    // this->LoadBalanceData.importGlobalGids     // Global IDs of vertices to be sent to me
-    // this->LoadBalanceData.importLocalGids      // Local IDs of vertices to be sent to me
-    // this->LoadBalanceData.importProcs          // Process rank for source of each incoming vertex
-    // this->LoadBalanceData.importToPart         // New partition for each incoming vertex
-    // this->LoadBalanceData.numExport            // Number of vertices I must send to other processes
-    // this->LoadBalanceData.exportGlobalGids     // Global IDs of the vertices I must send
-    // this->LoadBalanceData.exportLocalGids      // Local IDs of the vertices I must send
-    // this->LoadBalanceData.exportProcs          // Process to which I send each of the vertices
-    // this->LoadBalanceData.exportToPart;        // Partition to which each vertex will belong
-
-
-
-
-    // Zoltan 2 bounding box code
-    this->BoxList.clear();
-    std::vector<Zoltan2::coordinateModelPartBox<scalar_t, part_t> > &boxView = solution1.getPartBoxesView();
-    for (int i=0; i<boxView.size(); i++){
-      double bounds[6];
-      scalar_t *minss = boxView[i].getlmins();
-      scalar_t *maxss = boxView[i].getlmaxs();
-      bounds[0] = minss[0];
-      bounds[1] = maxss[0];
-      bounds[2] = minss[1];
-      bounds[3] = maxss[1];
-      bounds[4] = minss[2];
-      bounds[5] = maxss[2];
-      vtkBoundingBox box(bounds);
-      this->BoxList.push_back(box);
-      this->ExtentTranslator->SetBoundsForPiece(i, bounds);
-      // for (int i = 0; i < 3; ++i)
-      // {
-      //   // cout<<" ("<<minss[i]<<", "<<maxss[i]<<")\t";
-      // }
-      // cout<<endl;
-    }
 
     //////////////////////////////////////////////////////////////////////
-    // Zoltan 2 partining ends here
+    // Zoltan 2 partitioning ends here
     //////////////////////////////////////////////////////////////////////
-    #endif
-
+/*
     //
     // Get bounding boxes from zoltan and set them in the ExtentTranslator
     //
-    #if !ZOLTAN2_
     this->BoxList.clear();
     for (int p=0; p<this->UpdateNumPieces; p++) {
       double bounds[6];
@@ -1113,7 +1090,7 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
       }
       // cout<<endl;
     }
-    #endif
+*/
     this->ExtentTranslator->InitWholeBounds();
   }
   return 1;
@@ -1127,10 +1104,6 @@ int vtkZoltanV2PartitionFilter::RequestData(vtkInformation* info,
   return 0;
 }
 
-//----------------------------------------------------------------------------
-void vtkZoltanV2PartitionFilter::SetWeights(scalar_t* weights){
-  this->weights = weights;
-}
 //----------------------------------------------------------------------------
 void vtkZoltanV2PartitionFilter::add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID) {
   vtkIdType diff = GID-LID;

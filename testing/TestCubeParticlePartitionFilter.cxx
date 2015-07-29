@@ -87,11 +87,12 @@ int main (int argc, char* argv[])
   //--------------------------------------------------------------
   // allocate points + arrays
   //--------------------------------------------------------------
-  vtkSmartPointer<vtkPolyData>  Sprites = vtkSmartPointer<vtkPolyData>::New();
-  vtkSmartPointer<vtkPoints>     points = vtkSmartPointer<vtkPoints>::New();
-  vtkSmartPointer<vtkCellArray>   verts = vtkSmartPointer<vtkCellArray>::New();
-  vtkSmartPointer<vtkIdTypeArray>   Ids = vtkSmartPointer<vtkIdTypeArray>::New();
-  vtkSmartPointer<vtkIntArray>    Ranks = vtkSmartPointer<vtkIntArray>::New();
+  vtkSmartPointer<vtkPolyData>   Sprites = vtkSmartPointer<vtkPolyData>::New();
+  vtkSmartPointer<vtkPoints>      points = vtkSmartPointer<vtkPoints>::New();
+  vtkSmartPointer<vtkCellArray>    verts = vtkSmartPointer<vtkCellArray>::New();
+  vtkSmartPointer<vtkIdTypeArray>    Ids = vtkSmartPointer<vtkIdTypeArray>::New();
+  vtkSmartPointer<vtkIntArray>     Ranks = vtkSmartPointer<vtkIntArray>::New();
+  vtkSmartPointer<vtkFloatArray> Weights = vtkSmartPointer<vtkFloatArray>::New();
   //
   points->SetNumberOfPoints(test.generateN);
   //
@@ -109,6 +110,11 @@ int main (int argc, char* argv[])
   Ranks->SetName("Rank");
   Sprites->GetPointData()->AddArray(Ranks);  
   //
+  Weights->SetNumberOfTuples(test.generateN);
+  Weights->SetNumberOfComponents(1);
+  Weights->SetName("Weights");
+  Sprites->GetPointData()->AddArray(Weights);
+  //
   //--------------------------------------------------------------
   // Create default scalar arrays
   //--------------------------------------------------------------
@@ -118,9 +124,10 @@ int main (int argc, char* argv[])
   
   known_seed();
   float rscale = radius*(1.5+test.myRank)/(test.numProcs+0.5);
-  scalar_t* weights = new scalar_t[test.generateN];
 //  SpherePoints(test.generateN, radius*(1.5+test.myRank)/(test.numProcs+0.5), vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0));
-  CubePoints(test.generateN, rscale, vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0), weights);
+  CubePoints(test.generateN, rscale,
+          vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0),
+          Weights->GetPointer(0));
   for (vtkIdType Id=0; Id<test.generateN; Id++) {
     Ids->SetTuple1(Id, Id + test.myRank*test.generateN);
     Ranks->SetTuple1(Id, test.myRank);
@@ -145,7 +152,7 @@ int main (int argc, char* argv[])
   //--------------------------------------------------------------
   test.CreatePartitioner_Particles();
   test.partitioner->SetInputData(Sprites);
-  test.partitioner->SetWeights(weights);
+  test.partitioner->SetPointWeightsArrayName("Weights");
 //  test.partitioner->SetIdChannelArray("PointIds");
   static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
   partition_elapsed = test.UpdatePartitioner();
