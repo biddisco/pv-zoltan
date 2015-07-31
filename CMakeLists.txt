@@ -215,10 +215,13 @@ TARGET_LINK_LIBRARIES(${PLUGIN_NAME}
     ${ZOLTAN_SDK_LIBRARIES}
     ${TRILINOS_LIBS}
 )
+ 
+#--------------------------------------------------
+# Enable Testing
+#--------------------------------------------------
+include( CTest )
+enable_testing()
 
-#--------------------------------------------------
-# Testing
-#--------------------------------------------------
 IF (BUILD_TESTING)
   SET(PLUGIN_TEST_DIR ${PROJECT_BINARY_DIR}/Testing/Temporary)
   MAKE_DIRECTORY(${PLUGIN_TEST_DIR})
