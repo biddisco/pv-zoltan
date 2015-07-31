@@ -744,6 +744,7 @@ struct vtkZoltan2Helper
             globalId_t *globalIds, const scalar_t *weightarray,
             vtkZoltanV2PartitionFilter *self, vtkPointSet *input)
     {
+//#define ZERO_COPY_DATA
 #ifdef ZERO_COPY_DATA
         // points are {x,y,z} in a single array
         const scalar_t *x = static_cast<const scalar_t *>(datarray->GetVoidPointer(0));
@@ -844,9 +845,10 @@ struct vtkZoltan2Helper
             self->BoxList.push_back(box);
             self->ExtentTranslator->SetBoundsForPiece(i, bounds);
         }
-
+#ifndef ZERO_COPY_DATA
         delete []coords;
-        return problem1;
+#endif
+      return problem1;
     }
 };
 
