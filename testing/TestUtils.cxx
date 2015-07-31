@@ -12,6 +12,8 @@
 #endif
 //
 #include <algorithm>
+#include <random>
+#include <cmath>
 #include <vtksys/SystemTools.hxx>
 //
 #include "vtkXMLPolyDataReader.h"
@@ -86,16 +88,19 @@ void SpherePoints(int n, float radius, float X[]) {
 
 //----------------------------------------------------------------------------
 void CubePoints(int n, float radius, float X[], float W[]) {
-  Random r(12345);
+  // generate uniformly distributed data to evenly fill a cube
+  std::default_random_engine generator(12345);
+  std::uniform_real_distribution<double> uniform_dist(0.0, radius);
+
   double rmin=1E6, rmax=-1E6;
   for(int i=0; i<n; i++ ) {
-    double r1 = r.nextNumber(); // double(rand())/RAND_MAX;
-    double r2 = r.nextNumber(); // double(rand())/RAND_MAX;
-    double r3 = r.nextNumber(); // double(rand())/RAND_MAX;
-    X[3*i+0] = static_cast<float>(radius*r1);
-    X[3*i+1] = static_cast<float>(radius*r2);
-    X[3*i+2] = static_cast<float>(radius*r3);
-    W[i] = r1*r2*r3;
+    double r1 = uniform_dist(generator);
+    double r2 = uniform_dist(generator);
+    double r3 = uniform_dist(generator);
+    X[3*i+0] = static_cast<float>(r1);
+    X[3*i+1] = static_cast<float>(r2);
+    X[3*i+2] = static_cast<float>(r3);
+    W[i] = r1*r2*r3 / (radius*radius*radius);
   }
 }
 //----------------------------------------------------------------------------
@@ -122,7 +127,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.windowSize[0] = test.windowSize[1] = 400; // +8;
 
   // uncomment this to wait for debugger attach
-   DEBUG_WAIT
+//   DEBUG_WAIT
   //
   test.controller->Barrier();
 
@@ -133,7 +138,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   for (int c=1; c<argc; c++ ) {
     vtktest->AddArgument(argv[c]);
   }
-  char *empty = "";
+  char *empty = " ";
 
   //
   // Force the creation of our output window object

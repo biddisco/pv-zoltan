@@ -69,7 +69,7 @@
 int main (int argc, char* argv[])
 {
   int retVal = 1;
-  char *empty = "";
+  char *empty = " ";
   bool ok = true;
 
   //--------------------------------------------------------------
@@ -123,22 +123,15 @@ int main (int argc, char* argv[])
   test.ghostOverlap = radius*0.1; // ghost_region
   
   known_seed();
-  float rscale = radius*(1.5+test.myRank)/(test.numProcs+0.5);
 //  SpherePoints(test.generateN, radius*(1.5+test.myRank)/(test.numProcs+0.5), vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0));
-  CubePoints(test.generateN, rscale,
-          vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0),
-          Weights->GetPointer(0));
+  CubePoints(test.generateN, radius,
+               vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0), Weights->GetPointer(0));
   for (vtkIdType Id=0; Id<test.generateN; Id++) {
     Ids->SetTuple1(Id, Id + test.myRank*test.generateN);
     Ranks->SetTuple1(Id, test.myRank);
     verts->InsertNextCell(1,&Id);
   }
-//  Print Points
-//  double x[3];
-//  for (int i=0; i<test.generateN; i++) {
-//    points->GetPoint(i, x);
-//    cout<<"i:"<<i<<" ("<<x[0]<<", "<<x[1]<<", "<<x[2]<<") \n";
-//  }
+
 /*
   // Randomly give some processes zero points to improve test coverage
   random_seed();
@@ -156,7 +149,7 @@ int main (int argc, char* argv[])
 //  test.partitioner->SetIdChannelArray("PointIds");
   static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
   partition_elapsed = test.UpdatePartitioner();
-  cout<<"Generated "<<test.generateN<<" points of scale "<<rscale<<"by >>> "<<test.myRank<<endl;
+  cout<<"Generated "<<test.generateN<<" points of scale "<<radius<<"by >>> "<<test.myRank<<endl;
 
   //--------------------------------------------------------------
   // Add process Id's
@@ -260,9 +253,9 @@ int main (int argc, char* argv[])
         ren->AddActor(bactor);
       }
       
-      ren->GetActiveCamera()->SetPosition(0,4*radius,0);
+      ren->GetActiveCamera()->SetPosition(0,0, 4*radius);
       ren->GetActiveCamera()->SetFocalPoint(0,0,0);
-      ren->GetActiveCamera()->SetViewUp(0,0,-1);
+      ren->GetActiveCamera()->SetViewUp(0,1, 0);
       ren->ResetCamera();
       testDebugMacro( "Process Id : " << test.myRank << " About to Render" );
       renWindow->Render();
