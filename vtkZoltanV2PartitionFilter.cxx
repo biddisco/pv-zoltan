@@ -1025,7 +1025,7 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
     
     // get the array that is used for coordinates, it might be float or double
     vtkPoints    *myInPoints = input->GetPoints();
-    vtkDataArray *coordArray = myInPoints->GetData();
+    vtkDataArray *coordArray = (myInPoints!=nullptr)?myInPoints->GetData():nullptr;
 
     // get the array that is used for weights, check it the same as coords because
     // @TODO, zoltan only allows one template param for coords and weights
@@ -1034,7 +1034,7 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
             input->GetPointData()->GetArray(this->PointWeightsArrayName) : NULL;
     void *weights_data_ptr = NULL;
     //
-    if (weightsArray && (coordArray->GetDataType() != weightsArray->GetDataType())) {
+    if (weightsArray && coordArray && (coordArray->GetDataType() != weightsArray->GetDataType())) {
         vtkWarningMacro(<<"Weights datatype must be the same as coordinate type");
         weightsArray = NULL;
     }
@@ -1049,14 +1049,14 @@ int vtkZoltanV2PartitionFilter::PartitionPoints(vtkInformation*,
   int rank = this->UpdatePiece;
   int nprocs = this->UpdateNumPieces;
 
-  int localCount = coordArray->GetNumberOfTuples();
+  int localCount = (coordArray)?coordArray->GetNumberOfTuples():0;
   // global Ids should be optional, fix this when they are
   globalId_t *globalIds = new globalId_t [localCount];
   globalId_t offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
   for (size_t i=0; i < localCount; i++)
     globalIds[i] = offset++;
 
-    switch(coordArray->GetDataType())
+    switch(/*coordArray->GetDataType()*/ VTK_FLOAT)
     {
       vtkZoltanTemplateMacro(
               vtkZoltan2Helper<VTK_TT>::SolveZoltan2Partition(
