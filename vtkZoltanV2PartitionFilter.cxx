@@ -790,11 +790,8 @@ struct vtkZoltan2Helper
                     weightVec, weightStrides);
             problem1    = new Zoltan2::PartitioningProblem<inputAdapter_t>(InputAdapter, &self->ZoltanParams);
         }
-
-        std::cout<<"Problem created."<<std::endl;
         // Solve the problem
         problem1->solve();
-        std::cout<<"Problem solution."<<std::endl;
 
         const Zoltan2::PartitioningSolution<inputAdapter_t> &solution1 = problem1->getSolution();
 

@@ -264,7 +264,6 @@ double TestStruct::UpdatePartitioner()
   testDebugMacro( "Partition Update coming " << this->myRank << " of " << this->numProcs );
   partition_sddp->Update();
   testDebugMacro( "Partition Updated " << this->myRank << " of " << this->numProcs );
-        cout<<"Here "<<1<<"by >>> "<<this->myRank<<endl;
   this->controller->Barrier();
   partitiontimer->StopTimer();
   double partition_elapsed = partitiontimer->GetElapsedTime();

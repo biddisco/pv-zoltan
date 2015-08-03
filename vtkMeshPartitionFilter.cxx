@@ -301,8 +301,8 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   // before we do a manual migration.
   //*****************************************************************
   vtkDebugMacro(<<"Freeing Zoltan LB arrays");
-  Zoltan_LB_Free_Part(&this->LoadBalanceData.importGlobalGids, &this->LoadBalanceData.importLocalGids, &this->LoadBalanceData.importProcs, &this->LoadBalanceData.importToPart);
-  Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
+//  Zoltan_LB_Free_Part(&this->LoadBalanceData.importGlobalGids, &this->LoadBalanceData.importLocalGids, &this->LoadBalanceData.importProcs, &this->LoadBalanceData.importToPart);
+//  Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
 
   //
   // Based on the original partition and our extra cell point allocations
@@ -335,8 +335,8 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   //
   // build a tree of bounding boxes to use for rendering info/hints or other spatial tests
   //
-  this->CreatePkdTree();
-  this->ExtentTranslator->SetKdTree(this->GetKdtree());
+//  this->CreatePkdTree();
+//  this->ExtentTranslator->SetKdTree(this->GetKdtree());
 
   //*****************************************************************
   // Free the storage allocated for the Zoltan structure.
