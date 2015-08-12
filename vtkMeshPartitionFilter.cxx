@@ -509,7 +509,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 
   cell_level_info.resize(numCells);
   cell_status.resize(numCells);
-  int LEVEL_MAX = 1;
+  int LEVEL_MAX = 2;
   if (LEVEL_MAX>0){
     point_to_cell_map.resize(numPts);
     cell_to_point_map.resize(numCells);
@@ -627,14 +627,13 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   }
 
 
-  std::vector<vtkIdType> next_level_cells;
   if (LEVEL_MAX>0){
     my_debug("Ghost Cells: "<<level_to_cell_map[GHOST_LEVEL].size()<<"\t Local: "<<level_to_cell_map[LOCAL_LEVEL].size()<<"\t Remote: "<<level_to_cell_map[REMOTE_LEVEL].size());
     // Next Level Ghost Cells : Points to be kept
     // Start from the ghost level and move towards remote level
     for (int level = GHOST_LEVEL; level < REMOTE_LEVEL-1; ++level)
     {
-			next_level_cells.resize(0);	
+      std::vector<vtkIdType> next_level_cells;
       // For all cell at this level
       for (int cell_id = 0; cell_id < level_to_cell_map[level].size(); ++cell_id)
       {
@@ -680,11 +679,12 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     }
 
     
-		next_level_cells.resize(0);
+		
     // Previous Level Ghost Cells : Points to be sent
     // Start from the ghost level and move towards local level
     for (int level = GHOST_LEVEL; level > LOCAL_LEVEL+1; --level)
     {
+      std::vector<process_tuple> next_level_cells;
       // For all cell at this level
       for (int cell_id = 0; cell_id < level_to_cell_map[level].size(); ++cell_id)
       {
@@ -695,7 +695,11 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         // Find the neighbouring cell for each point and collect them in next_level_cells
         for (j = 0; j < npts_; ++j)
         {
-          std::vector<vtkIdType> new_cells(point_to_cell_map[pts_[j]]);
+          std::vector<process_tuple> new_cells;
+          new_cells.resize(point_to_cell_map[pts_[j]].size());
+          for (int k=0; k<point_to_cell_map[pts_[j]].size(); k++) {
+            new_cells.push_back(process_tuple(point_to_cell_map[pts_[j]][k], localId_to_process_map[pts_[j]]));
+          }
           next_level_cells.insert(next_level_cells.end(), new_cells.begin(), new_cells.end());  
         }
       }
@@ -707,7 +711,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
       // For each neighboring cell
       for (j = 0; j <  next_level_cells.size(); ++j)
       {
-        vtkIdType neighborCellId = next_level_cells[j];
+        vtkIdType neighborCellId = next_level_cells[j].first;
+        vtkIdType destProcess = next_level_cells[j].second;
 
         // If it is a local cell 
         if (cell_level_info[neighborCellId]==LOCAL_LEVEL)
@@ -725,17 +730,16 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
           // Currently sending to only one process but we should sent it to all the remote process that its points belong
           // Not sure what would be best here? Earlier cell was sent to the remote of first point
           // Quick fix: Iterate over all points
-          if (npts_ >0){
-            vtkIdType destProcess = localId_to_process_map[pts_[0]];
+          if (destProcess!=this->UpdatePiece){
 
             // send the cell
-  //          cell_partitioninfo.Procs.push_back(destProcess); 
-  //          cell_partitioninfo.GlobalIds.push_back(neighborCellId + this->ZoltanCallbackData.ProcessOffsetsCellId[this->UpdatePiece]);
+            cell_partitioninfo.Procs.push_back(destProcess); 
+            cell_partitioninfo.GlobalIds.push_back(neighborCellId + this->ZoltanCallbackData.ProcessOffsetsCellId[this->UpdatePiece]);
 
             // send all the points
             for (int i = 0; i < npts_; ++i)
             {  
-//              process_vector.push_back( process_tuple(pts_[i], destProcess) );
+              process_vector.push_back( process_tuple(pts_[i], destProcess) );
             }
           }
         }
@@ -780,6 +784,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     point_partitioninfo.GlobalIds.push_back(x->first + this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece]);
     point_partitioninfo.Procs.push_back(x->second);
   }
+  
+  my_debug("Ghost points generated");
 
   vtkDebugMacro(<<"BuildCellToProcessList "  << 
     " numImport : " << this->LoadBalanceData.numImport <<
