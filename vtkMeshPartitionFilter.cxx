@@ -52,6 +52,9 @@
 #include <float.h>
 #include <numeric>
 #include <algorithm>
+
+#define my_debug(a) std::cout<< a <<" >>> "<<this->UpdatePiece<<std::endl
+
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkMeshPartitionFilter);
 //----------------------------------------------------------------------------
@@ -326,12 +329,11 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
 
   // after deleting memory, add a barrier to let ranks free as much as possible before the next big allocation
   this->Controller->Barrier();
-
   //
   // Distribute cells based on the usage of the points already distributed
   //
   this->PartitionCells(cell_partitioninfo);
-
+  
   //
   // build a tree of bounding boxes to use for rendering info/hints or other spatial tests
   //
@@ -365,7 +367,6 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
   int          *found_procs      = NULL;
   int          *found_to_part    = NULL;
   //
-
   vtkDebugMacro(<<"About to invert lists (cell migration)");
   int zoltan_error = Zoltan_Invert_Lists(this->ZoltanData, 
     (int)num_known,
@@ -385,6 +386,7 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
     Zoltan_Destroy(&this->ZoltanData);
     exit(0);
   }
+
 
   //
   //  make sure field arrays are setup and ready for migration/copying
@@ -437,10 +439,10 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
   cell_partitioninfo.Procs.clear();
   cell_partitioninfo.LocalIdsToKeep.clear();
 
+
   return 1;
 }
 
-#define my_debug(a) std::cout<< a <<" >>> "<<this->UpdatePiece<<std::endl
 //----------------------------------------------------------------------------
 // 
 // Build a list of cell to process Ids based on the already performed 
@@ -666,12 +668,12 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
           level_to_cell_map[cell_level_info[neighborCellId]].push_back(neighborCellId);
 
           // I want to keep those points too          
-          std::vector<vtkIdType> pts_(cell_to_point_map[cellId]);
+          std::vector<vtkIdType> pts_(cell_to_point_map[neighborCellId]);
           int npts_ = pts_.size();
 
           for (int i = 0; i < npts_; ++i)
           {
-            point_partitioninfo.LocalIdsToKeep.push_back(pts[i]);
+            point_partitioninfo.LocalIdsToKeep.push_back(pts_[i]);
           }
         }    
       }
@@ -717,22 +719,24 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
           level_to_cell_map[cell_level_info[neighborCellId]].push_back(neighborCellId);
 
           // Now we need to send this cell and its point to remote processes          
-          std::vector<vtkIdType> pts_(cell_to_point_map[cellId]);
+          std::vector<vtkIdType> pts_(cell_to_point_map[neighborCellId]);
           int npts_ = pts_.size();
           
           // Currently sending to only one process but we should sent it to all the remote process that its points belong
           // Not sure what would be best here? Earlier cell was sent to the remote of first point
           // Quick fix: Iterate over all points
-          vtkIdType destProcess = localId_to_process_map[pts[0]];
+          if (npts_ >0){
+            vtkIdType destProcess = localId_to_process_map[pts_[0]];
 
-          // send the cell
-          cell_partitioninfo.Procs.push_back(destProcess); 
-          cell_partitioninfo.GlobalIds.push_back(neighborCellId + this->ZoltanCallbackData.ProcessOffsetsCellId[this->UpdatePiece]);
+            // send the cell
+  //          cell_partitioninfo.Procs.push_back(destProcess); 
+  //          cell_partitioninfo.GlobalIds.push_back(neighborCellId + this->ZoltanCallbackData.ProcessOffsetsCellId[this->UpdatePiece]);
 
-          // send all the points
-          for (int i = 0; i < npts_; ++i)
-          {  
-            process_vector.push_back( process_tuple(pts[i], destProcess) );
+            // send all the points
+            for (int i = 0; i < npts_; ++i)
+            {  
+//              process_vector.push_back( process_tuple(pts_[i], destProcess) );
+            }
           }
         }
       }
