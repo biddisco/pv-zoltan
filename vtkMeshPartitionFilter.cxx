@@ -632,6 +632,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     // Start from the ghost level and move towards remote level
     for (int level = GHOST_LEVEL; level < REMOTE_LEVEL-1; ++level)
     {
+			next_level_cells.resize(0);	
       // For all cell at this level
       for (int cell_id = 0; cell_id < level_to_cell_map[level].size(); ++cell_id)
       {
@@ -640,7 +641,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         int npts_ = pts_.size();
 
         // Find the neighbouring cell for each point and collect them in next_level_cells
-        next_level_cells.resize(0);
         for (j = 0; j < npts_; ++j)
         {
           std::vector<vtkIdType> new_cells(point_to_cell_map[pts_[j]]);
@@ -677,6 +677,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
       }
     }
 
+    
+		next_level_cells.resize(0);
     // Previous Level Ghost Cells : Points to be sent
     // Start from the ghost level and move towards local level
     for (int level = GHOST_LEVEL; level > LOCAL_LEVEL+1; --level)
@@ -689,7 +691,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         int npts_ = pts_.size();
 
         // Find the neighbouring cell for each point and collect them in next_level_cells
-        next_level_cells.resize(0);
         for (j = 0; j < npts_; ++j)
         {
           std::vector<vtkIdType> new_cells(point_to_cell_map[pts_[j]]);
