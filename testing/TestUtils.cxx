@@ -17,6 +17,7 @@
 #include <vtksys/SystemTools.hxx>
 //
 #include "vtkXMLPolyDataReader.h"
+#include "vtkXMLPPolyDataReader.h"
 //
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -126,8 +127,10 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.cameraViewUp[2] = 1.0;
   test.windowSize[0] = test.windowSize[1] = 400; // +8;
 
+  test.scalarmode = 0;
+
   // uncomment this to wait for debugger attach
-//   DEBUG_WAIT
+   DEBUG_WAIT
   //
   test.controller->Barrier();
 
@@ -191,6 +194,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   // Test/Display of results
   //
   test.scalarname = GetParameter<std::string>("-scalar", "Testing Scalar Array", argc, argv, "", test.myRank, unused);
+  test.scalarmode = GetParameter<bool>("-scalarmode", "Point(0) or Cell(1) data", argc, argv, "", test.myRank, unused);
   test.contourVal = GetParameter<double>("-contour", "Contour Value", argc, argv, 0.0, test.myRank, unused);
   test.imageResample = GetParameter<bool>("-imageResample", "imageResample", argc, argv, 0, test.myRank, unused);
   test.skipImageTest = GetParameter<bool>("-skipImageTest", "skipImageTest", argc, argv, 0, test.myRank, unused);
@@ -226,7 +230,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
 //----------------------------------------------------------------------------
 void TestStruct::CreateXMLPolyDataReader()
 {
-  this->xmlreader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
+  this->xmlreader = vtkSmartPointer<vtkXMLPPolyDataReader>::New();
   this->xmlreader->SetFileName(this->fullName.c_str());
 }
 //----------------------------------------------------------------------------

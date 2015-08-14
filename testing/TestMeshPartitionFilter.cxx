@@ -30,6 +30,7 @@
 #include "vtkPolyDataMapper.h"
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
+#include "vtkInteractorStyleSwitch.h"
 #include "vtkRenderer.h"
 #include "vtkWindowToImageFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
@@ -46,6 +47,7 @@
 #include "vtkOutlineSource.h"
 #include "vtkProcessIdScalars.h"
 #include "vtkXMLPolyDataReader.h"
+#include "vtkXMLPPolyDataReader.h"
 //
 #include <vtksys/SystemTools.hxx>
 #include <sstream>
@@ -143,7 +145,10 @@ int main (int argc, char* argv[])
       vtkSmartPointer<vtkRenderer>                ren = vtkSmartPointer<vtkRenderer>::New();
       vtkSmartPointer<vtkRenderWindow>      renWindow = vtkSmartPointer<vtkRenderWindow>::New();
       vtkSmartPointer<vtkRenderWindowInteractor> iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
+      vtkSmartPointer<vtkInteractorStyleSwitch> style = vtkSmartPointer<vtkInteractorStyleSwitch>::New();
       iren->SetRenderWindow(renWindow);
+      iren->SetInteractorStyle(style);
+      style->SetCurrentStyleToTrackballCamera();
       ren->SetBackground(0.1, 0.1, 0.1);
       renWindow->SetSize(test.windowSize);
       renWindow->AddRenderer(ren);
@@ -162,11 +167,19 @@ int main (int argc, char* argv[])
         mapper->SetInputData(pd);
         mapper->SetImmediateModeRendering(1);
         mapper->SetColorModeToMapScalars();
-        mapper->SetScalarModeToUsePointFieldData();
-        mapper->SetUseLookupTableScalarRange(0);
-        mapper->SetScalarRange(0,test.numProcs-1);
-        mapper->SetInterpolateScalarsBeforeMapping(0);
-        mapper->SelectColorArray("ProcessId");
+        if (test.scalarmode==0) {
+            mapper->SetScalarModeToUsePointFieldData();
+            mapper->SetUseLookupTableScalarRange(0);
+            mapper->SetScalarRange(0,test.numProcs-1);
+            mapper->SetInterpolateScalarsBeforeMapping(0);
+        }
+        else {
+            mapper->SetScalarModeToUseCellFieldData();
+            mapper->SetUseLookupTableScalarRange(0);
+            mapper->SetInterpolateScalarsBeforeMapping(0);
+            mapper->SetScalarRange(0,6);
+        }
+        mapper->SelectColorArray(test.scalarname.c_str());
         actor->SetMapper(mapper);
         actor->GetProperty()->SetPointSize(2);
         ren->AddActor(actor);
@@ -201,6 +214,7 @@ int main (int argc, char* argv[])
       renWindow->Render();
 
       retVal = vtkRegressionTester::Test(argc, argv, renWindow, 10);
+
       if ( retVal == vtkRegressionTester::DO_INTERACTOR) {
         iren->Start();
       }
@@ -210,7 +224,7 @@ int main (int argc, char* argv[])
   }
 
   if (ok && test.myRank==0) {
-    DisplayParameter<vtkIdType>("Total Particles", "", &totalParticles, 1, test.myRank);
+//    DisplayParameter<vtkIdType>("Total Particles", "", &totalParticles, 1, test.myRank);
     DisplayParameter<double>("Read Time", "", &read_elapsed, 1, test.myRank);
     DisplayParameter<double>("Partition Time", "", &partition_elapsed, 1, test.myRank);
     DisplayParameter<char *>("====================", "", &empty, 1, test.myRank);
@@ -220,6 +234,8 @@ int main (int argc, char* argv[])
 
   processId->SetInputConnection(NULL);
   processId = NULL;
+  //
+  test.controller->Barrier();
   //
   test.DeleteXMLPolyDataReader();
   test.DeletePartitioner();
