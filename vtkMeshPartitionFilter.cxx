@@ -247,6 +247,8 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
 //----------------------------------------------------------------------------
 vtkMeshPartitionFilter::vtkMeshPartitionFilter()
 {
+  this->NumberOfGhostLevels = 2;
+  this->ghost_array = NULL;
 }
 //----------------------------------------------------------------------------
 vtkMeshPartitionFilter::~vtkMeshPartitionFilter()
@@ -387,7 +389,6 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
     exit(0);
   }
 
-
   //
   //  make sure field arrays are setup and ready for migration/copying
   //
@@ -439,7 +440,6 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
   cell_partitioninfo.Procs.clear();
   cell_partitioninfo.LocalIdsToKeep.clear();
 
-
   return 1;
 }
 
@@ -465,6 +465,17 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   // we will put the results of the cell tests in these arrays
   cell_partitioninfo.Procs.reserve(numCells/this->UpdateNumPieces);
   cell_partitioninfo.GlobalIds.reserve(numCells/this->UpdateNumPieces);
+
+  // if we are generating ghost cells for the mesh, then we must allocate a new array
+  // on the outut to store the ghost cell information (level 0,1,2...N ) etc
+  if (this->NumberOfGhostLevels>0) {
+      my_debug("Created a ghost array with "<<numCells);
+      this->ghost_array = vtkIntArray::New();
+      this->ghost_array->SetName("GhostLevel");
+      this->ghost_array->SetNumberOfTuples(numCells);
+      this->ZoltanCallbackData.Output->GetCellData()->AddArray(this->ghost_array);
+  }
+
 
   // we know that some points on this process will be exported to remote processes
   // so build a point to process map to quickly lookup the process Id from the point Id
@@ -547,7 +558,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 
     // Cell status: Classification
     //
-    // we need to examine all points of the cell and classify it : there are several possibile actions
+    // we need to examine all points of the cell and classify it : there are several possible actions
     //
     // 1) all points are local                     : keep cell
     // 2) some points are local, some remote       : keep cell, make sure any points marked for sending are kept locally too
@@ -590,6 +601,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
       else {
         throw std::string("This should not be possible");
       }
+      this->ghost_array->SetTuple1(cellId, cell_level_info[cellId]);
     }
 
     // Put level wise points in our map
