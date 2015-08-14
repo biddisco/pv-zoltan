@@ -1,0 +1,23 @@
+<VTKFile type="PPolyData" version="1.0" byte_order="LittleEndian" header_type="UInt64">
+  <PPolyData GhostLevel="0">
+    <PPointData Normals="Normal">
+      <PDataArray type="Int32" Name="Neuron Gid"/>
+      <PDataArray type="Int32" Name="Neuron Index"/>
+      <PDataArray type="Int32" Name="Section Id"/>
+      <PDataArray type="Float32" Name="Normal" NumberOfComponents="3"/>
+      <PDataArray type="Float32" Name="RTNeuron Opacity"/>
+      <PDataArray type="Float32" Name="Voltage"/>
+      <PDataArray type="Int64" Name="vtkOriginalPointIds"/>
+    </PPointData>
+    <PCellData>
+      <PDataArray type="Int64" Name="vtkOriginalCellIds"/>
+    </PCellData>
+    <PPoints>
+      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>
+    </PPoints>
+    <Piece Source="neurons-test-4-partitions_0.vtp"/>
+    <Piece Source="neurons-test-4-partitions_1.vtp"/>
+    <Piece Source="neurons-test-4-partitions_2.vtp"/>
+    <Piece Source="neurons-test-4-partitions_3.vtp"/>
+  </PPolyData>
+</VTKFile>
