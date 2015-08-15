@@ -233,6 +233,7 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
       int                        *ProcsPtr;
       // Points which are to be copied locally
       std::vector<vtkIdType>      LocalIdsToKeep;
+      std::vector<vtkIdType>      LocalIdsToSend;
       //
       PartitionInfo() : nIDs(0), GlobalIdsPtr(0), ProcsPtr(0) {}
     } PartitionInfo;

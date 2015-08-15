@@ -59,6 +59,7 @@ vtkStandardNewMacro(vtkParticlePartitionFilter);
 vtkParticlePartitionFilter::vtkParticlePartitionFilter()
 {
   this->GhostCellOverlap = 0.0;
+  this->GhostLevels      = 0;
   this->GridSpacing      = 0.0;
   this->GridOrigin[0]    = this->GridOrigin[1] = this->GridOrigin[2] = 0.0;
 }
@@ -130,11 +131,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
 
   // we want to reserve some extra space for the ghost particles when they are sent in
   this->MigrateLists.num_reserved = ghost_info.num_found;
-//    if (this->UpdatePiece==0) {
-//        for (int i=0; i<this->MigrateLists.known.nIDs; i++) {
-//            cout<<"##\t\t"<<i<<"\t"<<this->MigrateLists.known.GlobalIdsPtr[i]<<"\t"<<this->MigrateLists.known.ProcsPtr[i]<<endl;
-//        }
-//    }
+  
   //
   // Based on the original load balance step perform the point exchange for core particles
   // pass in ghost info so that space can be allocated for the final 
@@ -156,8 +153,19 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   for (; i<(N-ghost_info.num_found); i++) {
     ghost[i] = 0;
   }
+  
+//  for (i=0; i<ghost_info.known.GlobalIds.size(); i++) {
+//    ghost[ghost_info.known.GlobalIds[i] - this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank]] = 1;
+//  }
+  
   // some local points were kept as they were inside the local ghost region, we need to mark them
   for (std::vector<vtkIdType>::iterator it = this->MigrateLists.known.LocalIdsToKeep.begin(); it!=this->MigrateLists.known.LocalIdsToKeep.end(); ++it) {
+    vtkIdType Id = this->ZoltanCallbackData.LocalToLocalIdMap[*it];
+    ghost[Id] = 1;
+  }
+  
+  // some local points were kept as they were inside the local ghost region, we need to mark them
+  for (std::vector<vtkIdType>::iterator it = this->MigrateLists.known.LocalIdsToSend.begin(); it!=this->MigrateLists.known.LocalIdsToSend.end(); ++it) {
     vtkIdType Id = this->ZoltanCallbackData.LocalToLocalIdMap[*it];
     ghost[Id] = 1;
   }
@@ -243,8 +251,7 @@ void vtkParticlePartitionFilter::AddHaloToBoundingBoxes()
     // @todo : extend this to handle AMR ghost regions etc.
     std::vector<double> ghostOverlaps(this->UpdateNumPieces,this->GhostCellOverlap);
     for (int p=0; p<this->UpdateNumPieces; p++) {
-      vtkBoundingBox box = this->BoxList[p];  
-      box.Inflate(ghostOverlaps[p]);
+      vtkBoundingBox box = this->BoxList[p];      box.Inflate(ghostOverlaps[p]*(this->GhostLevels+1));
       this->BoxListWithHalo.push_back(box);
       this->ExtentTranslator->SetBoundsHaloForPiece(p, box);
     }
@@ -290,7 +297,6 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
     //
     if (localPointsbox.Intersects(b)) {      
       for (vtkIdType i=0; i<N; i++) {
-        bool marked = false;
         vtkIdType gID = i + this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
         // if this ID is already marked as exported to the process then we don't need to send it again
         // But, if it's marked for export and we need a local copy, we must add it to our keep list
@@ -308,22 +314,25 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
             else {
               // this point has already been flagged for export but we need it as a ghost locally
               point_partitioninfo.LocalIdsToKeep.push_back(i);
-              ghost_flag[i] = 1;
+//              ghost_flag[i] = 1;
             }
           }
           // the bounding box is a remote one
           else {
             if (localId_to_process_map[i]==proc) {
               // this point is already marked for export to the process so it is not a ghost cell
-              ghost_flag[i] = 0; 
+//              ghost_flag[i] = 0;
+              point_partitioninfo.LocalIdsToSend.push_back(i);
             }
             else {
               // this point is due to be exported to one process as a non ghost 
               // but another copy must be sent to a different process as a ghost
               ghost_info.GlobalIds.push_back(gID);
               ghost_info.Procs.push_back(proc);
-              ghost_flag[i] = 1; 
-              GhostProcessMap[proc][i] = 1;
+//              point_partitioninfo.LocalIdsToSend.push_back(i);
+//              ghost_flag[i] = 1;
+//              GhostProcessMap[proc][i] = 1;
+
             }
             pc++;
           }

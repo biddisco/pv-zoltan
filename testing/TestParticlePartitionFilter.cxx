@@ -114,7 +114,8 @@ int main (int argc, char* argv[])
   //--------------------------------------------------------------
   double radius  = 500.0;
   const double a = 0.9;
-  test.ghostOverlap = radius*0.1; // ghost_region
+  test.ghostOverlap = radius*0.3; // ghost_region
+  test.ghostLevels = 0;
   
   known_seed();
   SpherePoints(test.generateN, radius*(1.5+test.myRank)/(test.numProcs+0.5), vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0));
@@ -138,6 +139,7 @@ int main (int argc, char* argv[])
   test.partitioner->SetInputData(Sprites);
 //  test.partitioner->SetIdChannelArray("PointIds");
   static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
+  static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostLevels(test.ghostLevels);
   partition_elapsed = test.UpdatePartitioner();
 
   //--------------------------------------------------------------

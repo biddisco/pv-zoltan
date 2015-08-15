@@ -127,7 +127,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.windowSize[0] = test.windowSize[1] = 400; // +8;
 
   // uncomment this to wait for debugger attach
-   DEBUG_WAIT
+//   DEBUG_WAIT
   //
   test.controller->Barrier();
 
