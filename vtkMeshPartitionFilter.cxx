@@ -634,23 +634,58 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     for (int level = GHOST_LEVEL; level < REMOTE_LEVEL-1; ++level)
     {
       std::vector<vtkIdType> next_level_cells;
+//#define USE_VTK_ALGO_FOR_NEIGHBORS
+#ifdef  USE_VTK_ALGO_FOR_NEIGHBORS
+      
+      this->Timer->StartTimer();
+      for (int cell_id;  cell_id < level_to_cell_map[level].size(); ++cell_id) {
+        // Cell ID
+        cellId = level_to_cell_map[level][cell_id];
+        
+        // Get points belonging to this cell
+        vtkSmartPointer<vtkIdList> cellPointIds = vtkSmartPointer<vtkIdList>::New();
+        if (pdata) { pdata->GetCellPoints(cellId, cellPointIds); }
+        else if (udata) { udata->GetCellPoints(cellId, cellPointIds); }
+        
+        
+        //get the neighbors of the cell
+        vtkSmartPointer<vtkIdList> neighborCellIds = vtkSmartPointer<vtkIdList>::New();
+        if (pdata) { pdata->GetCellNeighbors(cellId, cellPointIds, neighborCellIds); }
+        else if (udata){ udata->GetCellNeighbors(cellId, cellPointIds, neighborCellIds); }
+        else{ my_debug("This shouldn't happen."); }
+        
+        for (int j =0;  j < neighborCellIds->GetNumberOfIds(); j++) {
+          next_level_cells.push_back(neighborCellIds->GetId(j));
+        }
+      }
+      this->Timer->StopTimer();
+      std::cout<<"Algo: vtk\t";
+#else
+      this->Timer->StartTimer();
+      next_level_cells.resize(0);
       // For all cell at this level
       for (int cell_id = 0; cell_id < level_to_cell_map[level].size(); ++cell_id)
       {
         cellId = level_to_cell_map[level][cell_id];
-        std::vector<vtkIdType> pts_(cell_to_point_map[cellId]);
-        int npts_ = pts_.size();
+        int npts_ = cell_to_point_map[cellId].size();
 
         // Find the neighbouring cell for each point and collect them in next_level_cells
         for (j = 0; j < npts_; ++j)
         {
-          std::vector<vtkIdType> new_cells(point_to_cell_map[pts_[j]]);
-          next_level_cells.insert(next_level_cells.end(), new_cells.begin(), new_cells.end());  
+          vtkIdType pt = cell_to_point_map[cellId][j];
+          next_level_cells.insert(next_level_cells.end(), point_to_cell_map[pt].begin(), point_to_cell_map[pt].end());
         }
       }
+      this->Timer->StopTimer();
+      std::cout<<"Algo: brute force\t";
+      
+#endif
+      
       // Find unique next level cell
       std::sort(next_level_cells.begin(), next_level_cells.end());
       next_level_cells.erase(std::unique(next_level_cells.begin(), next_level_cells.end()), next_level_cells.end() );
+
+      my_debug("Finding Neighbor Time: "<<this->Timer->GetElapsedTime()<<"\t Neighbors:"<<next_level_cells.size());
 
       // For each neighboring cell
       for (j = 0; j <  next_level_cells.size(); ++j)
