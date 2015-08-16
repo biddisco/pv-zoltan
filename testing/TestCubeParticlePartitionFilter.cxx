@@ -121,6 +121,7 @@ int main (int argc, char* argv[])
   double radius  = 500.0;
   const double a = 0.9;
   test.ghostOverlap = radius*0.1; // ghost_region
+  test.ghostLevels = 3;
   
   known_seed();
 //  SpherePoints(test.generateN, radius*(1.5+test.myRank)/(test.numProcs+0.5), vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0));
@@ -148,6 +149,7 @@ int main (int argc, char* argv[])
   test.partitioner->SetPointWeightsArrayName("Weights");
 //  test.partitioner->SetIdChannelArray("PointIds");
   static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
+  static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostLevels(test.ghostLevels);
   partition_elapsed = test.UpdatePartitioner();
   cout<<"Generated "<<test.generateN<<" points of scale "<<radius<<"by >>> "<<test.myRank<<endl;
 
@@ -229,7 +231,7 @@ int main (int argc, char* argv[])
         mapper2->SetColorModeToMapScalars();
         mapper2->SetScalarModeToUsePointFieldData();
         mapper2->SetUseLookupTableScalarRange(0);
-        mapper2->SetScalarRange(0,1);
+        mapper2->SetScalarRange(0,test.ghostLevels);
         mapper2->SetInterpolateScalarsBeforeMapping(0);
         mapper2->SelectColorArray("vtkGhostLevels");
         actor2->SetMapper(mapper2);

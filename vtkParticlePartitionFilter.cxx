@@ -154,6 +154,10 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
     ghost[i] = 0;
   }
   
+  for (; i<N; i++) {
+    ghost[i] = 1;
+  }
+  
 //  for (i=0; i<ghost_info.known.GlobalIds.size(); i++) {
 //    ghost[ghost_info.known.GlobalIds[i] - this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank]] = 1;
 //  }
@@ -161,18 +165,14 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // some local points were kept as they were inside the local ghost region, we need to mark them
   for (std::vector<vtkIdType>::iterator it = this->MigrateLists.known.LocalIdsToKeep.begin(); it!=this->MigrateLists.known.LocalIdsToKeep.end(); ++it) {
     vtkIdType Id = this->ZoltanCallbackData.LocalToLocalIdMap[*it];
-    ghost[Id] = 1;
+    ghost[Id] = 2;
   }
   
   // some local points were kept as they were inside the local ghost region, we need to mark them
-  for (std::vector<vtkIdType>::iterator it = this->MigrateLists.known.LocalIdsToSend.begin(); it!=this->MigrateLists.known.LocalIdsToSend.end(); ++it) {
-    vtkIdType Id = this->ZoltanCallbackData.LocalToLocalIdMap[*it];
-    ghost[Id] = 1;
-  }
-
-  for (; i<N; i++) {
-    ghost[i] = 1;
-  }
+//  for (std::vector<vtkIdType>::iterator it = this->MigrateLists.known.LocalIdsToSend.begin(); it!=this->MigrateLists.known.LocalIdsToSend.end(); ++it) {
+//    vtkIdType Id = this->ZoltanCallbackData.LocalToLocalIdMap[*it];
+//    ghost[Id] = 1;
+//  }
   
   // now exchange ghost cells too
   this->ZoltanPointMigrate(ghost_info, false);
@@ -322,13 +322,14 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
             if (localId_to_process_map[i]==proc) {
               // this point is already marked for export to the process so it is not a ghost cell
 //              ghost_flag[i] = 0;
-              point_partitioninfo.LocalIdsToSend.push_back(i);
+//              point_partitioninfo.LocalIdsToSend.push_back(i);
             }
             else {
               // this point is due to be exported to one process as a non ghost 
               // but another copy must be sent to a different process as a ghost
               ghost_info.GlobalIds.push_back(gID);
               ghost_info.Procs.push_back(proc);
+//              point_partitioninfo.LocalIdsToKeep.push_back(i);
 //              point_partitioninfo.LocalIdsToSend.push_back(i);
 //              ghost_flag[i] = 1;
 //              GhostProcessMap[proc][i] = 1;
