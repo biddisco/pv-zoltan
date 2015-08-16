@@ -25,6 +25,7 @@
 // only defined if trilinos used
 class vtkZoltanV2PartitionFilter;
 class vtkXMLPolyDataReader;
+class vtkXMLPPolyDataReader;
 //----------------------------------------------------------------------------
 #if 0
   #define OUTPUTTEXT(a) std::cout << (a);
@@ -54,7 +55,7 @@ class TestStruct {
   vtkSmartPointer<vtkMultiProcessController>  controller;
   vtkSmartPointer<vtkZoltanV2PartitionFilter> partitioner;
   vtkSmartPointer<vtkAlgorithm>               sphResampler;
-  vtkSmartPointer<vtkXMLPolyDataReader>       xmlreader;
+  vtkSmartPointer<vtkXMLPPolyDataReader>       xmlreader;
   //
   vtkTypeInt64 myRank;
   vtkTypeInt64 numProcs;
@@ -105,6 +106,7 @@ class TestStruct {
   //
   // Test/Display of results
   //
+  bool        scalarmode; // point=0 or cell=1
   std::string scalarname;
   double      contourVal;
   bool        imageResample;

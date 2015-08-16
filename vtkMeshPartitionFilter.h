@@ -70,6 +70,15 @@ class VTK_EXPORT vtkMeshPartitionFilter : public vtkZoltanV2PartitionFilter
       PartitionInfo &point_partitioninfo, 
       ZoltanLoadBalanceData &loadBalanceData);
 
+    // Description:
+    // Specify the ghost level that will be used to generate ghost cells
+    // a level of 1 produces one layer of touching cells, 2 produces 2 layers etc
+    // Note that this variable will be overridden if the information key
+    // for GHOST_LEVELS is present in the information passed upstream in
+    // the pipeline
+    vtkSetMacro(NumberOfGhostLevels, int);
+    vtkGetMacro(NumberOfGhostLevels, int);
+
   protected:
      vtkMeshPartitionFilter();
     ~vtkMeshPartitionFilter();
@@ -78,6 +87,9 @@ class VTK_EXPORT vtkMeshPartitionFilter : public vtkZoltanV2PartitionFilter
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
                             vtkInformationVector*);
+
+    int NumberOfGhostLevels;
+    vtkIntArray *ghost_array;
 
   private:
     vtkMeshPartitionFilter(const vtkMeshPartitionFilter&);  // Not implemented.
