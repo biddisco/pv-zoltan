@@ -46,6 +46,8 @@
 #include "vtkOutlineSource.h"
 #include "vtkProcessIdScalars.h"
 #include "vtkXMLPolyDataReader.h"
+#include "vtkXMLPPolyDataReader.h"
+
 //
 #include <vtksys/SystemTools.hxx>
 #include <sstream>
