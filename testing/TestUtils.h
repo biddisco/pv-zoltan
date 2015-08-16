@@ -27,7 +27,7 @@ class vtkZoltanV2PartitionFilter;
 class vtkXMLPolyDataReader;
 class vtkXMLPPolyDataReader;
 //----------------------------------------------------------------------------
-#if 0
+#if 1
   #define OUTPUTTEXT(a) std::cout << (a);
   #define testDebugMacro(a)  \
   { \

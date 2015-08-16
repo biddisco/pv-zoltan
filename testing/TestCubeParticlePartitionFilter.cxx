@@ -149,7 +149,7 @@ int main (int argc, char* argv[])
   test.partitioner->SetPointWeightsArrayName("Weights");
 //  test.partitioner->SetIdChannelArray("PointIds");
   static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
-  static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostLevels(test.ghostLevels);
+  static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetNumberOfGhostLevels(test.ghostLevels);
   partition_elapsed = test.UpdatePartitioner();
   cout<<"Generated "<<test.generateN<<" points of scale "<<radius<<"by >>> "<<test.myRank<<endl;
 

@@ -89,6 +89,7 @@ int main (int argc, char* argv[])
 
   test.CreateXMLPolyDataReader();
   test.xmlreader->Update();
+  test.ghostLevels = 0;
 
   //--------------------------------------------------------------
   // Parallel partition
@@ -97,7 +98,8 @@ int main (int argc, char* argv[])
   test.partitioner->SetInputConnection(test.xmlreader->GetOutputPort());
   test.partitioner->SetInputDisposable(1);
   test.partitioner->SetKeepInversePointLists(1);
-//  test.partitioner->SetGhostCellOverlap(test.ghostOverlap);
+  static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetNumberOfGhostLevels(test.ghostLevels);
+//  test.partitioner->SetGhostCellOverlap(test.ghostOverlap); // no delta required in mesh partition
   partition_elapsed = test.UpdatePartitioner();
 
   //--------------------------------------------------------------
@@ -107,7 +109,7 @@ int main (int argc, char* argv[])
   processId->SetInputConnection(test.partitioner->GetOutputPort());
   processId->SetController(test.controller);
   //
-  test.controller->Barrier();
+//  test.controller->Barrier();
   if (test.myRank==0) {
     testDebugMacro( "Process Id : " << test.myRank << " Generated N Points : " << test.generateN );
   }
@@ -126,6 +128,7 @@ int main (int argc, char* argv[])
   // now set piece info and update
   sddp->SetUpdateExtent(0, test.myRank, test.numProcs, 0);
   sddp->Update();
+  testDebugMacro("Update completed . "<<test.myRank);
 
   if (test.doRender) {
     //
@@ -134,7 +137,36 @@ int main (int argc, char* argv[])
     vtkSmartPointer<vtkPolyData> OutputData;
     OutputData.TakeReference(vtkPolyData::SafeDownCast(sddp->GetOutputData(0)->NewInstance()));
     OutputData->ShallowCopy(sddp->GetOutputData(0));
+    
+//    std::stringstream ss;
+//    #define temp_debug(a) \
+//    ss<<a;
+//
+//    for (vtkIdType i=0; i<OutputData->GetNumberOfCells(); i++) {
+//      vtkIdType *pts;
+//      vtkIdType npts;
+//      OutputData->GetCellPoints(i, npts, pts);
+//      temp_debug("cell: "<<i);
+//      for (int j = 0; j<npts; j++){
+//        temp_debug(" ,"<<pts[j]);
+//      }
+//      temp_debug(" >>> "<<test.myRank<<std::endl);
+//    }
+//    temp_debug(" >>> "<<test.myRank<<std::endl);
+//    
+//    for (vtkIdType i=0; i<OutputData->GetNumberOfPoints(); i++) {
+//      vtkIdType *pts;
+//      unsigned short npts;
+//      OutputData->GetPointCells(i, npts, pts);
+//      temp_debug("point: "<<i);
+//      for (int j=0; j<npts; j++) {
+//        temp_debug(" ,"<<pts[j]);
+//      }
+//      temp_debug(" >>> "<<test.myRank<<std::endl);
+//    }
+    
     if (test.myRank>0) {
+      testDebugMacro("data sending from "<<test.myRank);
       test.controller->Send(OutputData, 0, DATA_SEND_TAG);
     }
     //
@@ -160,7 +192,9 @@ int main (int argc, char* argv[])
         }
         else {
           pd = vtkSmartPointer<vtkPolyData>::New();
+          testDebugMacro("data receiving at "<<test.myRank);
           test.controller->Receive(pd, i, DATA_SEND_TAG);
+          testDebugMacro("data received at "<<test.myRank<<" from "<< i);
         }
         vtkSmartPointer<vtkPolyDataMapper>       mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
         vtkSmartPointer<vtkActor>                 actor = vtkSmartPointer<vtkActor>::New();

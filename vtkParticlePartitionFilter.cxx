@@ -59,7 +59,7 @@ vtkStandardNewMacro(vtkParticlePartitionFilter);
 vtkParticlePartitionFilter::vtkParticlePartitionFilter()
 {
   this->GhostCellOverlap = 0.0;
-  this->GhostLevels      = 0;
+  this->NumberOfGhostLevels= 0;
   this->GridSpacing      = 0.0;
   this->GridOrigin[0]    = this->GridOrigin[1] = this->GridOrigin[2] = 0.0;
 }
@@ -251,7 +251,7 @@ void vtkParticlePartitionFilter::AddHaloToBoundingBoxes()
     // @todo : extend this to handle AMR ghost regions etc.
     std::vector<double> ghostOverlaps(this->UpdateNumPieces,this->GhostCellOverlap);
     for (int p=0; p<this->UpdateNumPieces; p++) {
-      vtkBoundingBox box = this->BoxList[p];      box.Inflate(ghostOverlaps[p]*(this->GhostLevels+1));
+      vtkBoundingBox box = this->BoxList[p];      box.Inflate(ghostOverlaps[p]*(this->NumberOfGhostLevels+1));
       this->BoxListWithHalo.push_back(box);
       this->ExtentTranslator->SetBoundsHaloForPiece(p, box);
     }

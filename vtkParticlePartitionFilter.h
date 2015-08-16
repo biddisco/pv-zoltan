@@ -55,8 +55,8 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV2PartitionFilter
     // If 0 then only single ghost region to be used
     // If 1 then 1 level of neighbor ghost region to be used
     // If 2 then 1 level of neighbor ghost region to be used and so on..
-    vtkSetMacro(GhostLevels, int);
-    vtkGetMacro(GhostLevels, int);
+    vtkSetMacro(NumberOfGhostLevels, int);
+    vtkGetMacro(NumberOfGhostLevels, int);
   
     // Description:
     // Specify the point spacing on the X/Y/Z axis
@@ -90,7 +90,7 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV2PartitionFilter
     void FindPointsInHaloRegions(vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData, PartitionInfo &ghost_info);
 
     double                      GhostCellOverlap;
-    int                         GhostLevels;
+    int                         NumberOfGhostLevels;
     std::vector<vtkBoundingBox> BoxListWithHalo;
     double                      GridSpacing;
     double                      GridOrigin[3];

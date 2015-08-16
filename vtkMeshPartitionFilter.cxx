@@ -335,7 +335,6 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   // Distribute cells based on the usage of the points already distributed
   //
   this->PartitionCells(cell_partitioninfo);
-  
   //
   // build a tree of bounding boxes to use for rendering info/hints or other spatial tests
   //
@@ -348,7 +347,7 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   if (!this->KeepInversePointLists) {
     Zoltan_Destroy(&this->ZoltanData);
   }
-
+  
   this->Timer->StopTimer();
   vtkDebugMacro(<<"Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds");
   return 1;
@@ -520,7 +519,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 
   cell_level_info.resize(numCells);
   cell_status.resize(numCells);
-  int LEVEL_MAX = 2;
+  int LEVEL_MAX = this->NumberOfGhostLevels;
   if (LEVEL_MAX>0){
     point_to_cell_map.resize(numPts);
     cell_to_point_map.resize(numCells);
@@ -544,6 +543,9 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     // get a pointer to the cell points
     if (pdata) { pdata->GetCellPoints(cellId, npts, pts); }
     else if (udata) { udata->GetCellPoints(cellId, npts, pts); }
+    else{
+      vtkErrorMacro("Data not defined");
+    }
 
     // Create our two lookup tables
     if (LEVEL_MAX>0){
@@ -601,7 +603,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
       else {
         throw std::string("This should not be possible");
       }
-      this->ghost_array->SetTuple1(cellId, cell_level_info[cellId]);
+      if (LEVEL_MAX>0)
+        this->ghost_array->SetTuple1(cellId, cell_level_info[cellId]);
     }
 
     // Put level wise points in our map
