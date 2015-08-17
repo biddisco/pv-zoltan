@@ -1,4 +1,4 @@
-//#define VTK_ZOLTAN2_PARTITION_FILTER
+#define VTK_ZOLTAN2_PARTITION_FILTER
 
 #ifdef VTK_ZOLTAN2_PARTITION_FILTER
   #include "vtkZoltanV2PartitionFilter.h" // superclass
