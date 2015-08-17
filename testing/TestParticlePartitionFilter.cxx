@@ -114,7 +114,7 @@ int main (int argc, char* argv[])
   //--------------------------------------------------------------
   double radius  = 500.0;
   const double a = 0.9;
-  test.ghostOverlap = radius*0.3; // ghost_region
+  test.ghostOverlap = radius*0.1; // ghost_region
   test.ghostLevels = 0;
   
   known_seed();

@@ -23,7 +23,7 @@
 #include "vtkMeshPartitionFilter.h"
 
 // only defined if trilinos used
-class vtkZoltanV2PartitionFilter;
+class VTK_ZOLTAN_PARTITION_FILTER;
 class vtkXMLPolyDataReader;
 class vtkXMLPPolyDataReader;
 //----------------------------------------------------------------------------
@@ -53,7 +53,7 @@ class TestStruct {
  public:
   //
   vtkSmartPointer<vtkMultiProcessController>  controller;
-  vtkSmartPointer<vtkZoltanV2PartitionFilter> partitioner;
+  vtkSmartPointer<VTK_ZOLTAN_PARTITION_FILTER> partitioner;
   vtkSmartPointer<vtkAlgorithm>               sphResampler;
   vtkSmartPointer<vtkXMLPPolyDataReader>       xmlreader;
   //

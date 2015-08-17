@@ -24,7 +24,8 @@
 #ifndef __vtkMeshPartitionFilter_h
 #define __vtkMeshPartitionFilter_h
 
-#include "vtkZoltanV2PartitionFilter.h" // superclass
+#include "vtkZoltanVersion.h"
+
 #include "vtkBoundingBox.h"
 #include "vtkSmartPointer.h"
 //
@@ -39,11 +40,11 @@ class vtkIntArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
-class VTK_EXPORT vtkMeshPartitionFilter : public vtkZoltanV2PartitionFilter
+class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
 {
   public:
     static vtkMeshPartitionFilter *New();
-    vtkTypeMacro(vtkMeshPartitionFilter,vtkZoltanV2PartitionFilter);
+    vtkTypeMacro(vtkMeshPartitionFilter, VTK_ZOLTAN_PARTITION_FILTER);
     void PrintSelf(ostream& os, vtkIndent indent);
 
     template <typename T>
