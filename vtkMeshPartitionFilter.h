@@ -69,11 +69,21 @@ class VTK_EXPORT vtkMeshPartitionFilter : public vtkZoltanV2PartitionFilter
       PartitionInfo &cell_partitioninfo, 
       PartitionInfo &point_partitioninfo, 
       ZoltanLoadBalanceData &loadBalanceData);
+  
+
+    vtkSetMacro(GhostMode, int);
+    vtkGetMacro(GhostMode, int);
+    
+    void SetGhostModeToBoundingBox();
+    void SetGhostModeToNeighbourCells();
+    bool IsGhostModeBoundingBox();
 
   protected:
      vtkMeshPartitionFilter();
     ~vtkMeshPartitionFilter();
-
+  
+    int GhostMode; // 0 for BoundingBox Mode and 1 for Neighbor Cell Mode
+  
     // Description:
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
