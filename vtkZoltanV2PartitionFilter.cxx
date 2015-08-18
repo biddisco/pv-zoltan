@@ -793,17 +793,35 @@ struct vtkZoltan2Helper
         // Solve the problem
         problem1->solve();
 
+        if (self->UpdatePiece == 0){
+          scalar_t imb = problem1->getWeightImbalance();
+          if (imb <= 1.1)
+            std::cout << "pass: " << imb << std::endl;
+          else
+            std::cout << "fail: " << imb << std::endl;
+          std::cout << std::endl;
+        }
         const Zoltan2::PartitioningSolution<inputAdapter_t> &solution1 = problem1->getSolution();
 
+      
+        std::vector<int> pointsCounts(self->UpdateNumPieces, 0);
+        std::vector<double> weightCounts(self->UpdateNumPieces, 0);
         int numExport = 0;
         const part_t *partd = solution1.getPartListView();
         for (int i = 0; i < localCount; ++i)
         {
-            if (partd[i]!=self->UpdatePiece)
-            {
-                numExport++;
-            }
+          if (partd[i]!=self->UpdatePiece)
+          {
+              numExport++;
+          }
+          pointsCounts[partd[i]]++;
+          weightCounts[partd[i]] += weightarray[i];
         }
+      
+        for (int i=0; i<self->UpdateNumPieces; i++){
+          std::cout<<i<<": "<<pointsCounts[i]<<"("<<weightCounts[i]<<")\t";
+        }
+        std::cout<<" >>> "<<self->UpdatePiece<<std::endl;
         unsigned int *exportLocalGids = new unsigned int[numExport];
         unsigned int *exportGlobalGids = new unsigned int[numExport];
         int *exportProcs = new int[numExport];
