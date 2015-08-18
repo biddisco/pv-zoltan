@@ -49,12 +49,14 @@ class vtkXMLPPolyDataReader;
     std::cin >> ch; \
   }
 //----------------------------------------------------------------------------
+#define DATA_SEND_TAG 301
+//----------------------------------------------------------------------------
 class TestStruct {
  public:
   //
-  vtkSmartPointer<vtkMultiProcessController>  controller;
+  vtkSmartPointer<vtkMultiProcessController>   controller;
   vtkSmartPointer<VTK_ZOLTAN_PARTITION_FILTER> partitioner;
-  vtkSmartPointer<vtkAlgorithm>               sphResampler;
+  vtkSmartPointer<vtkAlgorithm>                sphResampler;
   vtkSmartPointer<vtkXMLPPolyDataReader>       xmlreader;
   //
   vtkTypeInt64 myRank;
@@ -80,6 +82,8 @@ class TestStruct {
   // (Random) Particle Generation
   //
   vtkIdType   generateN;
+  int         particleGenerator;
+  bool        useWeights;
 
   //
   // H5Part Reader 
@@ -106,14 +110,16 @@ class TestStruct {
   //
   // Test/Display of results
   //
-  bool        scalarmode; // point=0 or cell=1
-  std::string scalarname;
+  bool        scalarMode; // point=0 or cell=1
+  std::string scalarName;
+  double      scalarRange[2];
   double      contourVal;
   bool        imageResample;
   bool        skipImageTest;
   std::string imageScalars;
   int         imageThreshold;
   bool        benchmarkPartition;
+  double      actor_shift;
   //
   void    CreateXMLPolyDataReader();
   void    DeleteXMLPolyDataReader();
@@ -122,6 +128,7 @@ class TestStruct {
   double  UpdatePartitioner();
   void    DeletePartitioner();
   //
+  int     RenderPieces(int argc, char **argv, vtkPolyData *OutputData);
 };
 //----------------------------------------------------------------------------
 int initTest(int argc, char* argv[], TestStruct &test);

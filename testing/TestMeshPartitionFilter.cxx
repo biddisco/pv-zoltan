@@ -66,10 +66,6 @@
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
-#define DATA_SEND_TAG 301
-//----------------------------------------------------------------------------
-//----------------------------------------------------------------------------
-//----------------------------------------------------------------------------
 int main (int argc, char* argv[])
 {
   int retVal = 1;
@@ -138,34 +134,7 @@ int main (int argc, char* argv[])
     vtkSmartPointer<vtkPolyData> OutputData;
     OutputData.TakeReference(vtkPolyData::SafeDownCast(sddp->GetOutputData(0)->NewInstance()));
     OutputData->ShallowCopy(sddp->GetOutputData(0));
-    
-//    std::stringstream ss;
-//    #define temp_debug(a) \
-//    ss<<a;
-//
-//    for (vtkIdType i=0; i<OutputData->GetNumberOfCells(); i++) {
-//      vtkIdType *pts;
-//      vtkIdType npts;
-//      OutputData->GetCellPoints(i, npts, pts);
-//      temp_debug("cell: "<<i);
-//      for (int j = 0; j<npts; j++){
-//        temp_debug(" ,"<<pts[j]);
-//      }
-//      temp_debug(" >>> "<<test.myRank<<std::endl);
-//    }
-//    temp_debug(" >>> "<<test.myRank<<std::endl);
-//    
-//    for (vtkIdType i=0; i<OutputData->GetNumberOfPoints(); i++) {
-//      vtkIdType *pts;
-//      unsigned short npts;
-//      OutputData->GetPointCells(i, npts, pts);
-//      temp_debug("point: "<<i);
-//      for (int j=0; j<npts; j++) {
-//        temp_debug(" ,"<<pts[j]);
-//      }
-//      temp_debug(" >>> "<<test.myRank<<std::endl);
-//    }
-    
+
     if (test.myRank>0) {
       testDebugMacro("data sending from "<<test.myRank);
       test.controller->Send(OutputData, 0, DATA_SEND_TAG);
@@ -174,112 +143,7 @@ int main (int argc, char* argv[])
     // Rank 0 collect all data pieces from parallel processes
     //
     else if (test.myRank==0) {
-      //
-      vtkSmartPointer<vtkRenderer>                ren = vtkSmartPointer<vtkRenderer>::New();
-      vtkSmartPointer<vtkRenderWindow>      renWindow = vtkSmartPointer<vtkRenderWindow>::New();
-      vtkSmartPointer<vtkRenderWindowInteractor> iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
-      vtkSmartPointer<vtkInteractorStyleSwitch> style = vtkSmartPointer<vtkInteractorStyleSwitch>::New();
-      iren->SetRenderWindow(renWindow);
-      iren->SetInteractorStyle(style);
-      style->SetCurrentStyleToTrackballCamera();
-      ren->SetBackground(0.1, 0.1, 0.1);
-      renWindow->SetSize(test.windowSize);
-      renWindow->AddRenderer(ren);
-      //
-      // To make display of ghost cells and boundary regions better, find the centre of
-      // all the pieces and use that to apply a transform to the actors to shift them
-      // away from the centre so the edges don't touch and overlapping boundary cells are visible
-      //
-      double centre[3], midpoint[3]={0,0,0};
-      for (int i=0; i<test.numProcs; i++) {
-          vtkBoundingBox *box = test.partitioner->GetPartitionBoundingBox(i);
-          box->GetCenter(centre);
-          for (int d=0; d<3; d++) midpoint[d] += centre[d]/test.numProcs;
-      }
-      //
-      for (int i=0; i<test.numProcs; i++) {
-        vtkSmartPointer<vtkPolyData> pd;
-        if (i==0) {
-          pd = OutputData;
-        }
-        else {
-          pd = vtkSmartPointer<vtkPolyData>::New();
-          testDebugMacro("data receiving at "<<test.myRank);
-          test.controller->Receive(pd, i, DATA_SEND_TAG);
-          testDebugMacro("data received at "<<test.myRank<<" from "<< i);
-        }
-        pd->PrintSelf(std::cout, vtkIndent(0));
-        vtkSmartPointer<vtkPolyDataMapper>       mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-        vtkSmartPointer<vtkActor>                 actor = vtkSmartPointer<vtkActor>::New();
-        mapper->SetInputData(pd);
-        mapper->SetImmediateModeRendering(1);
-        mapper->SetColorModeToMapScalars();
-        if (test.scalarmode==0) {
-            mapper->SetScalarModeToUsePointFieldData();
-            mapper->SetUseLookupTableScalarRange(0);
-            mapper->SetScalarRange(0,test.numProcs-1);
-            mapper->SetInterpolateScalarsBeforeMapping(0);
-        }
-        else {
-            mapper->SetScalarModeToUseCellFieldData();
-            mapper->SetUseLookupTableScalarRange(0);
-            mapper->SetInterpolateScalarsBeforeMapping(0);
-            mapper->SetScalarRange(0,6);
-        }
-        mapper->SelectColorArray(test.scalarname.c_str());
-        actor->SetMapper(mapper);
-        actor->GetProperty()->SetPointSize(2);
-        ren->AddActor(actor);
-        // move each actor away from the midpoint so we can see ghost cells better
-        vtkBoundingBox *box = test.partitioner->GetPartitionBoundingBox(i);
-        box->GetCenter(centre);
-        vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
-        transform->PostMultiply();
-        transform->Translate(-0.25*(midpoint[0]-centre[0]), -0.25*(midpoint[1]-centre[1]), -0.25*(midpoint[2]-centre[2]));
-        actor->SetUserTransform(transform);
-        //
-        if (test.cameraSet) {
-          ren->GetActiveCamera()->SetPosition(test.cameraPosition);
-          ren->GetActiveCamera()->SetFocalPoint(test.cameraFocus);
-          ren->GetActiveCamera()->SetViewUp(test.cameraViewUp);
-          ren->ResetCameraClippingRange();
-        }
-        else {
-          ren->ResetCamera();
-        }
-      }
-      //
-      // Display boxes for each partition
-      //
-      for (int i=0; i<test.numProcs; i++) {
-        vtkBoundingBox *box = test.partitioner->GetPartitionBoundingBox(i);
-        double bounds[6];
-        box->GetBounds(bounds);
-        vtkSmartPointer<vtkOutlineSource> boxsource = vtkSmartPointer<vtkOutlineSource>::New();
-        boxsource->SetBounds(bounds);
-        vtkSmartPointer<vtkPolyDataMapper> bmapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-        vtkSmartPointer<vtkActor>          bactor = vtkSmartPointer<vtkActor>::New();
-        bmapper->SetInputConnection(boxsource->GetOutputPort());
-        bactor->SetMapper(bmapper);
-        ren->AddActor(bactor);
-        // move each box away from the midpoint so we can see ghost cells better
-        box->GetCenter(centre);
-        vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
-        transform->PostMultiply();
-        transform->Translate(-0.25*(midpoint[0]-centre[0]), -0.25*(midpoint[1]-centre[1]), -0.25*(midpoint[2]-centre[2]));
-        bactor->SetUserTransform(transform);
-      }
-      
-      testDebugMacro( "Process Id : " << test.myRank << " About to Render" );
-      renWindow->Render();
-
-      retVal = vtkRegressionTester::Test(argc, argv, renWindow, 10);
-
-      if ( retVal == vtkRegressionTester::DO_INTERACTOR) {
-        iren->Start();
-      }
-      ok = (retVal==vtkRegressionTester::PASSED);
-      testDebugMacro( "Process Id : " << test.myRank << " Rendered " << (ok?"Pass":"Fail"));
+        retVal = test.RenderPieces(argc, argv, OutputData);
     }
   }
 

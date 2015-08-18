@@ -19,6 +19,35 @@
 #include "vtkXMLPolyDataReader.h"
 #include "vtkXMLPPolyDataReader.h"
 //
+#include "vtkActor.h"
+#include "vtkAppendPolyData.h"
+#include "vtkCamera.h"
+#include "vtkPointSource.h"
+#include "vtkDataSet.h"
+#include "vtkMath.h"
+#include "vtkPolyData.h"
+#include "vtkPolyDataMapper.h"
+#include "vtkRenderWindow.h"
+#include "vtkRenderWindowInteractor.h"
+#include "vtkInteractorStyleSwitch.h"
+#include "vtkRenderer.h"
+#include "vtkWindowToImageFilter.h"
+#include "vtkStreamingDemandDrivenPipeline.h"
+#include "vtkInformation.h"
+#include "vtkDebugLeaks.h"
+#include "vtkProperty.h"
+#include "vtkPointData.h"
+#include "vtkDoubleArray.h"
+#include "vtkPoints.h"
+#include "vtkCellArray.h"
+#include "vtkFloatArray.h"
+#include "vtkTimerLog.h"
+#include "vtkBoundingBox.h"
+#include "vtkOutlineSource.h"
+#include "vtkProcessIdScalars.h"
+#include "vtkXMLPolyDataReader.h"
+#include "vtkXMLPPolyDataReader.h"
+#include "vtkTransform.h"
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -32,50 +61,38 @@ void known_seed() {
 }
 #endif
 //----------------------------------------------------------------------------
-#ifdef _WIN32
-unsigned long int random_seed()
+// Template specialization for string types to handle spaces in names
+//
+template <>
+std::string GetParameter(const char *argstr, const char *message, int argc, char **argv, std::string defaultvalue, int rank, bool &valueset)
 {
-  LARGE_INTEGER lpPerformanceCount;
-  QueryPerformanceCounter(&lpPerformanceCount);
-  long int seed = lpPerformanceCount.LowPart + lpPerformanceCount.HighPart;
-  srand(seed);
-  return seed;
-}
-#else
-unsigned long int random_seed()
-{
-  unsigned int seed;
-  struct timeval tv;
-  FILE *devrandom;
-  if ((devrandom = fopen("/dev/random","r")) == NULL) {
-    gettimeofday(&tv,0);
-    seed = tv.tv_sec + tv.tv_usec;
-  } 
-  else {
-    if (fread(&seed,sizeof(seed),1,devrandom) == 1) {
-      fclose(devrandom);
-    } 
-    else {
-      gettimeofday(&tv,0);
-      seed = tv.tv_sec + tv.tv_usec;
+  char *tempChar = vtkTestUtilities::GetArgOrEnvOrDefault(argstr, argc, argv, "", "");
+  std::string newValue = defaultvalue;
+  valueset = false;
+  if (std::string(tempChar).size()) {
+    std::stringstream temp(tempChar);
+    while (temp.good()) {
+        std::string tempval;
+        temp >> tempval;
+        newValue += tempval;
+        if (temp.good()) newValue += " ";
     }
+    if (rank==0) {
+      DisplayParameter<std::string>(message, "", &newValue, 1, rank);
+    }
+    valueset = true;
   }
-  srandom(seed);
-  return seed;
+  delete []tempChar;
+  return newValue;
 }
-#endif
 //----------------------------------------------------------------------------
 void SpherePoints(int n, float radius, float X[]) {
   double x, y, z, w, t;
-  Random r(12345);
-  double rmin=1E6, rmax=-1E6;
-  for(int i=0; i<n; i++ ) {
-    double r1 = r.nextNumber(); // double(rand())/RAND_MAX;
-    double r2 = r.nextNumber(); // double(rand())/RAND_MAX;
-    rmin = std::min(rmin, r1);
-    rmin = std::min(rmin, r2);
-    rmax = std::max(rmax, r1);
-    rmax = std::max(rmax, r2);
+  std::default_random_engine generator(12345);
+  std::uniform_real_distribution<double> uniform_dist(0.0, 1.0);
+  for (int i=0; i<n; i++ ) {
+    double r1 = uniform_dist(generator);
+    double r2 = uniform_dist(generator);
     z = 2.0 * r1 - 1.0;
     t = 2.0 * M_PI * r2;
     w = radius * sqrt( 1 - z*z );
@@ -93,14 +110,13 @@ void CubePoints(int n, float radius, float X[], float W[]) {
   std::default_random_engine generator(12345);
   std::uniform_real_distribution<double> uniform_dist(0.0, radius);
 
-  double rmin=1E6, rmax=-1E6;
-  for(int i=0; i<n; i++ ) {
+  for (int i=0; i<n; i++ ) {
     double r1 = uniform_dist(generator);
     double r2 = uniform_dist(generator);
     double r3 = uniform_dist(generator);
-    X[3*i+0] = static_cast<float>(r1);
-    X[3*i+1] = static_cast<float>(r2);
-    X[3*i+2] = static_cast<float>(r3);
+    X[3*i+0] = static_cast<float>(r1) - radius/2.0;
+    X[3*i+1] = static_cast<float>(r2) - radius/2.0;
+    X[3*i+2] = static_cast<float>(r3) - radius/2.0;
     W[i] = r1*r2*r3 / (radius*radius*radius);
   }
 }
@@ -127,10 +143,11 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.cameraViewUp[2] = 1.0;
   test.windowSize[0] = test.windowSize[1] = 400; // +8;
 
-  test.scalarmode = 0;
+  test.scalarMode = 0;
+  test.actor_shift = 0.0;
 
   // uncomment this to wait for debugger attach
-   DEBUG_WAIT
+  // DEBUG_WAIT
   //
   test.controller->Barrier();
 
@@ -162,6 +179,8 @@ int initTest(int argc, char* argv[], TestStruct &test)
   // ParticleGenerate info
   //
   test.generateN = GetParameter<vtkIdType>("-generateParticles", "Generated Particles", argc, argv, 0, test.myRank, unused);
+  test.particleGenerator = GetParameter<int>("-particleGenerator", "Generator for particles (sphere=0, cube=1)", argc, argv, 0, test.myRank, unused);
+  test.useWeights = GetParameter<bool>("-useWeights", "Enable weights in partitioning", argc, argv, 0, test.myRank, unused);
 
   //
   // File load / H5Part info
@@ -193,9 +212,12 @@ int initTest(int argc, char* argv[], TestStruct &test)
   //
   // Test/Display of results
   //
-  test.scalarname = GetParameter<std::string>("-scalar", "Testing Scalar Array", argc, argv, "", test.myRank, unused);
-  test.scalarmode = GetParameter<bool>("-scalarmode", "Point(0) or Cell(1) data", argc, argv, "", test.myRank, unused);
+  test.scalarName = GetParameter<std::string>("-scalarName", "Testing Scalar Array", argc, argv, "", test.myRank, unused);
+  test.scalarMode = GetParameter<bool>("-scalarMode", "Point(0) or Cell(1) data", argc, argv, "", test.myRank, unused);
   test.contourVal = GetParameter<double>("-contour", "Contour Value", argc, argv, 0.0, test.myRank, unused);
+  GetArrayParameter<double>("-scalarRange", "Scalar Range", test.scalarRange, 2, argc, argv, test.myRank);
+  test.actor_shift = GetParameter<double>("-actorShift", "Shift pieces by amount", argc, argv, 0.0, test.myRank, unused);
+
   test.imageResample = GetParameter<bool>("-imageResample", "imageResample", argc, argv, 0, test.myRank, unused);
   test.skipImageTest = GetParameter<bool>("-skipImageTest", "skipImageTest", argc, argv, 0, test.myRank, unused);
   test.imageScalars = GetParameter<std::string>("-imageScalars", "Image Scalar Array", argc, argv, "", test.myRank, unused);
@@ -281,5 +303,121 @@ void TestStruct::DeletePartitioner()
   this->partitioner = NULL;
 }
 //----------------------------------------------------------------------------
+int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
+{
+    //
+    vtkSmartPointer<vtkRenderer>                ren = vtkSmartPointer<vtkRenderer>::New();
+    vtkSmartPointer<vtkRenderWindow>      renWindow = vtkSmartPointer<vtkRenderWindow>::New();
+    vtkSmartPointer<vtkRenderWindowInteractor> iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
+    vtkSmartPointer<vtkInteractorStyleSwitch> style = vtkSmartPointer<vtkInteractorStyleSwitch>::New();
+    iren->SetRenderWindow(renWindow);
+    iren->SetInteractorStyle(style);
+    style->SetCurrentStyleToTrackballCamera();
+    ren->SetBackground(0.1, 0.1, 0.1);
+    renWindow->SetSize(windowSize);
+    renWindow->AddRenderer(ren);
+    //
+    // To make display of ghost cells and boundary regions better, find the centre of
+    // all the pieces and use that to apply a transform to the actors to shift them
+    // away from the centre so the edges don't touch and overlapping boundary cells are visible
+    //
+    double centre[3], midpoint[3]={0,0,0};
+    for (int i=0; i<numProcs; i++) {
+        vtkBoundingBox *box = partitioner->GetPartitionBoundingBox(i);
+        box->GetCenter(centre);
+        for (int d=0; d<3; d++) midpoint[d] += centre[d]/numProcs;
+    }
+    //
+    for (int i=0; i<numProcs; i++) {
+        vtkSmartPointer<vtkPolyData> pd;
+        if (i==0) {
+            pd = OutputData;
+        }
+        else {
+            pd = vtkSmartPointer<vtkPolyData>::New();
+            testDebugMacro("data receiving at "<<myRank);
+            controller->Receive(pd, i, DATA_SEND_TAG);
+            testDebugMacro("data received at "<<myRank<<" from "<< i);
+        }
+//        pd->PrintSelf(std::cout, vtkIndent(0));
+        vtkSmartPointer<vtkPolyDataMapper>       mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+        vtkSmartPointer<vtkActor>                 actor = vtkSmartPointer<vtkActor>::New();
+        mapper->SetInputData(pd);
+        mapper->SetImmediateModeRendering(1);
+        // scalars
+        mapper->SetColorModeToMapScalars();
+        if (scalarMode==0) {
+            mapper->SetScalarModeToUsePointFieldData();
+        }
+        else {
+            mapper->SetScalarModeToUseCellFieldData();
+        }
+        testDebugMacro("setting scalar colours to " << scalarName.c_str());
+        mapper->SelectColorArray(scalarName.c_str());
+        mapper->SetScalarRange(scalarRange[0], scalarRange[1]);
+        mapper->SetUseLookupTableScalarRange(0);
+        mapper->SetInterpolateScalarsBeforeMapping(0);
+        //
+        actor->SetMapper(mapper);
+        actor->GetProperty()->SetPointSize(2);
+        ren->AddActor(actor);
+        // move each actor away from the midpoint so we can see ghost cells better
+        vtkBoundingBox *box = partitioner->GetPartitionBoundingBox(i);
+        box->GetCenter(centre);
+        vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
+        transform->PostMultiply();
+        transform->Translate(
+                -actor_shift*(midpoint[0]-centre[0]),
+                -actor_shift*(midpoint[1]-centre[1]),
+                -actor_shift*(midpoint[2]-centre[2]));
+        actor->SetUserTransform(transform);
+        //
+        if (cameraSet) {
+            ren->GetActiveCamera()->SetPosition(cameraPosition);
+            ren->GetActiveCamera()->SetFocalPoint(cameraFocus);
+            ren->GetActiveCamera()->SetViewUp(cameraViewUp);
+            ren->ResetCameraClippingRange();
+        }
+        else {
+            ren->ResetCamera();
+        }
+    }
+    //
+    // Display boxes for each partition
+    //
+    for (int i=0; i<numProcs; i++) {
+        vtkBoundingBox *box = partitioner->GetPartitionBoundingBox(i);
+        double bounds[6];
+        box->GetBounds(bounds);
+        vtkSmartPointer<vtkOutlineSource> boxsource = vtkSmartPointer<vtkOutlineSource>::New();
+        boxsource->SetBounds(bounds);
+        vtkSmartPointer<vtkPolyDataMapper> bmapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+        vtkSmartPointer<vtkActor>          bactor = vtkSmartPointer<vtkActor>::New();
+        bmapper->SetInputConnection(boxsource->GetOutputPort());
+        bactor->SetMapper(bmapper);
+        ren->AddActor(bactor);
+        // move each box away from the midpoint so we can see ghost cells better
+        box->GetCenter(centre);
+        vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
+        transform->PostMultiply();
+        transform->Translate(
+                -actor_shift*(midpoint[0]-centre[0]),
+                -actor_shift*(midpoint[1]-centre[1]),
+                -actor_shift*(midpoint[2]-centre[2]));
+        bactor->SetUserTransform(transform);
+    }
+
+    testDebugMacro( "Process Id : " << myRank << " About to Render" );
+    renWindow->Render();
+
+    int retVal = vtkRegressionTester::Test(argc, argv, renWindow, 10);
+
+    if ( retVal == vtkRegressionTester::DO_INTERACTOR) {
+        iren->Start();
+    }
+    bool ok = (retVal==vtkRegressionTester::PASSED);
+    testDebugMacro( "Process Id : " << myRank << " Rendered " << (ok?"Pass":"Fail"));
+    return retVal;
+}
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------

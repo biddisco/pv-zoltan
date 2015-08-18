@@ -30,6 +30,7 @@
 #include "vtkPolyDataMapper.h"
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
+#include "vtkInteractorStyleSwitch.h"
 #include "vtkRenderer.h"
 #include "vtkWindowToImageFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
@@ -45,6 +46,7 @@
 #include "vtkBoundingBox.h"
 #include "vtkOutlineSource.h"
 #include "vtkProcessIdScalars.h"
+#include "vtkTransform.h"
 //
 #include <vtksys/SystemTools.hxx>
 #include <sstream>
@@ -92,6 +94,7 @@ int main (int argc, char* argv[])
   vtkSmartPointer<vtkCellArray>   verts = vtkSmartPointer<vtkCellArray>::New();
   vtkSmartPointer<vtkIdTypeArray>   Ids = vtkSmartPointer<vtkIdTypeArray>::New();
   vtkSmartPointer<vtkIntArray>    Ranks = vtkSmartPointer<vtkIntArray>::New();
+  vtkSmartPointer<vtkFloatArray> Weights = vtkSmartPointer<vtkFloatArray>::New();
   //
   points->SetNumberOfPoints(test.generateN);
   //
@@ -109,6 +112,11 @@ int main (int argc, char* argv[])
   Ranks->SetName("Rank");
   Sprites->GetPointData()->AddArray(Ranks);  
   //
+  Weights->SetNumberOfTuples(test.generateN);
+  Weights->SetNumberOfComponents(1);
+  Weights->SetName("Weights");
+  Sprites->GetPointData()->AddArray(Weights);
+  //
   //--------------------------------------------------------------
   // Create default scalar arrays
   //--------------------------------------------------------------
@@ -118,7 +126,13 @@ int main (int argc, char* argv[])
   test.ghostLevels = 0;
   
   known_seed();
-  SpherePoints(test.generateN, radius*(1.5+test.myRank)/(test.numProcs+0.5), vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0));
+  if (test.particleGenerator==0) {
+      SpherePoints(test.generateN, radius*(1.5+test.myRank)/(test.numProcs+0.5), vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0));
+  }
+  else {
+      CubePoints(test.generateN, radius,
+                   vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0), Weights->GetPointer(0));
+  }
   for (vtkIdType Id=0; Id<test.generateN; Id++) {
     Ids->SetTuple1(Id, Id + test.myRank*test.generateN);
     Ranks->SetTuple1(Id, test.myRank);
@@ -137,6 +151,9 @@ int main (int argc, char* argv[])
   //--------------------------------------------------------------
   test.CreatePartitioner_Particles();
   test.partitioner->SetInputData(Sprites);
+  if (test.useWeights) {
+      test.partitioner->SetPointWeightsArrayName("Weights");
+  }
 //  test.partitioner->SetIdChannelArray("PointIds");
   static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
   static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetNumberOfGhostLevels(test.ghostLevels);
@@ -183,81 +200,7 @@ int main (int argc, char* argv[])
     // Rank 0 collect all data pieces from parallel processes
     //
     else if (test.myRank==0) {
-      //
-      vtkSmartPointer<vtkRenderer>                ren = vtkSmartPointer<vtkRenderer>::New();
-      vtkSmartPointer<vtkRenderWindow>      renWindow = vtkSmartPointer<vtkRenderWindow>::New();
-      vtkSmartPointer<vtkRenderWindowInteractor> iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
-      iren->SetRenderWindow(renWindow);
-      ren->SetBackground(0.1, 0.1, 0.1);
-      renWindow->SetSize(test.windowSize);
-      renWindow->AddRenderer(ren);
-      //
-      for (int i=0; i<test.numProcs; i++) {
-        vtkSmartPointer<vtkPolyData> pd;
-        if (i==0) {
-          pd = OutputData;
-        }
-        else {
-          pd = vtkSmartPointer<vtkPolyData>::New();
-          test.controller->Receive(pd, i, DATA_SEND_TAG);
-        }
-        vtkSmartPointer<vtkPolyDataMapper>       mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-        vtkSmartPointer<vtkActor>                 actor = vtkSmartPointer<vtkActor>::New();
-        mapper->SetInputData(pd);
-        mapper->SetColorModeToMapScalars();
-        mapper->SetScalarModeToUsePointFieldData();
-        mapper->SetUseLookupTableScalarRange(0);
-        mapper->SetScalarRange(0,test.numProcs-1);
-        mapper->SetInterpolateScalarsBeforeMapping(0);
-        mapper->SelectColorArray("ProcessId");
-        actor->SetMapper(mapper);
-        actor->GetProperty()->SetPointSize(2);
-        ren->AddActor(actor);
-        //
-        vtkSmartPointer<vtkPolyDataMapper>       mapper2 = vtkSmartPointer<vtkPolyDataMapper>::New();
-        vtkSmartPointer<vtkActor>                 actor2 = vtkSmartPointer<vtkActor>::New();
-        mapper2->SetInputData(pd);
-        mapper2->SetColorModeToMapScalars();
-        mapper2->SetScalarModeToUsePointFieldData();
-        mapper2->SetUseLookupTableScalarRange(0);
-        mapper2->SetScalarRange(0,1);
-        mapper2->SetInterpolateScalarsBeforeMapping(0);
-        mapper2->SelectColorArray("vtkGhostLevels");
-        actor2->SetMapper(mapper2);
-        actor2->GetProperty()->SetPointSize(2);
-        actor2->SetPosition(2.0*radius, 0.0, 0.0);
-        ren->AddActor(actor2);
-      }
-      //
-      // Display boxes for each partition
-      //
-      for (int i=0; i<test.numProcs; i++) {
-        vtkBoundingBox *box = test.partitioner->GetPartitionBoundingBox(i);
-        double bounds[6];
-        box->GetBounds(bounds);
-        vtkSmartPointer<vtkOutlineSource> boxsource = vtkSmartPointer<vtkOutlineSource>::New();
-        boxsource->SetBounds(bounds);
-        vtkSmartPointer<vtkPolyDataMapper> bmapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-        vtkSmartPointer<vtkActor>          bactor = vtkSmartPointer<vtkActor>::New();
-        bmapper->SetInputConnection(boxsource->GetOutputPort());
-        bactor->SetMapper(bmapper);
-        ren->AddActor(bactor);
-      }
-//      ren->GetActiveCamera()->SetPosition(0,4*radius,0);
-      ren->GetActiveCamera()->SetPosition(0,0,4*radius);
-      ren->GetActiveCamera()->SetFocalPoint(0,0,0);
-//      ren->GetActiveCamera()->SetViewUp(0,0,-1);
-      ren->GetActiveCamera()->SetViewUp(0,1,0);
-      ren->ResetCamera();
-      testDebugMacro( "Process Id : " << test.myRank << " About to Render" );
-      renWindow->Render();
-
-      retVal = vtkRegressionTester::Test(argc, argv, renWindow, 10);
-      if ( retVal == vtkRegressionTester::DO_INTERACTOR) {
-        iren->Start();
-      }
-      ok = (retVal==vtkRegressionTester::PASSED);
-      testDebugMacro( "Process Id : " << test.myRank << " Rendered " << (ok?"Pass":"Fail"));
+        retVal = test.RenderPieces(argc, argv, OutputData);
     }
   }
 

@@ -62,32 +62,11 @@ TARGET_LINK_LIBRARIES(TestParticlePartitionFilter
   ${Trilinos_LIBRARIES}
 )
 
-ADD_EXECUTABLE(TestCubeParticlePartitionFilter 
-  TestCubeParticlePartitionFilter.cxx
-  TestUtils.cxx
-)
-TARGET_LINK_LIBRARIES(TestCubeParticlePartitionFilter
-  vtkTestingRendering
-  pv_zoltan 
-  ${Trilinos_LIBRARIES}
-)
- 
-  
 ADD_EXECUTABLE(TestMeshPartitionFilter 
   TestMeshPartitionFilter.cxx
   TestUtils.cxx
 )
 TARGET_LINK_LIBRARIES(TestMeshPartitionFilter
-  vtkTestingRendering
-  pv_zoltan 
-  ${Trilinos_LIBRARIES}
-)
-  
-ADD_EXECUTABLE(TestMeshPartitionScalarsFilter 
-  TestMeshPartitionScalarsFilter.cxx
-  TestUtils.cxx
-)
-TARGET_LINK_LIBRARIES(TestMeshPartitionScalarsFilter
   vtkTestingRendering
   pv_zoltan 
   ${Trilinos_LIBRARIES}
@@ -106,8 +85,8 @@ TARGET_LINK_LIBRARIES(TestMeshPartitionScalarsFilter
 # This test will only run if we have 4 processors
 #   
 greater_equal(${MPIEXEC_MAX_NUMPROCS} 4 processors)
-SET(test_name "TestParticlePartitionFilter-P4")
 IF (processors)
+  SET(test_name "TestParticlePartitionFilter-P4")
   ADD_TEST(
     NAME ${test_name}
     COMMAND 
@@ -116,29 +95,55 @@ IF (processors)
       -testName ${test_name}
       -T "${PLUGIN_TEST_DIR}"
       -generateParticles 1000
+      -particleGenerator 0
+      -scalarName ProcessId
+      -scalarMode 0
+      -scalarRange "0 3"
+      -actorShift 0.5
       -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition.png
       -doRender 1
-      -windowSize "400 400"
+      -windowSize "800 800"
   )
-ENDIF (processors)
-
-SET(test_name "TestCubeParticlePartitionFilter-P4")
-IF (processors)
+  
+  SET(test_name "TestParticlePartitionFilterGhost-P4")
   ADD_TEST(
     NAME ${test_name}
     COMMAND 
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-      $<TARGET_FILE:TestCubeParticlePartitionFilter> 
+      $<TARGET_FILE:TestParticlePartitionFilter> 
       -testName ${test_name}
       -T "${PLUGIN_TEST_DIR}"
       -generateParticles 1000
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition.png
+      -particleGenerator 0
+      -scalarName vtkGhostLevels
+      -scalarMode 0
+      -scalarRange "0 1"
+      -actorShift 0.5
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartitionGhosts.png
       -doRender 1
-      -windowSize "400 400"
+      -windowSize "800 800"
   )
-ENDIF (processors)
-
-IF (processors)
+  
+  SET(test_name "TestParticlePartitionWeights-P4")
+  ADD_TEST(
+    NAME ${test_name}
+    COMMAND 
+      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestParticlePartitionFilter> 
+      -testName ${test_name}
+      -T "${PLUGIN_TEST_DIR}"
+      -generateParticles 5000
+      -particleGenerator 1
+      -scalarName Weights
+      -scalarMode 0
+      -scalarRange "0 1"
+      -actorShift 0.5
+      -useWeights 1
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartitionWeights.png
+      -doRender 1
+      -windowSize "800 800"
+  )
+  
   SET(test_name "TestMeshPartitionFilter-P4")
   ADD_TEST(
     NAME ${test_name}
@@ -147,14 +152,17 @@ IF (processors)
       $<TARGET_FILE:TestMeshPartitionFilter> 
       -testName ${test_name}
       -T "${PLUGIN_TEST_DIR}"
-      -F neurons-test-4-partitions.pvtp
+      -F soma-4-partitions.pvtp
       -D ${PROJECT_SOURCE_DIR}/testing/data
       -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition.png
       -doRender 1
 #      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
 #      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
 #      -cameraViewUp   "0 1 0"
-      -scalar "ProcessId"
+      -scalarMode 0
+      -scalarName ProcessId
+      -scalarRange "0 3"
+      -actorShift 0.0
       -windowSize "1024 800"
   )
   SET(test_name "TestMeshPartitionFilterGhost-P4")
@@ -172,26 +180,31 @@ IF (processors)
 #      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
 #      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
 #      -cameraViewUp   "0 1 0"
-      -scalarmode "1"
-      -scalar "GhostLevel"
+      -scalarMode 1
+      -scalarName GhostLevel
+      -scalarRange "0 3"
+      -actorShift 0.25
       -windowSize "1024 800"
   )
-  SET(test_name "TestMeshPartitionScalarsFilter-P4")
+  SET(test_name "TestMeshPartitionFilterScalars-P4")
   ADD_TEST(
     NAME ${test_name}
     COMMAND 
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-      $<TARGET_FILE:TestMeshPartitionScalarsFilter> 
+      $<TARGET_FILE:TestMeshPartitionFilter> 
       -testName ${test_name}
       -T "${PLUGIN_TEST_DIR}"
-      -F neuron-test.vtp
+      -F soma-4-partitions.pvtp
       -D ${PROJECT_SOURCE_DIR}/testing/data
       -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars.png
       -doRender 1
-      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
-      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
-      -cameraViewUp   "0 1 0"
-      -scalar "vtkProcessId"
+#      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
+#      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
+#      -cameraViewUp   "0 1 0"
+      -scalarMode 0
+      -scalarName "RTNeuron Opacity"
+      -scalarRange "0 1"
+      -actorShift 0.25
       -windowSize "1024 800"
   )
 ENDIF (processors)
