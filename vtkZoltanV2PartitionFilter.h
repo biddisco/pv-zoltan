@@ -160,13 +160,22 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
 
     // Description:
     // Return the Bounding Box for a partition
+    // only valid after the filter has executed
     vtkBoundingBox *GetPartitionBoundingBox(int partition);
 
     // Description:
     // Return the Bounding Box of all the data (uses MPI to collect all boxes)
     vtkBoundingBox GetGlobalBounds(vtkDataSet *input);
 
+    // Description:
+    // Return the KdTree representing the decomposition of space
+    // only valid after the filter has executed
     vtkSmartPointer<vtkPKdTree> GetKdtree() { return this->KdTree; }
+
+    // Description:
+    // Return the Imbalance value returned from Zoltan
+    // only valid after the filter has executed
+    float GetImbalanceValue() { return this->ImbalanceValue; }
 
     //----------------------------------------------------------------------------
     // Structure to hold all the dataset/mesh/points related data we pass to
@@ -424,6 +433,8 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
     struct Zoltan_Struct       *ZoltanData;
     CallbackData                ZoltanCallbackData;
     ZoltanLoadBalanceData       LoadBalanceData;
+    //
+    float                       ImbalanceValue;
 
     Teuchos::ParameterList ZoltanParams;
 #ifdef EXTRA_ZOLTAN_DEBUG

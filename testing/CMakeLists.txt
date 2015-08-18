@@ -62,6 +62,16 @@ TARGET_LINK_LIBRARIES(TestParticlePartitionFilter
   ${Trilinos_LIBRARIES}
 )
 
+ADD_EXECUTABLE(TestParticlePartitionWeightCount
+  TestParticlePartitionWeightCount.cxx
+  TestUtils.cxx
+)
+TARGET_LINK_LIBRARIES(TestParticlePartitionWeightCount
+  vtkTestingRendering
+  pv_zoltan 
+  ${Trilinos_LIBRARIES}
+)
+
 ADD_EXECUTABLE(TestMeshPartitionFilter 
   TestMeshPartitionFilter.cxx
   TestUtils.cxx
@@ -142,6 +152,18 @@ IF (processors)
       -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartitionWeights.png
       -doRender 1
       -windowSize "800 800"
+  )
+  
+  SET(test_name "TestParticlePartitionWeightCount-P4")
+  ADD_TEST(
+    NAME ${test_name}
+    COMMAND 
+      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestParticlePartitionWeightCount> 
+      -testName ${test_name}
+      -generateParticles 5000
+      -particleGenerator 1
+      -useWeights 1
   )
   
   SET(test_name "TestMeshPartitionFilter-P4")
