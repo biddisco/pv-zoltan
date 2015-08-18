@@ -48,6 +48,7 @@
 #include "vtkProcessIdScalars.h"
 #include "vtkXMLPolyDataReader.h"
 #include "vtkXMLPPolyDataReader.h"
+#include "vtkTransform.h"
 //
 #include <vtksys/SystemTools.hxx>
 #include <sstream>
@@ -185,6 +186,17 @@ int main (int argc, char* argv[])
       renWindow->SetSize(test.windowSize);
       renWindow->AddRenderer(ren);
       //
+      // To make display of ghost cells and boundary regions better, find the centre of
+      // all the pieces and use that to apply a transform to the actors to shift them
+      // away from the centre so the edges don't touch and overlapping boundary cells are visible
+      //
+      double centre[3], midpoint[3]={0,0,0};
+      for (int i=0; i<test.numProcs; i++) {
+          vtkBoundingBox *box = test.partitioner->GetPartitionBoundingBox(i);
+          box->GetCenter(centre);
+          for (int d=0; d<3; d++) midpoint[d] += centre[d]/test.numProcs;
+      }
+      //
       for (int i=0; i<test.numProcs; i++) {
         vtkSmartPointer<vtkPolyData> pd;
         if (i==0) {
@@ -196,6 +208,7 @@ int main (int argc, char* argv[])
           test.controller->Receive(pd, i, DATA_SEND_TAG);
           testDebugMacro("data received at "<<test.myRank<<" from "<< i);
         }
+        pd->PrintSelf(std::cout, vtkIndent(0));
         vtkSmartPointer<vtkPolyDataMapper>       mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
         vtkSmartPointer<vtkActor>                 actor = vtkSmartPointer<vtkActor>::New();
         mapper->SetInputData(pd);
@@ -217,6 +230,13 @@ int main (int argc, char* argv[])
         actor->SetMapper(mapper);
         actor->GetProperty()->SetPointSize(2);
         ren->AddActor(actor);
+        // move each actor away from the midpoint so we can see ghost cells better
+        vtkBoundingBox *box = test.partitioner->GetPartitionBoundingBox(i);
+        box->GetCenter(centre);
+        vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
+        transform->PostMultiply();
+        transform->Translate(-0.25*(midpoint[0]-centre[0]), -0.25*(midpoint[1]-centre[1]), -0.25*(midpoint[2]-centre[2]));
+        actor->SetUserTransform(transform);
         //
         if (test.cameraSet) {
           ren->GetActiveCamera()->SetPosition(test.cameraPosition);
@@ -242,6 +262,12 @@ int main (int argc, char* argv[])
         bmapper->SetInputConnection(boxsource->GetOutputPort());
         bactor->SetMapper(bmapper);
         ren->AddActor(bactor);
+        // move each box away from the midpoint so we can see ghost cells better
+        box->GetCenter(centre);
+        vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
+        transform->PostMultiply();
+        transform->Translate(-0.25*(midpoint[0]-centre[0]), -0.25*(midpoint[1]-centre[1]), -0.25*(midpoint[2]-centre[2]));
+        bactor->SetUserTransform(transform);
       }
       
       testDebugMacro( "Process Id : " << test.myRank << " About to Render" );
