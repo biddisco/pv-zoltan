@@ -1,0 +1,15 @@
+<VTKFile type="PPolyData" version="1.0" byte_order="LittleEndian" header_type="UInt64">
+  <PPolyData GhostLevel="0">
+    <PCellData Scalars="Elevation" Normals="Normals">
+      <PDataArray type="Float32" Name="Normals" NumberOfComponents="3"/>
+      <PDataArray type="Float32" Name="Elevation"/>
+    </PCellData>
+    <PPoints>
+      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>
+    </PPoints>
+    <Piece Source="sphere-4-partitions-celldata_0.vtp"/>
+    <Piece Source="sphere-4-partitions-celldata_1.vtp"/>
+    <Piece Source="sphere-4-partitions-celldata_2.vtp"/>
+    <Piece Source="sphere-4-partitions-celldata_3.vtp"/>
+  </PPolyData>
+</VTKFile>
