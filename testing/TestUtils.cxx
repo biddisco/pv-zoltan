@@ -147,7 +147,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.actor_shift = 0.0;
 
   // uncomment this to wait for debugger attach
-  // DEBUG_WAIT
+//   DEBUG_WAIT
   //
   test.controller->Barrier();
 
@@ -406,15 +406,31 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         bmapper->SetInputConnection(boxsource->GetOutputPort());
         bactor->SetMapper(bmapper);
         ren->AddActor(bactor);
+      
         // move each box away from the midpoint so we can see ghost cells better
         box->GetCenter(centre);
         vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
         transform->PostMultiply();
         transform->Translate(
-                -actor_shift*(midpoint[0]-centre[0]),
-                -actor_shift*(midpoint[1]-centre[1]),
-                -actor_shift*(midpoint[2]-centre[2]));
+                             -actor_shift*(midpoint[0]-centre[0]),
+                             -actor_shift*(midpoint[1]-centre[1]),
+                             -actor_shift*(midpoint[2]-centre[2]));
         bactor->SetUserTransform(transform);
+      
+      if (this->ghostOverlap>0){
+          vtkBoundingBox box2 = vtkBoundingBox(*partitioner->GetPartitionBoundingBox(i));
+          box2.Inflate(this->ghostOverlap);
+          double bounds2[6];
+          box2.GetBounds(bounds2);
+          vtkSmartPointer<vtkOutlineSource> boxsource2 = vtkSmartPointer<vtkOutlineSource>::New();
+          boxsource2->SetBounds(bounds2);
+          vtkSmartPointer<vtkPolyDataMapper> bmapper2 = vtkSmartPointer<vtkPolyDataMapper>::New();
+          vtkSmartPointer<vtkActor>          bactor2 = vtkSmartPointer<vtkActor>::New();
+          bmapper2->SetInputConnection(boxsource2->GetOutputPort());
+          bactor2->SetMapper(bmapper2);
+          ren->AddActor(bactor2);
+          bactor2->SetUserTransform(transform);
+        }
     }
 
     testDebugMacro( "Process Id : " << myRank << " About to Render" );
