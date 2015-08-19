@@ -218,7 +218,7 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
   //
   for (int i=0; i<callbackdata->NumberOfFields; i++) {
     int asize = callbackdata->MemoryPerTuple[i];
-    char *dataptr = (char*)(callbackdata->InputArrayPointers[i]) + asize*(callbackdata->OutCellCount);
+    char *dataptr = (char*)(callbackdata->OutputArrayPointers[i]) + asize*(callbackdata->OutCellCount);
     memcpy(dataptr, buf, asize);
     buf += asize;
   }
