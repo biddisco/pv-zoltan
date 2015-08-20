@@ -249,6 +249,7 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
 vtkMeshPartitionFilter::vtkMeshPartitionFilter()
 {
   this->GhostMode           = vtkMeshPartitionFilter::None;
+//  this->GhostMode           = vtkMeshPartitionFilter::Boundary;
   this->GhostCellOverlap    = 0.0;
   this->NumberOfGhostLevels = 0;
   this->ghost_array         = NULL;
@@ -286,7 +287,6 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   // on the output to store the ghost cell information (level 0,1,2...N ) etc
   vtkIdType numCells = this->ZoltanCallbackData.Input->GetNumberOfCells();
   if (this->GhostMode!=vtkMeshPartitionFilter::None) {
-      my_debug("Created a ghost array with " << numCells);
       this->ghost_array = vtkUnsignedCharArray::New();
       this->ghost_array->SetName("vtkGhostLevels");
       this->ghost_array->SetNumberOfTuples(numCells);
@@ -513,7 +513,189 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   if (pdata) pdata->BuildCells();
 
   // a simple bitmask with one entry per process, used for each cell to count processes for the cell
-  std::vector<unsigned char> process_flag(this->UpdateNumPieces,0);;
+  std::vector<unsigned int> process_flag(this->UpdateNumPieces,0);;
+
+  // sending a cellid to a process
+  std::vector< process_tuple > cellDestProcesses;
+  cellDestProcesses.reserve(this->UpdateNumPieces);
+  //
+  // for each cell, find if all points are designated as remote and cell needs to be sent away
+  //
+  for (cellId=0; cellId<numCells; ++cellId) {
+    // mark non-ghost status initially
+    if (this->GhostMode!=vtkMeshPartitionFilter::None) {
+      this->ghost_array->SetTuple1(cellId, 0);
+    }
+
+    // get a pointer to the cell points
+    if (pdata) { pdata->GetCellPoints(cellId, npts, pts); }
+    else if (udata) { udata->GetCellPoints(cellId, npts, pts); }
+
+    //
+    // we need to examine all points of the cell and classify it : there are several possible actions
+    //
+    // 1) all points are local                     : keep cell
+    // 2) all points on same remote process        : send cell to remote process
+    // 3) some points are local, some remote       : send or keep cell depending on count, make sure any local points sent are kept locally too
+    // 4) all points on different remote processes : send cell to one remote process, also add other points to send list for that process
+    //
+    // use a counter to mark/mask processes receiving points
+    process_flag.assign(this->UpdateNumPieces,0);
+    int points_remote = 0;
+    int process_count = 0;
+    for (int j=0; j<npts; ++j) {
+        int process = localId_to_process_map[pts[j]];
+        // if point will be sent away
+        if (process!=this->UpdatePiece)   points_remote++;
+        // if dest process has not been counted, count it
+        if (process_flag[process]++ == 0) process_count++;
+    }
+    int cellstatus = 0;
+    if (points_remote==0) {
+      cellstatus = 1;
+      // nothing needs to be done for this cell
+      continue;
+    }
+    else {
+      // all points on the same remote process
+      if (process_count==1) {
+        cellstatus = 2;
+      }
+      // some local, others all on remote process(es)
+      else if (process_count>1 && points_remote<npts) {
+        cellstatus = 3;
+      }
+      // all on remote processes, but not all the same process
+      else if (process_count>1 && points_remote==npts) {
+        cellstatus = 4;
+      }
+      else {
+        throw std::string("This should not be possible");
+      }
+    }
+
+    // The destination process for the cell will be the one with the most points
+    int cellDestProcess = localId_to_process_map[pts[0]];
+    cellDestProcess = std::distance(process_flag.begin(), std::max_element(process_flag.begin(), process_flag.end()));
+    //
+    if (cellDestProcess!=this->UpdatePiece) {
+      // cell is going to be sent away, add it to temporary send list
+      cellDestProcesses.push_back( process_tuple(cellId, cellDestProcess) );
+    }
+    //
+    if (cellstatus==2) {
+      // all points are marked as remote, so nothing else needs to be done with the points
+    }
+    //
+    // cells of type 3 and 4 need special treatment to handle the cell split over multiple processes
+    //
+    else {
+      if (this->GhostMode!=vtkMeshPartitionFilter::None) {
+        // increment the ghost value for this cell to track what's going on for visualization
+        this->ghost_array->SetValue(cellId, this->ghost_array->GetValue(cellId)+1);
+      }
+      for (int j=0; j<npts; ++j) {
+        vtkIdType ptId = pts[j];
+        int pointDestProcess = localId_to_process_map[ptId];
+        // if the cell is being sent away, make sure any points going somewhere else go too
+        if (pointDestProcess!=cellDestProcess && cellDestProcess!=this->UpdatePiece) {
+          // The point needs to be sent away, so add it to our send list
+          process_vector.push_back( process_tuple(ptId, cellDestProcess) );
+          if (cellstatus==3) {
+            // the point is going to be sent away - but - we also need to keep a copy locally
+            point_partitioninfo.LocalIdsToKeep.push_back(ptId);
+          }
+        }
+/*
+        else if (this->GhostMode==vtkMeshPartitionFilter::Boundary) {
+          // in boundary mode, all cell points have to be sent away to duplicate the cell
+          for (int p=0; p<this->UpdateNumPieces; ++p) {
+            if (process_flag[p] && p!=this->UpdatePiece && p!=cellDestProcess) {
+              process_vector.push_back( process_tuple(ptId, p) );
+            }
+          }
+          if (cellstatus==3) {
+            // the point is going to be sent away - but - we also need to keep a copy locally
+            point_partitioninfo.LocalIdsToKeep.push_back(ptId);
+          }
+        }
+*/
+        // if the cell is partly local, even if we are sending it away,
+        // keep all points as they might be the vertex of a neighbouring cell
+        if (cellstatus==3 && pointDestProcess!=this->UpdatePiece) {
+            // the point is going to be sent away - but - we also need to keep a copy locally
+            point_partitioninfo.LocalIdsToKeep.push_back(ptId);
+        }
+      }
+/*
+      if (this->GhostMode==vtkMeshPartitionFilter::Boundary) {
+        // Boundary cells need to go to all processes which own a point
+        for (int p=0; p<this->UpdateNumPieces; ++p) {
+          if (process_flag[p] && p!=this->UpdatePiece && p!=cellDestProcess) {
+            cellDestProcesses.push_back( process_tuple(cellId, p) );
+          }
+        }
+      }
+*/
+    }
+    // add the temporarily flagged cells to the final migration send list
+    if (cellDestProcesses.size()>0) {
+        std::sort(cellDestProcesses.begin(), cellDestProcesses.end());
+        cellDestProcesses.resize(std::unique(cellDestProcesses.begin(), cellDestProcesses.end()) - cellDestProcesses.begin());
+        for (auto &p : cellDestProcesses) {
+          cell_partitioninfo.Procs.push_back(p.second);
+          cell_partitioninfo.GlobalIds.push_back(p.first + this->ZoltanCallbackData.ProcessOffsetsCellId[this->UpdatePiece]);
+        }
+        cellDestProcesses.clear();
+    }
+  }
+
+/*
+    else if (cellstatus==4) {
+      for (int j=0; j<npts; ++j) {
+        int pointDestProcess = localId_to_process_map[pts[j]];
+        // if we are duplicating boundary cells as ghosts
+        if (this->GhostMode==Boundary) {
+          // if the point is being sent away, add its cell to our temporary send list
+          // (unfortunately, the same cell might be added more than once, use unique on them later)
+          if (cellstatus==2) {
+              if (this->NumberOfGhostLevels>0) {
+                // increment the ghost value for this cell to track what's going on for visualization
+                this->ghost_array->SetValue(cellId, this->ghost_array->GetValue(cellId)+1);
+                std::cout << "Rank " << this->UpdatePiece << " marked ghost " << cellId << std::endl;
+              }
+              if (pointDestProcess!=cellDestProcess) {
+                if (pointDestProcess!=this->UpdatePiece) {
+                  // the cell needs to be sent to the process receiving the point
+                  cellDestProcesses.push_back( std::make_pair(cellId, pointDestProcess) );
+                }
+            // we must be certain that 'all' points (not just ones marked as remote) are being sent
+            if (cellstatus==2 && pointDestProcess==this->UpdatePiece) {
+              // a point that was marked as local needs to be sent to the remote process too
+              for (int p=0; p<this->UpdateNumPieces; ++p) {
+                if (process_flag[p] && p!=this->UpdatePiece) {
+//                  process_vector.push_back( process_tuple(pts[j], cellDestProcess) );
+                }
+              }
+            }
+          }
+            if (cellstatus==4) {
+//            if (cellstatus==4 && pointDestProcess!=cellDestProcess && pointDestProcess!=this->UpdatePiece) {
+              if (this->NumberOfGhostLevels>0) {
+                // increment the ghost value for this cell to track what's going on for visualization
+                this->ghost_array->SetValue(cellId, this->ghost_array->GetValue(cellId)+1);
+                std::cout << "Rank " << this->UpdatePiece << " marked ghost " << cellId << std::endl;
+              }
+          }
+        }
+      }
+    }
+  }
+*/
+
+
+
+/*
 
   int LEVEL_MAX = 0;
   int REMOTE_LEVEL = 2*LEVEL_MAX +2;
@@ -918,6 +1100,10 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
       }
     }
   }
+
+
+*/
+
   //
   // remove any duplicated export ids (note that these are pairs, so equality is both of <id,process>
   // some points might be sent to multiple locations, that's allowed.
