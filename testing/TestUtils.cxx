@@ -198,10 +198,15 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.randomizeExtents = GetParameter<bool>("-randomizeExtents", "Randomize Extents", argc, argv, 0, test.myRank, unused);
 
   //
+  // Ghost mode/levels/overlap etc
+  //
+  test.ghostOverlap = GetParameter<double>("-ghostOverlap", "Ghost Region size", argc, argv, 0.0, test.myRank, unused);
+  test.ghostMode = GetParameter<int>("-ghostMode", "Ghost Mode {none=0,1,2,3}", argc, argv, 0, test.myRank, unused);
+
+  //
   // SPH kernel or neighbour info
   //
   test.particleSize = GetParameter<double>("-particlesize", "Particle Size", argc, argv, 0, test.myRank, test.fixRadius);
-  test.ghostOverlap = GetParameter<double>("-ghostOverlap", "Ghost Region size", argc, argv, 0.0, test.myRank, unused);
   GetArrayParameter<double>("-gridSpacing", "Grid Spacing", test.gridSpacing, 3, argc, argv, test.myRank);
   GetArrayParameter<int>("-gridResolution", "Grid Resolution", test.gridResolution, 3, argc, argv, test.myRank);
   test.maxN = GetParameter<int>("-neighbours", "Fixed Neighbours", argc, argv, 0, test.myRank, test.fixNeighbours);

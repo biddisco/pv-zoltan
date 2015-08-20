@@ -36,7 +36,7 @@
 class vtkMultiProcessController;
 class vtkPoints;
 class vtkIdTypeArray;
-class vtkIntArray;
+class vtkUnsignedCharArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
@@ -71,13 +71,28 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
       PartitionInfo &point_partitioninfo, 
       ZoltanLoadBalanceData &loadBalanceData);
   
-    // GhostMode is 0 for BoundingBox Mode and 1 for Neighbor Cell Mode
+    enum GhostAlgorithm {
+        None        = 0,
+        Boundary    = 1,
+        BoundingBox = 2,
+        Neighbour   = 3
+    };
+
+    // GhostMode is an option to control how ghost cells are generated, modes are
+    // Boundary: flags only cells which straddle the boundary of a partition
+    // the cell will be duplicated on all partitions that it overlaps, but on one
+    // partition it will be a normal cell, on others it will be flagged as s ghost cell
+    // BoundingBox: duplicates all cells which overlap the GhostCellOverlap region
+    // of another process.
+    // Neighbour: Any cell touching a boundary cell up to the GhostLevel depth
+    // becomes a ghost cell on an adjacent process.
     vtkSetMacro(GhostMode, int);
     vtkGetMacro(GhostMode, int);
     // convenience setter/getters for GhostMode
-    void SetGhostModeToBoundingBox() { this->SetGhostMode(0); }
-    void SetGhostModeToNeighbourCells() { this->SetGhostMode(1); }
-    bool IsGhostModeBoundingBox() { return this->GetGhostMode()==0; }
+    void SetGhostModeToNone() { this->SetGhostMode(None); }
+    void SetGhostModeToBoundary() { this->SetGhostMode(Boundary); }
+    void SetGhostModeToBoundingBox() { this->SetGhostMode(BoundingBox); }
+    void SetGhostModeToNeighbourCells() { this->SetGhostMode(Neighbour); }
 
     // Description:
     // Specify the ghost level that will be used to generate ghost cells
@@ -103,10 +118,10 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
                             vtkInformationVector**,
                             vtkInformationVector*);
 
-    int          GhostMode;
-    double       GhostCellOverlap;
-    int          NumberOfGhostLevels;
-    vtkIntArray *ghost_array;
+    int                     GhostMode;
+    double                  GhostCellOverlap;
+    int                     NumberOfGhostLevels;
+    vtkUnsignedCharArray   *ghost_array;
 
   private:
     vtkMeshPartitionFilter(const vtkMeshPartitionFilter&);  // Not implemented.

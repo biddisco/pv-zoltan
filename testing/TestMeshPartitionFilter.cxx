@@ -82,7 +82,6 @@ int main (int argc, char* argv[])
   double read_elapsed = 0.0;
   double partition_elapsed = 0.0;
   vtkSmartPointer<vtkAlgorithm> data_algorithm; 
-  vtkIdType totalParticles = 0;
 
   test.CreateXMLPolyDataReader();
   test.xmlreader->Update();
@@ -95,14 +94,15 @@ int main (int argc, char* argv[])
   test.partitioner->SetInputConnection(test.xmlreader->GetOutputPort());
   test.partitioner->SetInputDisposable(1);
   test.partitioner->SetKeepInversePointLists(1);
-  if (test.ghostOverlap>0) {
-      static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
+  // setup ghost options
+  static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetGhostMode(test.ghostMode);
+  if (test.ghostMode==vtkMeshPartitionFilter::Neighbour) {
       static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetNumberOfGhostLevels(1);
   }
-  else {
-      static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetNumberOfGhostLevels(test.ghostLevels);
+  else if (test.ghostMode==vtkMeshPartitionFilter::BoundingBox) {
+      static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
   }
-
+  //
   partition_elapsed = test.UpdatePartitioner();
 
   //--------------------------------------------------------------

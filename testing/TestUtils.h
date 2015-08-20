@@ -100,6 +100,7 @@ class TestStruct {
   // SPH kernel or neighbour info
   //
   double      particleSize;
+  int         ghostMode;
   double      ghostOverlap;
   int         ghostLevels;
   int         maxN;

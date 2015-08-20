@@ -478,7 +478,7 @@ vtkBoundingBox vtkZoltanV2PartitionFilter::GetGlobalBounds(vtkDataSet *input)
 }
 
 //-------------------------------------------------------------------------
-void vtkZoltanV2PartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fields) 
+void vtkZoltanV2PartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fields)
 {
   int NumberOfFieldArrays = fields->GetNumberOfArrays();
   this->Controller->AllReduce(&NumberOfFieldArrays, &this->ZoltanCallbackData.NumberOfFields, 1, vtkCommunicator::MAX_OP);
@@ -859,8 +859,8 @@ struct vtkZoltan2Helper
 #undef vtkTemplateMacroCase
 #define vtkTemplateMacroCase(typeN, type, call)     \
   case typeN: { typedef type VTK_TT; call; }; break
-#define vtkZoltanTemplateMacro(call)                                        \
-  vtkTemplateMacroCase(VTK_DOUBLE, double, call);                           \
+#define vtkZoltanTemplateMacro(call)                \
+  vtkTemplateMacroCase(VTK_DOUBLE, double, call);   \
   vtkTemplateMacroCase(VTK_FLOAT, float, call);
 //  vtkTemplateMacroCase(VTK_INT, int, call);
 

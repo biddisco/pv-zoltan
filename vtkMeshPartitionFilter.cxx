@@ -28,6 +28,7 @@
 #include "vtkSmartPointer.h"
 #include "vtkTimerLog.h"
 #include "vtkIdTypeArray.h"
+#include "vtkUnsignedCharArray.h"
 #include "vtkBoundingBox.h"
 #include "vtkMath.h"
 #include "vtkPointLocator.h"
@@ -247,9 +248,9 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
 //----------------------------------------------------------------------------
 vtkMeshPartitionFilter::vtkMeshPartitionFilter()
 {
-  this->GhostMode            = 0;
-  this->NumberOfGhostLevels = 2;
+  this->GhostMode           = vtkMeshPartitionFilter::None;
   this->GhostCellOverlap    = 0.0;
+  this->NumberOfGhostLevels = 0;
   this->ghost_array         = NULL;
 }
 //----------------------------------------------------------------------------
@@ -281,6 +282,17 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
     return 1;
   }
 
+  // if we are generating ghost cells for the mesh, then we must allocate a new array
+  // on the output to store the ghost cell information (level 0,1,2...N ) etc
+  vtkIdType numCells = this->ZoltanCallbackData.Input->GetNumberOfCells();
+  if (this->GhostMode!=vtkMeshPartitionFilter::None) {
+      my_debug("Created a ghost array with " << numCells);
+      this->ghost_array = vtkUnsignedCharArray::New();
+      this->ghost_array->SetName("vtkGhostLevels");
+      this->ghost_array->SetNumberOfTuples(numCells);
+      this->ZoltanCallbackData.Input->GetCellData()->AddArray(this->ghost_array);
+  }
+
   //
   // based on the point partition, decide which cells need to be sent away
   // sending some cells may imply sending a few extra points too
@@ -289,14 +301,16 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
 
   vtkDebugMacro(<<"Entering BuildCellToProcessList");
   if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
-    this->BuildCellToProcessList<float>(this->ZoltanCallbackData.Input, 
+    this->BuildCellToProcessList<float>(
+      this->ZoltanCallbackData.Input,
       cell_partitioninfo,       // lists of which cells to send to which process
       this->MigrateLists.known, // list of which points to send to which process
       this->LoadBalanceData     // the partition information generated during PartitionPoints
     );
   }
   else if (this->ZoltanCallbackData.PointType==VTK_DOUBLE) {
-    this->BuildCellToProcessList<double>(this->ZoltanCallbackData.Input, 
+    this->BuildCellToProcessList<double>(
+      this->ZoltanCallbackData.Input,
       cell_partitioninfo,       // lists of which cells to send to which process
       this->MigrateLists.known, // list of which points to send to which process
       this->LoadBalanceData     // the partition information generated during PartitionPoints
@@ -403,7 +417,7 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
   zpack_fn  f2 = zoltan_pack_obj_function_cell;
   zupack_fn f3 = zoltan_unpack_obj_function_cell;
   zprem_fn  f4 = zoltan_pre_migrate_function_cell<float>;
-  Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_OBJ_SIZE_FN_TYPE,       (void (*)()) f1, &this->ZoltanCallbackData); 
+  Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_OBJ_SIZE_FN_TYPE,       (void (*)()) f1, &this->ZoltanCallbackData);
   Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PACK_OBJ_FN_TYPE,       (void (*)()) f2, &this->ZoltanCallbackData); 
   Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_UNPACK_OBJ_FN_TYPE,     (void (*)()) f3, &this->ZoltanCallbackData); 
   Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &this->ZoltanCallbackData); 
@@ -467,16 +481,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   cell_partitioninfo.Procs.reserve(numCells/this->UpdateNumPieces);
   cell_partitioninfo.GlobalIds.reserve(numCells/this->UpdateNumPieces);
 
-  // if we are generating ghost cells for the mesh, then we must allocate a new array
-  // on the output to store the ghost cell information (level 0,1,2...N ) etc
-  if (this->NumberOfGhostLevels>0) {
-      my_debug("Created a ghost array with "<<numCells);
-      this->ghost_array = vtkIntArray::New();
-      this->ghost_array->SetName("vtkGhostLevels");
-      this->ghost_array->SetNumberOfTuples(numCells);
-      this->ZoltanCallbackData.Output->GetCellData()->AddArray(this->ghost_array);
-  }
-
   // we know that some points on this process will be exported to remote processes
   // so build a point to process map to quickly lookup the process Id from the point Id
   // 1) initially set all points as local to this process
@@ -520,13 +524,13 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   cell_level_info.resize(numCells);
   cell_status.resize(numCells);
 
-  this->SetGhostModeToBoundingBox();
+//  this->SetGhostModeToBoundingBox();
 //  this->SetGhostModeToNeighbourCells();
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // BOUNDING BOX
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  if (IsGhostModeBoundingBox()) {
+  if (this->GhostMode==vtkMeshPartitionFilter::BoundingBox) {
     vtkIdType N = data->GetNumberOfPoints();
     std::vector<int> point_to_level_map(N, -1);
     double bounds[6];
