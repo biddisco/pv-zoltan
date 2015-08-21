@@ -249,7 +249,6 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
 vtkMeshPartitionFilter::vtkMeshPartitionFilter()
 {
   this->GhostMode           = vtkMeshPartitionFilter::None;
-//  this->GhostMode           = vtkMeshPartitionFilter::Boundary;
   this->GhostCellOverlap    = 0.0;
   this->NumberOfGhostLevels = 0;
   this->ghost_array         = NULL;
@@ -606,20 +605,20 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
             point_partitioninfo.LocalIdsToKeep.push_back(ptId);
           }
         }
-/*
-        else if (this->GhostMode==vtkMeshPartitionFilter::Boundary) {
-          // in boundary mode, all cell points have to be sent away to duplicate the cell
+        if (this->GhostMode==vtkMeshPartitionFilter::Boundary) {
+          // for boundary cells, all cell points have to be sent away to duplicate the cell
+          bool sent = false;
           for (int p=0; p<this->UpdateNumPieces; ++p) {
-            if (process_flag[p] && p!=this->UpdatePiece && p!=cellDestProcess) {
+            if (process_flag[p]!=0 && p!=this->UpdatePiece && pointDestProcess!=p) {
               process_vector.push_back( process_tuple(ptId, p) );
+              sent = true;
             }
           }
-          if (cellstatus==3) {
+          if (cellstatus==3 && sent) {
             // the point is going to be sent away - but - we also need to keep a copy locally
             point_partitioninfo.LocalIdsToKeep.push_back(ptId);
           }
         }
-*/
         // if the cell is partly local, even if we are sending it away,
         // keep all points as they might be the vertex of a neighbouring cell
         if (cellstatus==3 && pointDestProcess!=this->UpdatePiece) {
@@ -627,16 +626,16 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
             point_partitioninfo.LocalIdsToKeep.push_back(ptId);
         }
       }
-/*
       if (this->GhostMode==vtkMeshPartitionFilter::Boundary) {
         // Boundary cells need to go to all processes which own a point
         for (int p=0; p<this->UpdateNumPieces; ++p) {
           if (process_flag[p] && p!=this->UpdatePiece && p!=cellDestProcess) {
             cellDestProcesses.push_back( process_tuple(cellId, p) );
+            cell_partitioninfo.LocalIdsToKeep.push_back(cellId);
           }
         }
       }
-*/
+
     }
     // add the temporarily flagged cells to the final migration send list
     if (cellDestProcesses.size()>0) {
