@@ -95,17 +95,17 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   //
   // Concept: One algorithm would be to 
   // a) compute load balance (done in PartitionPoints above)
-  // b) ascertain ghost cells based on the expected load balance
+  // b) ascertain ghost particles based on the expected load balance
   // c) perform a particle exchange of all a+b) together in one go
   // however when attempting this, it was found during step b) some particles are being sent as
-  // non-ghost cells to one process and ghost cells others - this means that the c) exchange must 
+  // non-ghost particles to one process and ghost particles others - this means that the c) exchange must
   // send different ghost flags to different processes -  we can't just send/receive a normal list
   // but instead have to maintain a map of process/ghost/ID flags. This makes the send/receive
   // more expensive as the maps must be checked for every particle sent (to each process). 
   //
   // A second algorithm is to
   // a) compute load balance (done in PartitionPoints above)
-  // b) ascertain ghost cells based on the expected load balance
+  // b) ascertain ghost particles based on the expected load balance
   // c) compute the inverse lists for ghost exchange
   // d) perform a particle exchange for just the main load balance step from a), but allocating
   //    all space determined by a+c) so that only one final list is allocated.
