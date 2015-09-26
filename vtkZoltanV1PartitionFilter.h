@@ -345,7 +345,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     virtual void ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells);
 
-    int  GatherDataTypeInfo(vtkPoints *points);
+    int  GatherDataTypeInfo(vtkPoints *points, vtkIdType &total);
     bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
     void AllocateFieldArrays(vtkDataSetAttributes *fields);
 
@@ -394,6 +394,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     vtkSmartPointer<vtkPKdTree>                 KdTree;
     vtkSmartPointer<vtkTimerLog>                Timer;
     MigrationLists                              MigrateLists;
+    int                                         PartitionAborted;
 
     //
     struct Zoltan_Struct       *ZoltanData;

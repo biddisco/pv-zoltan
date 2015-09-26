@@ -310,17 +310,19 @@ vtkZoltanV1PartitionFilter::vtkZoltanV1PartitionFilter()
 {
   this->UpdatePiece                    = 0;
   this->UpdateNumPieces                = 1;
+  this->PartitionAborted               = 0;
   this->MaxAspectRatio                 = 5.0;
   this->ExtentTranslator               = vtkSmartPointer<vtkBoundsExtentTranslator>::New();
   this->InputExtentTranslator          = NULL;
   this->ZoltanData                     = NULL;
   this->InputDisposable                = 0;
-  this->KeepInversePointLists  = 0;
+  this->KeepInversePointLists          = 0;
   this->Controller                     = NULL;
   this->SetController(vtkMultiProcessController::GetGlobalController());
   if (this->Controller == NULL) {
     this->SetController(vtkSmartPointer<vtkDummyController>::New());
   }
+
 }
 //----------------------------------------------------------------------------
 vtkZoltanV1PartitionFilter::~vtkZoltanV1PartitionFilter()
@@ -420,8 +422,11 @@ bool vtkZoltanV1PartitionFilter::GatherDataArrayInfo(vtkDataArray *data,
 #endif
 }
 //----------------------------------------------------------------------------
-int vtkZoltanV1PartitionFilter::GatherDataTypeInfo(vtkPoints *points)
+int vtkZoltanV1PartitionFilter::GatherDataTypeInfo(vtkPoints *points, vtkIdType &total)
 {
+  total = points->GetNumberOfPoints();
+  // when uninitialized can be -1
+  if (total<0) total = 0;
 #ifdef VTK_USE_MPI
   if (this->UpdateNumPieces==1) {
       return points->GetDataType();
@@ -440,9 +445,12 @@ int vtkZoltanV1PartitionFilter::GatherDataTypeInfo(vtkPoints *points)
       vtkErrorMacro(<<"Fatal datatype error in Point DataType Gather");
     }
   }
+  vtkIdType finaltotal;
+  result = com->AllReduce(&total, &finaltotal, 1, vtkCommunicator::SUM_OP);
+  total = finaltotal;
   return datatype;
 #else
-  return pInput->GetPoints()->GetDataType();
+  return points->GetDataType();
 #endif
 }
 //-------------------------------------------------------------------------
@@ -680,17 +688,24 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
 
   //
   vtkSmartPointer<vtkPoints>   outPoints;
+  // if no processes have any data, zoltan will fail, so we must abort
+  vtkIdType total_outpoints = 0;
   if (this->UpdateNumPieces>1) {
     // create a new output points array to be filled
     outPoints = vtkSmartPointer<vtkPoints>::New();
     // if input had 0 points, make sure output is still setup correctly (float/double?)
     // collective exchanges will break if this is wrong as we may still receive data from another process
     // even though we are not sending any
-    this->ZoltanCallbackData.PointType = this->GatherDataTypeInfo(input->GetPoints());
+    this->ZoltanCallbackData.PointType = this->GatherDataTypeInfo(input->GetPoints(), total_outpoints);
     outPoints->SetDataType(this->ZoltanCallbackData.PointType);
     output->SetPoints(outPoints);
+    if (total_outpoints==0) {
+      this->PartitionAborted=1;
+      return 1;
+    }
   }
-  else {
+  // if we are a singe process, or no processes have data, total points will be zero here
+  if (total_outpoints==0) {
     // if only one process, we can just pass data through
     output->ShallowCopy(input);
     // vertex generation will fail if we don't set certain values
@@ -809,8 +824,8 @@ int vtkZoltanV1PartitionFilter::PartitionPoints(vtkInformation*,
 
     if (zoltan_error != ZOLTAN_OK){
       printf("Zoltan_LB_Partition NOT OK...\n");
-      MPI_Finalize();
-      Zoltan_Destroy(&this->ZoltanData);
+//      MPI_Finalize();
+//      Zoltan_Destroy(&this->ZoltanData);
       exit(0);
     }
 

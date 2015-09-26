@@ -76,9 +76,10 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // This step only performs the load balance analysis, 
   // no actual sending of data takes place yet.
   //
+  this->PartitionAborted = 0;
   this->PartitionPoints(info, inputVector, outputVector);
 
-  if (this->UpdateNumPieces==1) {
+  if (this->UpdateNumPieces==1 || this->PartitionAborted) {
     // input has been copied to output during PartitionPoints
     return 1;
   }
@@ -164,7 +165,6 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   
   // now exchange ghost cells too
   this->ZoltanPointMigrate(ghost_info, false);
-
 
   //
   // clean up arrays that zoltan passed back to us
