@@ -735,7 +735,7 @@ void FloatOrDoubleArrayPointer(vtkDataArray *dataarray, float *&F, double *&D) {
 template <typename scalar_t>
 struct vtkZoltan2Helper
 {
-    typedef Zoltan2::BasicUserTypes<scalar_t, globalId_t, localId_t, globalId_t> myTypes;
+    typedef Zoltan2::BasicUserTypes<scalar_t, globalId_t, localId_t> myTypes;
     typedef Zoltan2::BasicVectorAdapter<myTypes> inputAdapter_t;
     typedef typename inputAdapter_t::part_t part_t;
     typedef Zoltan2::PartitioningProblem<inputAdapter_t> result_type;
@@ -779,11 +779,11 @@ struct vtkZoltan2Helper
         else {
             std::cout<<"weights are not NULL" << std::endl;
             // coordinates
-            vector<const scalar_t *> coordVec = {x, y, z};
-            vector<int> coordStrides = {stride, stride, stride};
+            std::vector<const scalar_t *> coordVec = {x, y, z};
+            std::vector<int> coordStrides = {stride, stride, stride};
             // weights
-            vector<const scalar_t*> weightVec = {weightarray};
-            vector<int> weightStrides = {1};
+            std::vector<const scalar_t*> weightVec = {weightarray};
+            std::vector<int> weightStrides = {1};
 
             InputAdapter = new inputAdapter_t(
                     localCount, globalIds,
