@@ -103,6 +103,7 @@ class TestStruct {
   int         ghostMode;
   double      ghostOverlap;
   int         ghostLevels;
+  int         boundaryMode;
   int         maxN;
   std::string massScalars;
   std::string densityScalars;

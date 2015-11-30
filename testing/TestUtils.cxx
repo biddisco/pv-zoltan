@@ -204,6 +204,11 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.ghostMode = GetParameter<int>("-ghostMode", "Ghost Mode {none=0,1,2,3}", argc, argv, 0, test.myRank, unused);
 
   //
+  // Boundary
+  //
+  test.boundaryMode = GetParameter<int>("-boundaryMode", "Boundary {f=0,m=1,a=2}", argc, argv, 0, test.myRank, unused);
+
+  //
   // SPH kernel or neighbour info
   //
   test.particleSize = GetParameter<double>("-particlesize", "Particle Size", argc, argv, 0, test.myRank, test.fixRadius);

@@ -249,6 +249,7 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
 vtkMeshPartitionFilter::vtkMeshPartitionFilter()
 {
   this->GhostMode           = vtkMeshPartitionFilter::None;
+  this->BoundaryMode        = vtkMeshPartitionFilter::First;
   this->GhostCellOverlap    = 0.0;
   this->NumberOfGhostLevels = 0;
   this->ghost_array         = NULL;
@@ -574,8 +575,21 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     }
 
     // The destination process for the cell will be the one with the most points
-    int cellDestProcess = localId_to_process_map[pts[0]];
-    cellDestProcess = std::distance(process_flag.begin(), std::max_element(process_flag.begin(), process_flag.end()));
+    int cellDestProcess;
+    if (this->BoundaryMode==vtkMeshPartitionFilter::First) {
+        cellDestProcess = localId_to_process_map[pts[0]];
+    }
+    else if (this->BoundaryMode==vtkMeshPartitionFilter::Most) {
+        cellDestProcess = std::distance(process_flag.begin(), std::max_element(process_flag.begin(), process_flag.end()));
+    }
+    else if (this->BoundaryMode==vtkMeshPartitionFilter::Centroid) {
+        T centroid[3];
+        std::cout << "Finding centroid for " << npts << std::endl;
+        this->FindCentroid<T>(npts, pts, &this->ZoltanCallbackData, centroid);
+        std::cout << "Finding process " <<std::endl;
+        cellDestProcess = this->FindProcessFromPoint<T>(centroid);
+        std::cout << "Decided on process " << cellDestProcess << std::endl;
+    }
     //
     if (cellDestProcess!=this->UpdatePiece) {
       // cell is going to be sent away, add it to temporary send list

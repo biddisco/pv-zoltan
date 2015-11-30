@@ -95,6 +95,10 @@ TARGET_LINK_LIBRARIES(TestMeshPartitionFilter
 # This test will only run if we have 4 processors
 #   
 greater_equal(${MPIEXEC_MAX_NUMPROCS} 4 processors)
+if (NOT processors)
+    message(WARNING "pv-zoltan tests require at least 4 mpi ranks in MPIEXEC_MAX_NUMPROCS") 
+endif()
+
 IF (processors)
   SET(test_name "TestParticlePartitionFilter-P4")
   ADD_TEST(
@@ -167,28 +171,32 @@ IF (processors)
   )
   
   SET(test_name "TestMeshPartitionFilter-P4")
-  ADD_TEST(
-    NAME ${test_name}
-    COMMAND 
-      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-      $<TARGET_FILE:TestMeshPartitionFilter> 
-      -testName ${test_name}
-      -T "${PLUGIN_TEST_DIR}"
-      -F soma-4-partitions.pvtp
-      -D ${PROJECT_SOURCE_DIR}/testing/data
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition.png
-      -doRender 1
-#      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
-#      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
-#      -cameraViewUp   "0 1 0"
-      -ghostOverlap 10.0
-      -scalarMode 0
-      -scalarName ProcessId
-      -scalarRange "0 3"
-      -actorShift 0.0
-      -windowSize "1024 800"
-  )
-
+  set(boundary_list "first;most;centroid")
+  foreach(dmode soma sphere)
+      foreach(mode 0 1 2)
+          list(GET "boundary_list" "${mode}" BMODE)
+          ADD_TEST(
+            NAME ${test_name}-${BMODE}-${dmode}
+            COMMAND 
+              ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+              $<TARGET_FILE:TestMeshPartitionFilter> 
+              -testName ${test_name}-${BMODE}-${dmode}
+              -T "${PLUGIN_TEST_DIR}"
+              -F ${dmode}-4-partitions.pvtp
+              -D ${PROJECT_SOURCE_DIR}/testing/data
+              -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-${BMODE}-${dmode}.png
+              -doRender 1
+              -ghostOverlap 10.0
+              -boundaryMode ${mode}
+              -scalarMode 0
+              -scalarName ProcessId
+              -scalarRange "0 3"
+              -actorShift 0.0
+              -windowSize "1024 800"
+          )
+      endforeach()
+  endforeach()
+    
   SET(test_name "TestMeshPartitionFilterCellData-P4")
   ADD_TEST(
     NAME ${test_name}
@@ -245,6 +253,7 @@ IF (processors)
       -F soma-4-partitions.pvtp
       -D ${PROJECT_SOURCE_DIR}/testing/data
       -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars.png
+      -boundaryMode 1
       -doRender 1
 #      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
 #      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"

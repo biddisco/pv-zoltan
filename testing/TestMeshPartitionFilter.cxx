@@ -102,6 +102,9 @@ int main (int argc, char* argv[])
   else if (test.ghostMode==vtkMeshPartitionFilter::BoundingBox) {
       static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
   }
+
+  static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetBoundaryMode(test.boundaryMode);
+
   //
   partition_elapsed = test.UpdatePartitioner();
 

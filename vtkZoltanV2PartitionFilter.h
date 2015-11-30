@@ -367,6 +367,35 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
   // initial partitioning takes place.
   bool MigratePointData(vtkDataSetAttributes *inPointData, vtkDataSetAttributes *outPointData);
 
+  // utility function to find average of point list
+  template <typename T>
+  void FindCentroid(int npts, vtkIdType *pts, CallbackData *callbackdata, T avg[3])
+  {
+      avg[0] = avg[1] = avg[2] = 0.0;
+      for (int i=0; i<npts; ++i) {
+          vtkIdType ptId = pts[i];
+          avg[0] += ((T*)(callbackdata->InputPointsData))[3*ptId+0];
+          avg[1] += ((T*)(callbackdata->InputPointsData))[3*ptId+1];
+          avg[2] += ((T*)(callbackdata->InputPointsData))[3*ptId+2];
+      }
+      avg[0] /= npts;
+      avg[1] /= npts;
+      avg[2] /= npts;
+  }
+
+  template <typename T>
+  int FindProcessFromPoint(T *pt)
+  {
+      for (int proc=0; proc<this->UpdateNumPieces; proc++) {
+        vtkBoundingBox &b = this->BoxList[proc];
+        if (b.ContainsPoint(pt[0], pt[1], pt[2])) {
+            std::cout << "Found one" << std::endl;
+            return proc;
+        }
+      }
+      return -1;
+  }
+
 //BTX
   template<typename U>
   friend struct vtkZoltan2Helper;

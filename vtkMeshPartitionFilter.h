@@ -78,6 +78,12 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
         Neighbour   = 3
     };
 
+    enum BoundaryAssignment {
+        First   = 0,
+        Most    = 1,
+        Centroid = 2,
+    };
+
     // GhostMode is an option to control how ghost cells are generated, modes are
     // Boundary: flags only cells which straddle the boundary of a partition
     // the cell will be duplicated on all partitions that it overlaps, but on one
@@ -89,10 +95,17 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     vtkSetMacro(GhostMode, int);
     vtkGetMacro(GhostMode, int);
     // convenience setter/getters for GhostMode
-    void SetGhostModeToNone() { this->SetGhostMode(None); }
-    void SetGhostModeToBoundary() { this->SetGhostMode(Boundary); }
-    void SetGhostModeToBoundingBox() { this->SetGhostMode(BoundingBox); }
-    void SetGhostModeToNeighbourCells() { this->SetGhostMode(Neighbour); }
+    void SetGhostModeToNone() { this->SetGhostMode(vtkMeshPartitionFilter::None); }
+    void SetGhostModeToBoundary() { this->SetGhostMode(vtkMeshPartitionFilter::Boundary); }
+    void SetGhostModeToBoundingBox() { this->SetGhostMode(vtkMeshPartitionFilter::BoundingBox); }
+    void SetGhostModeToNeighbourCells() { this->SetGhostMode(vtkMeshPartitionFilter::Neighbour); }
+
+    vtkSetMacro(BoundaryMode, int);
+    vtkGetMacro(BoundaryMode, int);
+    // convenience setter/getters for GhostMode
+    void SetBoundaryModeToFirst() { this->SetBoundaryMode(vtkMeshPartitionFilter::First); }
+    void SetBoundaryModeToMost() { this->SetBoundaryMode(vtkMeshPartitionFilter::Most); }
+    void SetBoundaryModeToCentroid() { this->SetBoundaryMode(vtkMeshPartitionFilter::Centroid); }
 
     // Description:
     // Specify the ghost level that will be used to generate ghost cells
@@ -119,6 +132,7 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
                             vtkInformationVector*);
 
     int                     GhostMode;
+    int                     BoundaryMode;
     double                  GhostCellOverlap;
     int                     NumberOfGhostLevels;
     vtkUnsignedCharArray   *ghost_array;
