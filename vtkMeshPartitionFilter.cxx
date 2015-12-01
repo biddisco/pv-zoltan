@@ -247,8 +247,10 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
 //----------------------------------------------------------------------------
 vtkMeshPartitionFilter::vtkMeshPartitionFilter()
 {
+  this->GhostMode            = 0;
   this->NumberOfGhostLevels = 2;
-  this->ghost_array = NULL;
+  this->GhostCellOverlap    = 0.0;
+  this->ghost_array         = NULL;
 }
 //----------------------------------------------------------------------------
 vtkMeshPartitionFilter::~vtkMeshPartitionFilter()
@@ -445,7 +447,7 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
 //----------------------------------------------------------------------------
 // 
 // Build a list of cell to process Ids based on the already performed 
-// point redistibution. Points which are being sent away will be taking 
+// point redistribution. Points which are being sent away will be taking
 // their cells with them. Caution, some points are shared between cells and may 
 // go to different processes. For these cells, we must send another copy 
 // of the points to the relevant process.
@@ -466,15 +468,14 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   cell_partitioninfo.GlobalIds.reserve(numCells/this->UpdateNumPieces);
 
   // if we are generating ghost cells for the mesh, then we must allocate a new array
-  // on the outut to store the ghost cell information (level 0,1,2...N ) etc
+  // on the output to store the ghost cell information (level 0,1,2...N ) etc
   if (this->NumberOfGhostLevels>0) {
       my_debug("Created a ghost array with "<<numCells);
       this->ghost_array = vtkIntArray::New();
-      this->ghost_array->SetName("GhostLevel");
+      this->ghost_array->SetName("vtkGhostLevels");
       this->ghost_array->SetNumberOfTuples(numCells);
       this->ZoltanCallbackData.Output->GetCellData()->AddArray(this->ghost_array);
   }
-
 
   // we know that some points on this process will be exported to remote processes
   // so build a point to process map to quickly lookup the process Id from the point Id
@@ -509,39 +510,23 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 
   // a simple bitmask with one entry per process, used for each cell to count processes for the cell
   std::vector<unsigned char> process_flag(this->UpdateNumPieces,0);;
-  
-  // Creating few look up tables
-  std::vector<std::vector<vtkIdType> > point_to_cell_map;
-  std::vector<std::vector<vtkIdType> > cell_to_point_map;
-  std::vector<vtkIdType> cell_level_info;
-  std::vector<int> cell_status;
-  std::vector< std::vector<vtkIdType> > level_to_cell_map;
 
-  cell_level_info.resize(numCells);
-  cell_status.resize(numCells);
   int LEVEL_MAX = 0;
-  if (LEVEL_MAX>0){
-    point_to_cell_map.resize(numPts);
-    cell_to_point_map.resize(numCells);
-    level_to_cell_map.resize(2*LEVEL_MAX+3);
-  }
   int REMOTE_LEVEL = 2*LEVEL_MAX +2;
   int LOCAL_LEVEL = 0;
   int GHOST_LEVEL = LEVEL_MAX+1;
-
-  // Level Classification
-  // LEVEL_MAX is the no. of neighbouring ghost cells are required apart from one layer of ghost cells
-  // default for LEVEL_MAX = 0
-  // [LOCAL_LEVEL] [ ] ...[-2] [-1] [GHOST_LEVEL / LEVEL_MAX] [+1] [+2] ... [REMOTE_LEVEL]
-  double delta = 3;
-  my_debug("cells: "<<numCells<<"\tpoints: "<<numPts<<"\t LEVEL_MAX: "<<LEVEL_MAX );
+  std::vector<vtkIdType> cell_level_info;
+  std::vector<int> cell_status;
+  cell_level_info.resize(numCells);
+  cell_status.resize(numCells);
 
   this->SetGhostModeToBoundingBox();
 //  this->SetGhostModeToNeighbourCells();
+
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // BOUNDING BOX
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  if (IsGhostModeBoundingBox()){
+  if (IsGhostModeBoundingBox()) {
     vtkIdType N = data->GetNumberOfPoints();
     std::vector<int> point_to_level_map(N, -1);
     double bounds[6];
@@ -549,8 +534,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     vtkBoundingBox localBoundingBox(bounds);
     for (int proc=0; proc<this->UpdateNumPieces; proc++) {
       vtkBoundingBox b      = vtkBoundingBox(this->BoxList[proc]);
-      vtkBoundingBox b_out  = vtkBoundingBox(b); b_out.Inflate(delta*LEVEL_MAX);
-      vtkBoundingBox b_in   = vtkBoundingBox(b); b_in.Inflate(-delta*LEVEL_MAX);
+      vtkBoundingBox b_out  = vtkBoundingBox(b); b_out.Inflate(this->GhostCellOverlap*LEVEL_MAX);
+      vtkBoundingBox b_in   = vtkBoundingBox(b); b_in.Inflate(-this->GhostCellOverlap*LEVEL_MAX);
       if (localBoundingBox.IntersectBox(b_out)) {
         for (vtkIdType i=0; i<N; i++) {
           double *pt = data->GetPoint(i);
@@ -560,14 +545,14 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
           
           if (absolutelocalpoint) {
             point_to_level_map[i] = LOCAL_LEVEL;
-          }else if (!extendedlocalpoint){
+          } else if (!extendedlocalpoint) {
             point_to_level_map[i] = REMOTE_LEVEL;
-          }else{ // point lies in ghost band
+          } else { // point lies in ghost band
             // there is no GHOST_LEVEL in bounding box case... even number of ghost levels.. half inner... half outer
             for (int l=0; l<LEVEL_MAX; l++) {
               if (!localpoint) {
-                vtkBoundingBox b_this = vtkBoundingBox(b); b_this.Inflate(delta*l);
-                vtkBoundingBox b_next = vtkBoundingBox(b); b_next.Inflate(delta*(l+1));
+                vtkBoundingBox b_this = vtkBoundingBox(b); b_this.Inflate(this->GhostCellOverlap*l);
+                vtkBoundingBox b_next = vtkBoundingBox(b); b_next.Inflate(this->GhostCellOverlap*(l+1));
                 
                 bool point_in_this = b_this.ContainsPoint(pt);
                 bool point_in_next = b_next.ContainsPoint(pt);
@@ -576,8 +561,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
                   point_to_level_map[i] = GHOST_LEVEL + l + 1;
                 }
               }else{
-                vtkBoundingBox b_this = vtkBoundingBox(b); b_this.Inflate(-delta*l);
-                vtkBoundingBox b_next = vtkBoundingBox(b); b_next.Inflate(-delta*(l+1));
+                vtkBoundingBox b_this = vtkBoundingBox(b); b_this.Inflate(-this->GhostCellOverlap*l);
+                vtkBoundingBox b_next = vtkBoundingBox(b); b_next.Inflate(-this->GhostCellOverlap*(l+1));
                 
                 bool point_in_this = b_this.ContainsPoint(pt);
                 bool point_in_next = b_next.ContainsPoint(pt);
@@ -597,7 +582,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
       if (pdata) { pdata->GetCellPoints(cellId, npts, pts); }
       else if (udata) { udata->GetCellPoints(cellId, npts, pts); }
 
-
       level_flag.assign(REMOTE_LEVEL+1, 0);
       for (j=0; j<npts; j++) {
         int level = point_to_level_map[pts[j]];
@@ -610,7 +594,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         }
       }
       cell_level_info[cellId] = max_level;
-      
       
       process_flag.assign(this->UpdateNumPieces,0);
       int points_remote = 0;
@@ -644,6 +627,9 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
           throw std::string("This should not be possible");
         }
       }
+      if (this->NumberOfGhostLevels>0)
+        this->ghost_array->SetTuple1(cellId, cell_level_info[cellId]);
+
       //
       // We will use the process receiving the first point as the desired final location :
       // ideally we'd count them and choose the process with the most, but the gain would be tiny
@@ -687,6 +673,23 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   // NEIGHBOR ALGO
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   else{
+    // Level Classification
+    // LEVEL_MAX is the no. of neighbouring ghost cells are required apart from one layer of ghost cells
+    // default for LEVEL_MAX = 0
+    // [LOCAL_LEVEL] [ ] ...[-2] [-1] [GHOST_LEVEL / LEVEL_MAX] [+1] [+2] ... [REMOTE_LEVEL]
+    my_debug("cells: "<<numCells<<"\tpoints: "<<numPts<<"\t LEVEL_MAX: "<<LEVEL_MAX );
+    
+    // Creating few look up tables
+    std::vector<std::vector<vtkIdType> > point_to_cell_map;
+    std::vector<std::vector<vtkIdType> > cell_to_point_map;
+    std::vector< std::vector<vtkIdType> > level_to_cell_map;
+
+    if (LEVEL_MAX>0){
+      point_to_cell_map.resize(numPts);
+      cell_to_point_map.resize(numCells);
+      level_to_cell_map.resize(2*LEVEL_MAX+3);
+    }
+
     //
     // for each cell, find if all points are designated as remote and cell needs to be sent away
     //
@@ -952,12 +955,3 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   );
 }
 //----------------------------------------------------------------------------
-void vtkMeshPartitionFilter::SetGhostModeToBoundingBox(){
-  this->SetGhostMode(0);
-}
-void vtkMeshPartitionFilter::SetGhostModeToNeighbourCells(){
-  this->SetGhostMode(1);
-}
-bool vtkMeshPartitionFilter::IsGhostModeBoundingBox(){
-  return this->GetGhostMode()==0;
-}

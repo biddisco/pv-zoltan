@@ -52,7 +52,7 @@ class VTK_EXPORT vtkParticlePartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     vtkGetMacro(GhostCellOverlap, double);
   
     // Description:
-    // The number of levesl of ghost cells to be used
+    // The number of levels of ghost cells to be used
     // If 0 then only single ghost region to be used
     // If 1 then 1 level of neighbor ghost region to be used
     // If 2 then 1 level of neighbor ghost region to be used and so on..

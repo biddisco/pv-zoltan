@@ -201,7 +201,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   // SPH kernel or neighbour info
   //
   test.particleSize = GetParameter<double>("-particlesize", "Particle Size", argc, argv, 0, test.myRank, test.fixRadius);
-  test.ghostOverlap = GetParameter<double>("-ghost_region", "Ghost Region", argc, argv, 0.0, test.myRank, unused);
+  test.ghostOverlap = GetParameter<double>("-ghostOverlap", "Ghost Region size", argc, argv, 0.0, test.myRank, unused);
   GetArrayParameter<double>("-gridSpacing", "Grid Spacing", test.gridSpacing, 3, argc, argv, test.myRank);
   GetArrayParameter<int>("-gridResolution", "Grid Resolution", test.gridResolution, 3, argc, argv, test.myRank);
   test.maxN = GetParameter<int>("-neighbours", "Fixed Neighbours", argc, argv, 0, test.myRank, test.fixNeighbours);
@@ -354,8 +354,8 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         }
         testDebugMacro("setting scalar colours to " << scalarName.c_str());
         mapper->SelectColorArray(scalarName.c_str());
-        mapper->SetScalarRange(scalarRange[0], scalarRange[1]);
         mapper->SetUseLookupTableScalarRange(0);
+        mapper->SetScalarRange(scalarRange[0], scalarRange[1]);
         mapper->SetInterpolateScalarsBeforeMapping(0);
         //
         actor->SetMapper(mapper);

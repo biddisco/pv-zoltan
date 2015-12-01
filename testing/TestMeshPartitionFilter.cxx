@@ -95,8 +95,14 @@ int main (int argc, char* argv[])
   test.partitioner->SetInputConnection(test.xmlreader->GetOutputPort());
   test.partitioner->SetInputDisposable(1);
   test.partitioner->SetKeepInversePointLists(1);
-  static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetNumberOfGhostLevels(test.ghostLevels);
-//  test.partitioner->SetGhostCellOverlap(test.ghostOverlap); // no delta required in mesh partition
+  if (test.ghostOverlap>0) {
+      static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
+      static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetNumberOfGhostLevels(1);
+  }
+  else {
+      static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetNumberOfGhostLevels(test.ghostLevels);
+  }
+
   partition_elapsed = test.UpdatePartitioner();
 
   //--------------------------------------------------------------

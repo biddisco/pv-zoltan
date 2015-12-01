@@ -71,35 +71,41 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
       PartitionInfo &point_partitioninfo, 
       ZoltanLoadBalanceData &loadBalanceData);
   
-
+    // GhostMode is 0 for BoundingBox Mode and 1 for Neighbor Cell Mode
     vtkSetMacro(GhostMode, int);
     vtkGetMacro(GhostMode, int);
-    
-    void SetGhostModeToBoundingBox();
-    void SetGhostModeToNeighbourCells();
-    bool IsGhostModeBoundingBox();
+    // convenience setter/getters for GhostMode
+    void SetGhostModeToBoundingBox() { this->SetGhostMode(0); }
+    void SetGhostModeToNeighbourCells() { this->SetGhostMode(1); }
+    bool IsGhostModeBoundingBox() { return this->GetGhostMode()==0; }
 
     // Description:
     // Specify the ghost level that will be used to generate ghost cells
     // a level of 1 produces one layer of touching cells, 2 produces 2 layers etc
     // Note that this variable will be overridden if the information key
     // for GHOST_LEVELS is present in the information passed upstream in
-    // the pipeline
+    // the pipeline.
+    // When GhostMode is BoundingBox, then this value is ignored and the
+    // GhostCellOverlap is used instead as a measure for ghost regions
     vtkSetMacro(NumberOfGhostLevels, int);
     vtkGetMacro(NumberOfGhostLevels, int);
+
+    // The distance beyond a process region for which we require ghost cells
+    vtkSetMacro(GhostCellOverlap, double);
+    vtkGetMacro(GhostCellOverlap, double);
 
   protected:
      vtkMeshPartitionFilter();
     ~vtkMeshPartitionFilter();
-  
-    int GhostMode; // 0 for BoundingBox Mode and 1 for Neighbor Cell Mode
   
     // Description:
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
                             vtkInformationVector*);
 
-    int NumberOfGhostLevels;
+    int          GhostMode;
+    double       GhostCellOverlap;
+    int          NumberOfGhostLevels;
     vtkIntArray *ghost_array;
 
   private:
