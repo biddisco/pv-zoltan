@@ -91,15 +91,20 @@ TARGET_LINK_LIBRARIES(TestMeshPartitionFilter
 #  ${Trilinos_LIBRARIES}
 #)
 
-# 
-# This test will only run if we have 4 processors
-#   
+#--------------------------------------------------
+# Tests will only run if we have 4+ processors
+#--------------------------------------------------
+
 greater_equal(${MPIEXEC_MAX_NUMPROCS} 4 processors)
 if (NOT processors)
     message(WARNING "pv-zoltan tests require at least 4 mpi ranks in MPIEXEC_MAX_NUMPROCS") 
 endif()
 
 IF (processors)
+
+  #------------------------------------------------
+  # Particle partition tests
+  #------------------------------------------------
   SET(test_name "TestParticlePartitionFilter-P4")
   ADD_TEST(
     NAME ${test_name}
@@ -129,6 +134,7 @@ IF (processors)
       -T "${PLUGIN_TEST_DIR}"
       -generateParticles 1000
       -particleGenerator 0
+      -ghostOverlap 100
       -scalarName vtkGhostLevels
       -scalarMode 0
       -scalarRange "0 1"
@@ -148,6 +154,7 @@ IF (processors)
       -T "${PLUGIN_TEST_DIR}"
       -generateParticles 5000
       -particleGenerator 1
+      -ghostOverlap 50
       -scalarName Weights
       -scalarMode 0
       -scalarRange "0 1"
@@ -170,6 +177,9 @@ IF (processors)
       -useWeights 1
   )
   
+  #------------------------------------------------
+  # Mesh partition tests
+  #------------------------------------------------
   SET(test_name "TestMeshPartitionFilterBoundary-P4")
   set(boundary_list "first;most;centroid")
   foreach(dmode soma sphere)

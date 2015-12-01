@@ -155,7 +155,6 @@ int main (int argc, char* argv[])
     }
     //  test.partitioner->SetIdChannelArray("PointIds");
     static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
-    static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetNumberOfGhostLevels(test.ghostLevels);
     partition_elapsed = test.UpdatePartitioner();
 
     //--------------------------------------------------------------
