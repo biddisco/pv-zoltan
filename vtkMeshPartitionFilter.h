@@ -79,19 +79,33 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     };
 
     enum BoundaryAssignment {
-        First   = 0,
-        Most    = 1,
-        Centroid = 2,
+        First    = 0, // cell assigned to process containing first point
+        Most     = 1, // cell assigned to process containing most points
+        Centroid = 2, // cell assigned to process overlapping cell centroid
     };
+
+    // BoundaryMode is an option to control how cells which straddle the boundary
+    // of a bounding box (split plane). Since a cell can only be considered as
+    // 'owned' by one process, the options are
+    // First    = 0, cell assigned to process containing first point
+    // Most     = 1, cell assigned to process containing most points
+    // Centroid = 2, cell assigned to process overlapping cell centroid
+    vtkSetMacro(BoundaryMode, int);
+    vtkGetMacro(BoundaryMode, int);
+    // convenience setter/getters for GhostMode
+    void SetBoundaryModeToFirst() { this->SetBoundaryMode(vtkMeshPartitionFilter::First); }
+    void SetBoundaryModeToMost() { this->SetBoundaryMode(vtkMeshPartitionFilter::Most); }
+    void SetBoundaryModeToCentroid() { this->SetBoundaryMode(vtkMeshPartitionFilter::Centroid); }
 
     // GhostMode is an option to control how ghost cells are generated, modes are
     // Boundary: flags only cells which straddle the boundary of a partition
-    // the cell will be duplicated on all partitions that it overlaps, but on one
-    // partition it will be a normal cell, on others it will be flagged as s ghost cell
+    //   the cell will be duplicated on all partitions that it overlaps, but on one
+    //   partition it will be a normal cell (see BoundaryMode),
+    //   on others it will be flagged as s ghost cell
     // BoundingBox: duplicates all cells which overlap the GhostCellOverlap region
-    // of another process.
+    //   of another process.
     // Neighbour: Any cell touching a boundary cell up to the GhostLevel depth
-    // becomes a ghost cell on an adjacent process.
+    //   becomes a ghost cell on an adjacent process.
     vtkSetMacro(GhostMode, int);
     vtkGetMacro(GhostMode, int);
     // convenience setter/getters for GhostMode
@@ -99,13 +113,6 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     void SetGhostModeToBoundary() { this->SetGhostMode(vtkMeshPartitionFilter::Boundary); }
     void SetGhostModeToBoundingBox() { this->SetGhostMode(vtkMeshPartitionFilter::BoundingBox); }
     void SetGhostModeToNeighbourCells() { this->SetGhostMode(vtkMeshPartitionFilter::Neighbour); }
-
-    vtkSetMacro(BoundaryMode, int);
-    vtkGetMacro(BoundaryMode, int);
-    // convenience setter/getters for GhostMode
-    void SetBoundaryModeToFirst() { this->SetBoundaryMode(vtkMeshPartitionFilter::First); }
-    void SetBoundaryModeToMost() { this->SetBoundaryMode(vtkMeshPartitionFilter::Most); }
-    void SetBoundaryModeToCentroid() { this->SetBoundaryMode(vtkMeshPartitionFilter::Centroid); }
 
     // Description:
     // Specify the ghost level that will be used to generate ghost cells
@@ -125,7 +132,17 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
   protected:
      vtkMeshPartitionFilter();
     ~vtkMeshPartitionFilter();
-  
+
+    // flag used after assigning the points making up a cell to decide
+    // where the cell will be sent or if it will be kept
+    enum CellStatus {
+        UNDEFINED = 0,
+        LOCAL     = 1, // all points are local
+        SAME      = 2, // all remote, but on same process
+        SPLIT     = 3, // some local, some remote
+        REMOTE    = 4  // all remote, split on different processes
+    };
+
     // Description:
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
