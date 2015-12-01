@@ -170,7 +170,7 @@ IF (processors)
       -useWeights 1
   )
   
-  SET(test_name "TestMeshPartitionFilter-P4")
+  SET(test_name "TestMeshPartitionFilterBoundary-P4")
   set(boundary_list "first;most;centroid")
   foreach(dmode soma sphere)
       foreach(mode 0 1 2)
@@ -186,7 +186,7 @@ IF (processors)
               -D ${PROJECT_SOURCE_DIR}/testing/data
               -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-${BMODE}-${dmode}.png
               -doRender 1
-              -ghostOverlap 10.0
+              -ghostMode 0
               -boundaryMode ${mode}
               -scalarMode 0
               -scalarName ProcessId
@@ -198,27 +198,30 @@ IF (processors)
   endforeach()
     
   SET(test_name "TestMeshPartitionFilterCellData-P4")
-  ADD_TEST(
-    NAME ${test_name}
-    COMMAND 
-      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-      $<TARGET_FILE:TestMeshPartitionFilter> 
-      -testName ${test_name}
-      -T "${PLUGIN_TEST_DIR}"
-      -F sphere-4-partitions-celldata.pvtp
-      -D ${PROJECT_SOURCE_DIR}/testing/data
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionCellData.png
-      -doRender 1
-#      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
-#      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
-#      -cameraViewUp   "0 1 0"
-      -ghostMode 0
-      -scalarMode 1
-      -scalarName Elevation
-      -scalarRange "0 1"
-      -actorShift 0.0
-      -windowSize "1024 800"
-  )
+  set(scalar_vars "RTNeuron Opacity" "Elevation")
+  set(index 0)
+  foreach(dmode soma sphere)
+    list(GET "scalar_vars" "${index}" SCALAR)
+    ADD_TEST(
+      NAME ${test_name}-${dmode}
+      COMMAND 
+        ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+        $<TARGET_FILE:TestMeshPartitionFilter> 
+        -testName ${test_name}-${dmode}
+        -T "${PLUGIN_TEST_DIR}"
+        -F ${dmode}-4-partitions.pvtp
+        -D ${PROJECT_SOURCE_DIR}/testing/data
+        -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-celldata-${dmode}.png
+        -doRender 1
+        -ghostMode 0
+        -scalarMode 1
+        -scalarName ${SCALAR}
+        -scalarRange "0 1"
+        -actorShift 0.0
+        -windowSize "1024 800"
+    )
+    math(EXPR index "${index} + 1")
+  endforeach()
 
   SET(test_name "TestMeshPartitionFilterGhost-P4")
   ADD_TEST(
@@ -232,9 +235,7 @@ IF (processors)
       -D ${PROJECT_SOURCE_DIR}/testing/data
       -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionGhost.png
       -doRender 1
-#      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
-#      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
-#      -cameraViewUp   "0 1 0"
+      -ghostMode 1
       -ghostOverlap 10.0
       -scalarMode 1
       -scalarName vtkGhostLevels
