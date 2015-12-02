@@ -1,0 +1,9 @@
+# after a 
+git merge trilinos/master
+
+# reset all packages which we are not using
+git diff --name-status --diff-filter=U | grep packages | awk '{print $2}' | cut -d/ -f1,2 | sort | uniq | xargs git reset
+
+# remove any created directories to stop trilinos searching them
+git diff --name-status --diff-filter=U | grep packages | awk '{print $2}' | cut -d/ -f1,2 | sort | uniq | xargs rm -rf 
+
