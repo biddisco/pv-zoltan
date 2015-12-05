@@ -120,6 +120,7 @@ void CubePoints(int n, float radius, float X[], float W[]) {
     W[i] = r1*r2*r3 / (radius*radius*radius);
   }
 }
+
 //----------------------------------------------------------------------------
 int initTest(int argc, char* argv[], TestStruct &test)
 {
@@ -163,7 +164,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   for (int c=1; c<argc; c++ ) {
     vtktest->AddArgument(argv[c]);
   }
-  char *empty = " ";
+  const char *empty = " ";
 
   //
   // Force the creation of our output window object
@@ -175,7 +176,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   //
   // General test flags/info
   //
-  DisplayParameter<char *>("====================", "", &empty, 1, (test.myRank==0)?0:-1);
+  DisplayParameter<const char *>("====================", "", &empty, 1, (test.myRank==0)?0:-1);
   test.testName = GetParameter<std::string>("-testName", "Test name", argc, argv, "", test.myRank, unused);
   test.doRender = GetParameter<bool>("-doRender", "Enable Render", argc, argv, 0, test.myRank, unused);
   test.keepTempFiles = GetParameter<bool>("-X", "Keep Temporary Files", argc, argv, 0, test.myRank, unused);
@@ -259,10 +260,11 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.gridResolution[2] = test.gridResolution[1] = test.gridResolution[0];
   //
   DisplayParameter<vtkTypeInt64>("No. of Processes", "", &test.numProcs, 1, (test.myRank==0)?0:-1);
-  DisplayParameter<char *>("--------------------", "", &empty, 1, (test.myRank==0)?0:-1);
+  DisplayParameter<const char *>("--------------------", "", &empty, 1, (test.myRank==0)?0:-1);
   //
   return 1;
-}  
+}
+
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 void TestStruct::CreateXMLPolyDataReader()
@@ -270,12 +272,14 @@ void TestStruct::CreateXMLPolyDataReader()
   this->xmlreader = vtkSmartPointer<vtkXMLPPolyDataReader>::New();
   this->xmlreader->SetFileName(this->fullName.c_str());
 }
+
 //----------------------------------------------------------------------------
 void TestStruct::DeleteXMLPolyDataReader()
 {
   this->xmlreader->SetFileName(NULL);
   this->xmlreader = NULL;
 }
+
 //----------------------------------------------------------------------------
 void TestStruct::CreatePartitioner_Particles()
 {
@@ -283,6 +287,7 @@ void TestStruct::CreatePartitioner_Particles()
   this->partitioner = vtkSmartPointer<vtkParticlePartitionFilter>::New();
   this->partitioner->SetController(this->controller);
 }
+
 //----------------------------------------------------------------------------
 void TestStruct::CreatePartitioner_Mesh()
 {
@@ -290,6 +295,7 @@ void TestStruct::CreatePartitioner_Mesh()
   this->partitioner = vtkSmartPointer<vtkMeshPartitionFilter>::New();
   this->partitioner->SetController(this->controller);
 }
+
 //----------------------------------------------------------------------------
 double TestStruct::UpdatePartitioner()
 {
@@ -311,12 +317,14 @@ double TestStruct::UpdatePartitioner()
   testDebugMacro( "Partition completed in " << partition_elapsed << " seconds" );
   return partition_elapsed;
 }
+
 //----------------------------------------------------------------------------
 void TestStruct::DeletePartitioner()
 {
   this->partitioner->SetInputConnection(NULL);
   this->partitioner = NULL;
 }
+
 //----------------------------------------------------------------------------
 int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
 {
@@ -451,4 +459,17 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
     return retVal;
 }
 //----------------------------------------------------------------------------
+void sleep_ms(int milliseconds) // cross-platform sleep function
+{
+#ifdef WIN32
+    Sleep(milliseconds);
+#elif _POSIX_C_SOURCE >= 199309L
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+#else
+    usleep(milliseconds * 1000);
+#endif
+}
 //----------------------------------------------------------------------------
