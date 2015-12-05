@@ -1214,11 +1214,11 @@ void vtkZoltanV2PartitionFilter::ComputeInvertLists(MigrationLists &migrationLis
     Zoltan_Destroy(&this->ZoltanData);
     exit(0);
   }
-  else if ( (migrationLists.found_global_ids==NULL) )
+  else if ( migrationLists.found_global_ids==NULL )
   {
     printf("migrationLists.found_global_ids==NULL\n");
   }
-  else if ( (migrationLists.found_procs==NULL) )
+  else if ( migrationLists.found_procs==NULL )
   {
     printf("migrationLists.found_procs==NULL\n");
     MPI_Finalize();
@@ -1561,6 +1561,7 @@ void vtkZoltanV2PartitionFilter::CopyPointsToSelf(
   callbackdata->OutputPointsData = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
   vtkPointData    *inPD  = callbackdata->Input->GetPointData();
   vtkPointData    *outPD = callbackdata->Output->GetPointData();
+  outPD->CopyAllOn();
   outPD->CopyAllocate(inPD, N2);
   //
   // prepare for copying data by setting up pointers to field arrays
@@ -1574,7 +1575,10 @@ void vtkZoltanV2PartitionFilter::CopyPointsToSelf(
     // for each point that is staying on this process
     if (callbackdata->LocalToLocalIdMap[i]==0) { 
       outPD->CopyData(inPD, i, callbackdata->OutPointCount);
-      memcpy(&((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3], &((T*)(callbackdata->InputPointsData))[i*3], sizeof(T)*3);
+      memcpy(
+        &((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3],
+        &((T*)(callbackdata->InputPointsData))[i*3],
+        sizeof(T)*3);
       callbackdata->LocalToLocalIdMap[i] = callbackdata->OutPointCount;
       callbackdata->OutPointCount++;
     }
@@ -1585,7 +1589,10 @@ void vtkZoltanV2PartitionFilter::CopyPointsToSelf(
     vtkIdType LID = LocalPointsToKeep[i];
     if (callbackdata->LocalToLocalIdMap[LID]==-1) { // the point was marked as moving, but we need it here too
       outPD->CopyData(inPD, LID, callbackdata->OutPointCount);
-      memcpy(&((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3], &((T*)(callbackdata->InputPointsData))[LID*3], sizeof(T)*3);
+      memcpy(
+        &((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3],
+        &((T*)(callbackdata->InputPointsData))[LID*3],
+        sizeof(T)*3);
       callbackdata->LocalToLocalIdMap[LID] = callbackdata->OutPointCount;
       callbackdata->OutPointCount++;
     }
