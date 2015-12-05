@@ -197,6 +197,7 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
       vtkIdType                     OutCellCount;
       vtkSmartPointer<vtkCellArray> OutputCellArray;
       std::vector<vtkIdType>        LocalToLocalIdMap;
+      std::vector<vtkIdType>        LocalToLocalCellMap;
       std::map<vtkIdType,vtkIdType> ReceivedGlobalToLocalIdMap;
       //
       // The variables below are used twice, once for points, then again for cells
@@ -207,6 +208,7 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
       std::vector<void*>            OutputArrayPointers;
       std::vector<int>              MemoryPerTuple;
       int                           TotalSizePerId;
+      std::vector<vtkIdType>        LocalIdsToKeep;
     } CallbackData;
 
     //----------------------------------------------------------------------------
@@ -389,7 +391,6 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkDataSetAlgorithm
       for (int proc=0; proc<this->UpdateNumPieces; proc++) {
         vtkBoundingBox &b = this->BoxList[proc];
         if (b.ContainsPoint(pt[0], pt[1], pt[2])) {
-            std::cout << "Found one" << std::endl;
             return proc;
         }
       }

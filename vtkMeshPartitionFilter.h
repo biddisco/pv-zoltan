@@ -140,7 +140,7 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
         LOCAL     = 1, // all points are local
         SAME      = 2, // all remote, but on same process
         SPLIT     = 3, // some local, some remote
-        REMOTE    = 4  // all remote, split on different processes
+        SCATTERED = 4  // all remote, split on different processes
     };
 
     // Description:

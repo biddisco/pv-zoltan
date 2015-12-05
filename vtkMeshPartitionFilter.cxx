@@ -66,32 +66,63 @@ vtkStandardNewMacro(vtkMeshPartitionFilter);
 // to take place and unpack each object
 //----------------------------------------------------------------------------
 template <typename T>
-void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(void *data, int num_gid_entries, int num_lid_entries,
+void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(
+  void *data, int num_gid_entries, int num_lid_entries,
   int num_import, ZOLTAN_ID_PTR import_global_ids, ZOLTAN_ID_PTR import_local_ids,
   int *import_procs, int *import_to_part, int num_export, ZOLTAN_ID_PTR export_global_ids,
   ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr)
 {
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
+
   // How many cells will we have at the end
   vtkIdType OutputNumberOfLocalCells = callbackdata->Input->GetNumberOfCells();
-  vtkIdType OutputNumberOfFinalCells = OutputNumberOfLocalCells + num_import - num_export;
-  vtkIdType       ReservedPointCount = callbackdata->Output->GetNumberOfPoints();
+
+  // our size estimates of the final number of cells can be messed up because
+  // the list of cells being sent away contains some which are sent to multiple
+  // remote processes. We can't therefore use the size of this list to subtract away
+  // from the original cells to get final list size.
+  // We therefore first need to count the number of unique cells being sent away
+  //
+  // We will do that whilst we ...
+  // Mark cells to be moved with -1 so we know which local cells will still be local after the exchange
+  callbackdata->LocalToLocalCellMap.assign(OutputNumberOfLocalCells, 0);
+  vtkIdType uniqueSends = 0;
+  for (vtkIdType i=0; i<num_export; i++) {
+    vtkIdType GID = export_global_ids[i];
+    vtkIdType LID = GID - callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank];
+    if (callbackdata->LocalToLocalCellMap[LID]==0) {
+      callbackdata->LocalToLocalCellMap[LID] = -1;
+      uniqueSends++;
+    }
+  }
+
+  std::cout << "Callback LocalIdsToKeep:" << callbackdata->LocalIdsToKeep.size() << std::endl;
+  // now mark those we are keeping as local again
+  for (vtkIdType i=0; i<callbackdata->LocalIdsToKeep.size(); i++) {
+    vtkIdType LID = callbackdata->LocalIdsToKeep[i];
+    if (callbackdata->LocalToLocalCellMap[LID]==-1) {
+      callbackdata->LocalToLocalCellMap[LID] = 0;
+      uniqueSends--;
+    }
+  }
+
+  // final cell count will be
+  vtkIdType OutputNumberOfFinalCells = OutputNumberOfLocalCells + num_import - uniqueSends;
+
   callbackdata->OutputPointsData     = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
+
   // we'll need enough space to handle the largest cells
   callbackdata->MaxCellSize     = callbackdata->Input->GetMaxCellSize();
   callbackdata->OutputCellArray = vtkSmartPointer<vtkCellArray>::New();
-  callbackdata->OutputCellArray->Allocate(OutputNumberOfLocalCells*(callbackdata->MaxCellSize+1));
+  callbackdata->OutputCellArray->Allocate(OutputNumberOfFinalCells*(callbackdata->MaxCellSize+1));
   //
   vtkCellData *inCD  = callbackdata->Input->GetCellData();
   vtkCellData *outCD = callbackdata->Output->GetCellData();
+  outCD->CopyAllOn();
   outCD->CopyAllocate(inCD, OutputNumberOfFinalCells);
   //
   callbackdata->self->InitializeFieldDataArrayPointers(callbackdata, inCD, outCD, OutputNumberOfFinalCells);
 
-  std::vector<bool> local(OutputNumberOfLocalCells, true);
-  for (vtkIdType i=0; i<num_export; i++) {
-    local[export_global_ids[i]-callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank]] = false;    
-  }
   //
   vtkIdType npts, *pts, newpts[32];
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
@@ -104,7 +135,7 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(void *data, int nu
   //
   callbackdata->OutCellCount = 0;
   for (vtkIdType cellId=0; cellId<OutputNumberOfLocalCells; cellId++) {
-    if (local[cellId]) {
+    if (callbackdata->LocalToLocalCellMap[cellId]!=-1) {
       // copy cell data from old to new datasets
       outCD->CopyData(inCD, cellId, callbackdata->OutCellCount);
       // copy cell point Ids to new dataset, 
@@ -112,9 +143,11 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(void *data, int nu
         int ctype = pdata->GetCellType(cellId);
         pdata->GetCellPoints(cellId, npts, pts); 
         for (int i=0; i<npts; i++) {
-          if (callbackdata->LocalToLocalIdMap[pts[i]]!=-1) newpts[i] = callbackdata->LocalToLocalIdMap[pts[i]];
+          if (callbackdata->LocalToLocalIdMap[pts[i]]!=-1) {
+              newpts[i] = callbackdata->LocalToLocalIdMap[pts[i]];
+          }
           else {
-            // wtf?
+              std::cout << "Fatal ERROR in cell point assignment \n";
           }
         }
         pdata2->InsertNextCell(ctype, npts, newpts);
@@ -124,11 +157,12 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(void *data, int nu
       //  udata->GetCellPoints(cellId, npts, pts); 
       //  udata2->InsertNextCell(ctype, npts, pts);
       //}
+      callbackdata->LocalToLocalCellMap[cellId] = callbackdata->OutCellCount;
       callbackdata->OutCellCount++;
     }
   }
   // make sure final point count is actual point count, not the reserved amount
-//  callbackdata->Output->GetPoints()->SetNumberOfPoints(callbackdata->OutPointCount);
+  //  callbackdata->Output->GetPoints()->SetNumberOfPoints(callbackdata->OutPointCount);
 }
 //----------------------------------------------------------------------------
 // Zoltan callback function : returns size of each cell and all its data
@@ -347,10 +381,12 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
 
   // after deleting memory, add a barrier to let ranks free as much as possible before the next big allocation
   this->Controller->Barrier();
+
   //
   // Distribute cells based on the usage of the points already distributed
   //
   this->PartitionCells(cell_partitioninfo);
+
   //
   // build a tree of bounding boxes to use for rendering info/hints or other spatial tests
   //
@@ -365,7 +401,7 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   }
   
   this->Timer->StopTimer();
-  vtkDebugMacro(<<"Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds");
+  vtkDebugMacro(<<"Mesh partitioning : " << this->Timer->GetElapsedTime() << " seconds");
   return 1;
 }
 //----------------------------------------------------------------------------
@@ -403,6 +439,8 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
     Zoltan_Destroy(&this->ZoltanData);
     exit(0);
   }
+
+  this->ZoltanCallbackData.LocalIdsToKeep = std::move(cell_partitioninfo.LocalIdsToKeep);
 
   //
   //  make sure field arrays are setup and ready for migration/copying
@@ -453,7 +491,7 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
   vtkDebugMacro(<<"Release pre-invert arrays (cells)");
   cell_partitioninfo.GlobalIds.clear();
   cell_partitioninfo.Procs.clear();
-  cell_partitioninfo.LocalIdsToKeep.clear();
+  this->ZoltanCallbackData.LocalIdsToKeep.clear();
 
   return 1;
 }
@@ -475,7 +513,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 {
   vtkIdType numPts = data->GetNumberOfPoints();
   vtkIdType numCells = data->GetNumberOfCells();
-  vtkIdType j, cellId;
 
   // we will put the results of the cell tests in these arrays
   cell_partitioninfo.Procs.reserve(numCells/this->UpdateNumPieces);
@@ -487,10 +524,12 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   std::vector<int> localId_to_process_map(numPts, this->UpdatePiece); 
   // 2) loop over all to be exported and note the destination
   for (vtkIdType i=0; i<loadBalanceData.numExport; i++) {
-    vtkIdType id               = loadBalanceData.exportGlobalGids[i] - this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
+    vtkIdType id = loadBalanceData.exportGlobalGids[i] -
+      this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
     localId_to_process_map[id] = loadBalanceData.exportProcs[i];
   }
-  // the list now has the mapping from local ID to remote process, 
+
+  // the list now has the mapping from local point ID to remote process,
   // now we must examine each cell and see if they can be sent to a remote process
   // or if they are split between processes, when we find cells split across (multiple) remote processes, 
   // we may need to add some points to the send lists so that the whole cell is correctly represented.
@@ -518,10 +557,11 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
   // sending a cellid to a process
   std::vector< process_tuple > cellDestProcesses;
   cellDestProcesses.reserve(this->UpdateNumPieces);
+
   //
-  // for each cell, find if all points are designated as remote and cell needs to be sent away
+  // for each cell, find if any/all points are designated as remote and cell needs to be sent away
   //
-  for (cellId=0; cellId<numCells; ++cellId) {
+  for (vtkIdType cellId=0; cellId<numCells; ++cellId) {
     // mark non-ghost status initially
     if (this->GhostMode!=vtkMeshPartitionFilter::None) {
       this->ghost_array->SetTuple1(cellId, 0);
@@ -539,7 +579,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     // 3) some points are local, some remote       : send or keep cell depending on count, make sure any local points sent are kept locally too
     // 4) all points on different remote processes : send cell to one remote process, also add other points to send list for that process
     //
-    // use a counter to mark/mask processes receiving points
+    // step 1: increment a counter for each rank to mark/mask processes receiving points
     process_flag.assign(this->UpdateNumPieces,0);
     int points_remote = 0;
     int process_count = 0;
@@ -550,10 +590,12 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         // if dest process has not been counted, count it
         if (process_flag[process]++ == 0) process_count++;
     }
+
+    // step 2: classify the cell based on where all the points are going
     CellStatus cellstatus = UNDEFINED;
     if (points_remote==0) {
+      // if all points for this cell are local, there is nothing else we need to do
       cellstatus = LOCAL;
-      // nothing needs to be done for this cell
       continue;
     }
     else {
@@ -567,101 +609,152 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
       }
       // all on remote processes, but not all the same process
       else if (process_count>1 && points_remote==npts) {
-        cellstatus = REMOTE;
+        cellstatus = SCATTERED;
       }
       else {
         throw std::string("This should not be possible");
       }
     }
 
-    // The destination process for the cell will be the one with the most points
-    int cellDestProcess;
+    // step 3: decide which rank will become the destination process for this cell
+    int cellDestProcess = -1;
     if (this->BoundaryMode==vtkMeshPartitionFilter::First) {
         cellDestProcess = localId_to_process_map[pts[0]];
     }
     else if (this->BoundaryMode==vtkMeshPartitionFilter::Most) {
-        cellDestProcess = std::distance(process_flag.begin(), std::max_element(process_flag.begin(), process_flag.end()));
+        cellDestProcess = std::distance(process_flag.begin(),
+            std::max_element(process_flag.begin(), process_flag.end()));
     }
     else if (this->BoundaryMode==vtkMeshPartitionFilter::Centroid) {
         T centroid[3];
         this->FindCentroid<T>(npts, pts, &this->ZoltanCallbackData, centroid);
         cellDestProcess = this->FindProcessFromPoint<T>(centroid);
     }
-    //
+
+    // update ghost array with this cell's status
+    if (this->GhostMode!=vtkMeshPartitionFilter::None) {
+      // increment the ghost value for this cell to track what's going on for visualization
+      this->ghost_array->SetValue(cellId, cellstatus); // this->ghost_array->GetValue(cellId)+1);
+    }
+
+    // step 4: mark cell for sending if necessary
     if (cellDestProcess!=this->UpdatePiece) {
       // cell is going to be sent away, add it to temporary send list
       cellDestProcesses.push_back( process_tuple(cellId, cellDestProcess) );
     }
-    //
+
+    // step 5: any *_points_* which belong to a cell marked for sending, but are not already
+    // marked for sending themselves, must be marked for both local and remote handling
     if (cellstatus==SAME) {
-      // all points are marked as remote, so nothing else needs to be done with the points
+      // all points are marked as remote, to the same destination
+      // so nothing else needs to be done with the points
     }
     //
-    // cells of type 3 and 4 need special treatment to handle the cell split over multiple processes
+    // cells of type SPLIT and SCATTERED need special treatment to handle
+    // the cell split over multiple processes
     //
     else {
-      if (this->GhostMode!=vtkMeshPartitionFilter::None) {
-        // increment the ghost value for this cell to track what's going on for visualization
-        this->ghost_array->SetValue(cellId, this->ghost_array->GetValue(cellId)+1);
-      }
+      // for each point in the cell
       for (int j=0; j<npts; ++j) {
         vtkIdType ptId = pts[j];
+        // which process is this point assigned to
         int pointDestProcess = localId_to_process_map[ptId];
-        // if the cell is being sent away, make sure any points going somewhere else go too
-        if (pointDestProcess!=cellDestProcess && cellDestProcess!=this->UpdatePiece) {
-          // The point needs to be sent away, so add it to our send list
-          process_vector.push_back( process_tuple(ptId, cellDestProcess) );
-          if (cellstatus==SPLIT) {
-            // the point is going to be sent away - but - we also need to keep a copy locally
-            point_partitioninfo.LocalIdsToKeep.push_back(ptId);
-          }
-        }
-        if (this->GhostMode==vtkMeshPartitionFilter::Boundary) {
-          // for boundary cells, all cell points have to be sent away to duplicate the cell
-          bool sent = false;
-          for (int p=0; p<this->UpdateNumPieces; ++p) {
-            if (process_flag[p]!=0 && p!=this->UpdatePiece && pointDestProcess!=p) {
-              process_vector.push_back( process_tuple(ptId, p) );
-              sent = true;
-            }
-          }
-          if ((cellstatus==SPLIT) && sent) {
-            // the point is going to be sent away - but - we also need to keep a copy locally
-            point_partitioninfo.LocalIdsToKeep.push_back(ptId);
-          }
-        }
-        // if the cell is partly local, even if we are sending it away,
-        // keep all points as they might be the vertex of a neighbouring cell
-        if (cellstatus==SPLIT && pointDestProcess!=this->UpdatePiece) {
-            // the point is going to be sent away - but - we also need to keep a copy locally
-            point_partitioninfo.LocalIdsToKeep.push_back(ptId);
-        }
-      }
-      if (this->GhostMode==vtkMeshPartitionFilter::Boundary) {
-        // Boundary cells need to go to all processes which own one or more points
-        for (int p=0; p<this->UpdateNumPieces; ++p) {
-          if (process_flag[p] && p!=this->UpdatePiece && p!=cellDestProcess) {
-            cellDestProcesses.push_back( process_tuple(cellId, p) );
-            cell_partitioninfo.LocalIdsToKeep.push_back(cellId);
-          }
-        }
-      }
 
-    }
-    // add the temporarily flagged cells to the final migration send list
-    if (cellDestProcesses.size()>0) {
-        std::sort(cellDestProcesses.begin(), cellDestProcesses.end());
-        cellDestProcesses.resize(std::unique(cellDestProcesses.begin(), cellDestProcesses.end()) - cellDestProcesses.begin());
-        for (auto &p : cellDestProcesses) {
-          cell_partitioninfo.Procs.push_back(p.second);
-          cell_partitioninfo.GlobalIds.push_back(p.first + this->ZoltanCallbackData.ProcessOffsetsCellId[this->UpdatePiece]);
+        // double check every point for a given cell goes where needed
+        bool cell_being_sent = cellDestProcess!=this->UpdatePiece;
+        bool point_being_sent = pointDestProcess!=this->UpdatePiece;
+
+        // Note 1) if the cell is being sent away, but some points are going
+        // to a different location, then send copies to the cell destination
+        // to ensure it receives all points for the cell
+        if ( cell_being_sent && pointDestProcess!=cellDestProcess) {
+          process_vector.push_back( process_tuple(ptId, cellDestProcess) );
         }
-        cellDestProcesses.clear();
+        // if the cell is partially on this process and partially elsewhere
+        if (cellstatus==SPLIT) {
+          // if the cell is staying, but this point exported, keep a local copy
+          if (!cell_being_sent && point_being_sent) {
+            point_partitioninfo.LocalIdsToKeep.push_back(ptId);
+          }
+          // if the cell is going, but this point is staying, keep a copy
+          // (it will have been marked for export above in Note 1)
+          if (cell_being_sent && !point_being_sent) {
+            point_partitioninfo.LocalIdsToKeep.push_back(ptId);
+          }
+        }
+      }
     }
   }
 
+  std::cout << "Cleaning up the cell_partitioninfo struct " <<std::endl;
+  // add the flagged cells to the final migration send list
+  if (cellDestProcesses.size()>0) {
+      std::sort(cellDestProcesses.begin(), cellDestProcesses.end());
+      cellDestProcesses.resize(
+          std::unique(cellDestProcesses.begin(), cellDestProcesses.end()) -
+          cellDestProcesses.begin());
+      for (auto &p : cellDestProcesses) {
+          cell_partitioninfo.Procs.push_back(p.second);
+          cell_partitioninfo.GlobalIds.push_back(
+              p.first + this->ZoltanCallbackData.ProcessOffsetsCellId[this->UpdatePiece]);
+      }
+      cellDestProcesses.clear();
+  }
+
+
+  //
+  // remove any duplicated export ids (note that these are pairs, so equality is both of <id,process>
+  // some points might be sent to multiple locations, that's allowed.
+  //
+  std::sort(process_vector.begin(), process_vector.end());
+  process_vector.resize(std::unique(process_vector.begin(), process_vector.end()) - process_vector.begin());
+
+  //
+  // remove any duplicated ids of points we are keeping as well as sending, not pairs here
+  //
+  std::sort(point_partitioninfo.LocalIdsToKeep.begin(), point_partitioninfo.LocalIdsToKeep.end());
+  point_partitioninfo.LocalIdsToKeep.resize(
+    std::unique(point_partitioninfo.LocalIdsToKeep.begin(), point_partitioninfo.LocalIdsToKeep.end()) -
+      point_partitioninfo.LocalIdsToKeep.begin());
+
+  std::cout << "Before unique " << cell_partitioninfo.LocalIdsToKeep.size() << "\n";
+  std::sort(cell_partitioninfo.LocalIdsToKeep.begin(), cell_partitioninfo.LocalIdsToKeep.end());
+  cell_partitioninfo.LocalIdsToKeep.resize(
+    std::unique(cell_partitioninfo.LocalIdsToKeep.begin(), cell_partitioninfo.LocalIdsToKeep.end()) -
+      cell_partitioninfo.LocalIdsToKeep.begin());
+  std::cout << "After unique " << cell_partitioninfo.LocalIdsToKeep.size() << "\n";
+
+  //
+  // After examining cells, we found some points we need to send away,
+  // we must add these to the points the original load balance already declared in export lists
+  //
+  point_partitioninfo.GlobalIds.reserve(loadBalanceData.numExport + process_vector.size());
+  point_partitioninfo.Procs.reserve(loadBalanceData.numExport + process_vector.size());
+
+  // 1) add the points from original zoltan load balance to send list
+  for (int i=0; i<loadBalanceData.numExport; ++i) {
+    point_partitioninfo.GlobalIds.push_back(loadBalanceData.exportGlobalGids[i]);
+    point_partitioninfo.Procs.push_back(loadBalanceData.exportProcs[i]);
+  }
+
+  // 2) add the points from cell tests just performed to send list
+  for (std::vector<process_tuple>::iterator x=process_vector.begin(); x!=process_vector.end(); ++x)
+  {
+    point_partitioninfo.GlobalIds.push_back(x->first + this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece]);
+    point_partitioninfo.Procs.push_back(x->second);
+  }
+
+  my_debug("Ghost points generated");
+
+  vtkDebugMacro(<<"BuildCellToProcessList "  <<
+    " numImport : " << this->LoadBalanceData.numImport <<
+    " numExport : " << point_partitioninfo.GlobalIds .size()
+  );
+}
+//----------------------------------------------------------------------------
+
 /*
-    else if (cellstatus==REMOTE) {
+    else if (cellstatus==SCATTERED) {
       for (int j=0; j<npts; ++j) {
         int pointDestProcess = localId_to_process_map[pts[j]];
         // if we are duplicating boundary cells as ghosts
@@ -689,8 +782,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
               }
             }
           }
-            if (cellstatus==REMOTE) {
-//            if (cellstatus==REMOTE && pointDestProcess!=cellDestProcess && pointDestProcess!=this->UpdatePiece) {
+            if (cellstatus==SCATTERED) {
+//            if (cellstatus==SCATTERED && pointDestProcess!=cellDestProcess && pointDestProcess!=this->UpdatePiece) {
               if (this->NumberOfGhostLevels>0) {
                 // increment the ghost value for this cell to track what's going on for visualization
                 this->ghost_array->SetValue(cellId, this->ghost_array->GetValue(cellId)+1);
@@ -708,7 +801,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 /*
 
   int LEVEL_MAX = 0;
-  int REMOTE_LEVEL = 2*LEVEL_MAX +2;
+  int SCATTERED_LEVEL = 2*LEVEL_MAX +2;
   int LOCAL_LEVEL = 0;
   int GHOST_LEVEL = LEVEL_MAX+1;
   std::vector<vtkIdType> cell_level_info;
@@ -742,7 +835,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
           if (absolutelocalpoint) {
             point_to_level_map[i] = LOCAL_LEVEL;
           } else if (!extendedlocalpoint) {
-            point_to_level_map[i] = REMOTE_LEVEL;
+            point_to_level_map[i] = SCATTERED_LEVEL;
           } else { // point lies in ghost band
             // there is no GHOST_LEVEL in bounding box case... even number of ghost levels.. half inner... half outer
             for (int l=0; l<LEVEL_MAX; l++) {
@@ -1113,45 +1206,3 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 
 
 */
-
-  //
-  // remove any duplicated export ids (note that these are pairs, so equality is both of <id,process>
-  // some points might be sent to multiple locations, that's allowed.
-  //
-  std::sort(process_vector.begin(), process_vector.end());
-  process_vector.resize(std::unique(process_vector.begin(), process_vector.end()) - process_vector.begin());
-
-  //
-  // remove any duplicated ids of points we are keeping as well as sending, not pairs here
-  //
-  std::sort(point_partitioninfo.LocalIdsToKeep.begin(), point_partitioninfo.LocalIdsToKeep.end());
-  point_partitioninfo.LocalIdsToKeep.resize(std::unique(point_partitioninfo.LocalIdsToKeep.begin(), point_partitioninfo.LocalIdsToKeep.end()) - point_partitioninfo.LocalIdsToKeep.begin());
-
-  //
-  // After examining cells, we found some points we need to send away,
-  // we must add these to the points the original load balance already declared in export lists 
-  //
-  point_partitioninfo.GlobalIds.reserve(loadBalanceData.numExport + process_vector.size());
-  point_partitioninfo.Procs.reserve(loadBalanceData.numExport + process_vector.size());
-  
-  // 1) add the points from original zoltan load balance to send list
-  for (int i=0; i<loadBalanceData.numExport; ++i) {
-    point_partitioninfo.GlobalIds.push_back(loadBalanceData.exportGlobalGids[i]);
-    point_partitioninfo.Procs.push_back(loadBalanceData.exportProcs[i]);
-  }
-
-  // 2) add the points from cell tests just performed to send list
-  for (std::vector<process_tuple>::iterator x=process_vector.begin(); x!=process_vector.end(); ++x) 
-  {
-    point_partitioninfo.GlobalIds.push_back(x->first + this->ZoltanCallbackData.ProcessOffsetsPointId[this->UpdatePiece]);
-    point_partitioninfo.Procs.push_back(x->second);
-  }
-  
-  my_debug("Ghost points generated");
-
-  vtkDebugMacro(<<"BuildCellToProcessList "  << 
-    " numImport : " << this->LoadBalanceData.numImport <<
-    " numExport : " << point_partitioninfo.GlobalIds .size()
-  );
-}
-//----------------------------------------------------------------------------
