@@ -625,12 +625,13 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         cellDestProcess = std::distance(process_flag.begin(),
             std::max_element(process_flag.begin(), process_flag.end()));
     }
+#ifdef VTK_ZOLTAN2_PARTITION_FILTER
     else if (this->BoundaryMode==vtkMeshPartitionFilter::Centroid) {
         T centroid[3];
         this->FindCentroid<T>(npts, pts, &this->ZoltanCallbackData, centroid);
         cellDestProcess = this->FindProcessFromPoint<T>(centroid);
     }
-
+#endif
     // update ghost array with this cell's status
     if (this->GhostMode!=vtkMeshPartitionFilter::None) {
       // increment the ghost value for this cell to track what's going on for visualization

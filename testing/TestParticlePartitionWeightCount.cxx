@@ -50,12 +50,13 @@
 //
 #include <vtksys/SystemTools.hxx>
 #include <sstream>
+#include <algorithm>
+#include <numeric>
 //
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <algorithm>
 //
 #include "TestUtils.h"
 //
@@ -150,9 +151,11 @@ int main (int argc, char* argv[])
     //--------------------------------------------------------------
     test.CreatePartitioner_Particles();
     test.partitioner->SetInputData(Sprites);
+#ifdef VTK_ZOLTAN2_PARTITION_FILTER
     if (test.useWeights) {
-        test.partitioner->SetPointWeightsArrayName("Weights");
+      test.partitioner->SetPointWeightsArrayName("Weights");
     }
+#endif
     //  test.partitioner->SetIdChannelArray("PointIds");
     static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
     partition_elapsed = test.UpdatePartitioner();

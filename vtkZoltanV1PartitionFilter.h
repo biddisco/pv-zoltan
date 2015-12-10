@@ -169,7 +169,8 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       vtkIdType                     OutCellCount;
       vtkSmartPointer<vtkCellArray> OutputCellArray;
       std::vector<vtkIdType>        LocalToLocalIdMap;
-      std::map<vtkIdType,vtkIdType> ReceivedGlobalToLocalIdMap;
+      std::vector<vtkIdType>        LocalToLocalCellMap;
+      std::map<vtkIdType, vtkIdType> ReceivedGlobalToLocalIdMap;
       //
       // The variables below are used twice, once for points, then again for cells
       // but the information is updated in between
@@ -179,6 +180,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
       std::vector<void*>            OutputArrayPointers;
       std::vector<int>              MemoryPerTuple;
       int                           TotalSizePerId;
+      std::vector<vtkIdType>        LocalIdsToKeep;
     } CallbackData;
 
     //----------------------------------------------------------------------------
