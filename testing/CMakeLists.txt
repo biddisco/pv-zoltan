@@ -234,25 +234,35 @@ IF (processors)
   endforeach()
 
   SET(test_name "TestMeshPartitionFilterGhost-P4")
-  ADD_TEST(
-    NAME ${test_name}
-    COMMAND 
-      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-      $<TARGET_FILE:TestMeshPartitionFilter> 
-      -testName ${test_name}
-      -T "${PLUGIN_TEST_DIR}"
-      -F soma-4-partitions.pvtp
-      -D ${PROJECT_SOURCE_DIR}/testing/data
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionGhost.png
-      -doRender 1
-      -ghostMode 1
-      -ghostOverlap 10.0
-      -scalarMode 1
-      -scalarName vtkGhostLevels
-      -scalarRange "0 3"
-      -actorShift 0.25
-      -windowSize "1024 800"
-  )
+  set(ghostmode_list "none;boundary;bbox;neighbour")
+  foreach(dmode soma sphere)
+      set(index 0)
+      foreach(ghostmode 0 1 2 3)
+          list(GET "ghostmode_list" "${ghostmode}" GMODE)
+          ADD_TEST(
+            NAME ${test_name}-${GMODE}-${dmode}
+            COMMAND 
+              ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+              $<TARGET_FILE:TestMeshPartitionFilter> 
+              -testName ${test_name}-${GMODE}-${dmode}
+              -T "${PLUGIN_TEST_DIR}"
+              -F ${dmode}-4-partitions.pvtp
+              -D ${PROJECT_SOURCE_DIR}/testing/data
+              -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-ghost-${GMODE}-${dmode}.png
+              -doRender 1
+              -boundaryMode 2
+              -ghostMode ${index}
+              -ghostOverlap 0.0
+              -scalarMode 1
+              -scalarName vtkGhostLevels
+              -scalarRange "0 4"
+              -actorShift 0.25
+              -windowSize "1024 800"
+          )
+          math(EXPR index "${index} + 1")
+      endforeach()
+  endforeach()
+  
   SET(test_name "TestMeshPartitionFilterScalars-P4")
   ADD_TEST(
     NAME ${test_name}
