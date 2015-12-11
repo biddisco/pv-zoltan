@@ -345,7 +345,7 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
     // away from the centre so the edges don't touch and overlapping boundary cells are visible
     //
     double centre[3], midpoint[3]={0,0,0};
-    for (int i=0; i<numProcs; i++) {
+    for (int i=0; partitioner && i<numProcs; i++) {
         vtkBoundingBox *box = partitioner->GetPartitionBoundingBox(i);
         box->GetCenter(centre);
         for (int d=0; d<3; d++) midpoint[d] += centre[d]/numProcs;
@@ -385,15 +385,17 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         actor->GetProperty()->SetPointSize(2);
         ren->AddActor(actor);
         // move each actor away from the midpoint so we can see ghost cells better
-        vtkBoundingBox *box = partitioner->GetPartitionBoundingBox(i);
-        box->GetCenter(centre);
-        vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
-        transform->PostMultiply();
-        transform->Translate(
-                -actor_shift*(midpoint[0]-centre[0]),
-                -actor_shift*(midpoint[1]-centre[1]),
-                -actor_shift*(midpoint[2]-centre[2]));
-        actor->SetUserTransform(transform);
+        if (partitioner!=NULL) {
+          vtkBoundingBox *box = partitioner->GetPartitionBoundingBox(i);
+          box->GetCenter(centre);
+          vtkSmartPointer<vtkTransform> transform = vtkSmartPointer<vtkTransform>::New();
+          transform->PostMultiply();
+          transform->Translate(
+                  -actor_shift*(midpoint[0]-centre[0]),
+                  -actor_shift*(midpoint[1]-centre[1]),
+                  -actor_shift*(midpoint[2]-centre[2]));
+          actor->SetUserTransform(transform);
+        }
         //
         if (cameraSet) {
             ren->GetActiveCamera()->SetPosition(cameraPosition);
@@ -408,7 +410,7 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
     //
     // Display boxes for each partition
     //
-    for (int i=0; i<numProcs; i++) {
+    for (int i=0; partitioner && i<numProcs; i++) {
         vtkBoundingBox *box = partitioner->GetPartitionBoundingBox(i);
         double bounds[6];
         box->GetBounds(bounds);
