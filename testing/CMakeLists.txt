@@ -250,6 +250,7 @@ IF (processors)
               -D ${PROJECT_SOURCE_DIR}/testing/data
               -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-ghost-${GMODE}-${dmode}.png
               -doRender 1
+              -edges 1
               -boundaryMode 2
               -ghostMode ${index}
               -ghostOverlap 0.0

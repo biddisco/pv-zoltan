@@ -133,6 +133,8 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.myRank = test.controller->GetLocalProcessId();
   test.numProcs = test.controller->GetNumberOfProcesses();
   //
+  test.doEdges = false;
+  //
   test.gridSpacing[0] = test.gridSpacing[1] = test.gridSpacing[2] = 0.0;
   test.gridResolution[0] = test.gridResolution[1] = test.gridResolution[2] = -1;
   test.vminmax[0] = test.vminmax[1] = 0.0;
@@ -179,6 +181,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   DisplayParameter<const char *>("====================", "", &empty, 1, (test.myRank==0)?0:-1);
   test.testName = GetParameter<std::string>("-testName", "Test name", argc, argv, "", test.myRank, unused);
   test.doRender = GetParameter<bool>("-doRender", "Enable Render", argc, argv, 0, test.myRank, unused);
+  test.doEdges  = GetParameter<bool>("-edges", "Display Mesh edges", argc, argv, 0, test.myRank, unused);
   test.keepTempFiles = GetParameter<bool>("-X", "Keep Temporary Files", argc, argv, 0, test.myRank, unused);
 
   //
@@ -383,6 +386,9 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         //
         actor->SetMapper(mapper);
         actor->GetProperty()->SetPointSize(2);
+        if (doEdges) {
+            actor->GetProperty()->SetEdgeVisibility(1);
+        }
         ren->AddActor(actor);
         // move each actor away from the midpoint so we can see ghost cells better
         if (partitioner!=NULL) {

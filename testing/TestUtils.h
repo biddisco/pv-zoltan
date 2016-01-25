@@ -77,6 +77,7 @@ class TestStruct {
   std::string testName;
 
   bool        doRender;
+  bool        doEdges;
   bool        keepTempFiles;
   //
   // (Random) Particle Generation
