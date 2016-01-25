@@ -256,7 +256,7 @@ IF (processors)
               -ghostOverlap 0.0
               -scalarMode 1
               -scalarName vtkGhostLevels
-              -scalarRange "0 4"
+              -scalarRange "0 1"
               -actorShift 0.25
               -windowSize "1024 800"
           )

@@ -698,12 +698,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         }
 #endif
 
-        // update ghost array with this cell's status
-        if (this->GhostMode!=vtkMeshPartitionFilter::None) {
-            // increment the ghost value for this cell to track what's going on for visualization
-            this->ghost_array->SetValue(cellId, 0); // this->ghost_array->GetValue(cellId)+1);
-        }
-
         // are we going to send this cell away
         bool cell_being_sent = cellDestProcess!=this->UpdatePiece;
 
@@ -731,7 +725,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
             if (this->GhostMode==vtkMeshPartitionFilter::Boundary && (cellstatus==SPLIT || cellstatus==SCATTERED)) {
                 // cells of type SPLIT/SCATTERED must be duplicated on all processes receiving points
                 ghost_cell = true;
-                this->ghost_array->SetValue(cellId, 4);
+                this->ghost_array->SetValue(cellId, 1);
             }
 
             // should we keep a copy of this cell
