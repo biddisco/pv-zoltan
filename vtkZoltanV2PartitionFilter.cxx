@@ -374,6 +374,15 @@ vtkBoundingBox *vtkZoltanV2PartitionFilter::GetPartitionBoundingBox(int partitio
   return NULL;
 }
 //----------------------------------------------------------------------------
+vtkBoundingBox *vtkZoltanV2PartitionFilter::GetPartitionBoundingBoxHalo(int partition)
+{
+  if (partition<this->BoxListWithHalo.size()) {
+    return &this->BoxListWithHalo[partition];
+  }
+  vtkErrorMacro(<<"Partition not found in Bounding Box list");
+  return NULL;
+}
+//----------------------------------------------------------------------------
 void vtkZoltanV2PartitionFilter::ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells)
 {
   // offset arrays
@@ -1597,10 +1606,10 @@ void vtkZoltanV2PartitionFilter::CopyPointsToSelf(
       callbackdata->OutPointCount++;
     }
     else if (callbackdata->LocalToLocalIdMap[LID]>=maxInitialId) {
-      vtkErrorMacro(<<"Point already mapped from " << LID << " to " << callbackdata->LocalToLocalIdMap[LID]);
+      vtkErrorMacro(<<callbackdata->ProcessRank << " Point already mapped from " << LID << " to " << callbackdata->LocalToLocalIdMap[LID]);
     }
     else {
-      vtkErrorMacro(<<"Serious Error : Point already mapped from " << LID << " to " << callbackdata->LocalToLocalIdMap[LID]);
+      vtkErrorMacro(<<callbackdata->ProcessRank << " Serious Error : Point already mapped from " << LID << " to " << callbackdata->LocalToLocalIdMap[LID]);
     }
   }
   // callbackdata->OutPointCount<N2 is allowed as we may receive points, but > is forbidden
@@ -1754,4 +1763,32 @@ bool vtkZoltanV2PartitionFilter::MigratePointData(vtkDataSetAttributes *inPointD
   vtkDebugMacro(<< "Expected " << N1 << " Points , found " << this->ZoltanCallbackData.MigrationPointCount);
 
   return true;
+}
+
+//----------------------------------------------------------------------------
+void vtkZoltanV2PartitionFilter::AddHaloToBoundingBoxes(double GhostCellOverlap)
+{
+  //
+  // Set the halo/ghost regions we need around each process bounding box
+  //
+  this->BoxListWithHalo.clear();
+  if (this->InputExtentTranslator && this->InputExtentTranslator->GetBoundsHalosEnabled()) {
+    this->ExtentTranslator->SetBoundsHalosEnabled(1);
+    for (int p=0; p<this->UpdateNumPieces; p++) {
+      vtkBoundingBox box;
+      box.SetBounds(this->InputExtentTranslator->GetBoundsHaloForPiece(p));
+      this->BoxListWithHalo.push_back(box);
+      this->ExtentTranslator->SetBoundsHaloForPiece(p,this->InputExtentTranslator->GetBoundsHaloForPiece(p));
+    }
+  }
+  else {
+    this->ExtentTranslator->SetBoundsHalosEnabled(1);
+    // @todo : extend this to handle AMR ghost regions etc.
+    for (int p=0; p<this->UpdateNumPieces; p++) {
+      vtkBoundingBox box = this->BoxList[p];
+      box.Inflate(GhostCellOverlap);
+      this->BoxListWithHalo.push_back(box);
+      this->ExtentTranslator->SetBoundsHaloForPiece(p, box);
+    }
+  }
 }

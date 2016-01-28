@@ -445,10 +445,13 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         bactor->SetUserTransform(transform);
       
       if (this->ghostOverlap>0){
-          vtkBoundingBox box2 = vtkBoundingBox(*partitioner->GetPartitionBoundingBox(i));
-          box2.Inflate(this->ghostOverlap);
+          vtkBoundingBox *box2 = partitioner->GetPartitionBoundingBoxHalo(i);
+          if (!box2) {
+              box2 = partitioner->GetPartitionBoundingBox(i);
+              box2->Inflate(this->ghostOverlap);
+          }
           double bounds2[6];
-          box2.GetBounds(bounds2);
+          box2->GetBounds(bounds2);
           vtkSmartPointer<vtkOutlineSource> boxsource2 = vtkSmartPointer<vtkOutlineSource>::New();
           boxsource2->SetBounds(bounds2);
           vtkSmartPointer<vtkPolyDataMapper> bmapper2 = vtkSmartPointer<vtkPolyDataMapper>::New();
