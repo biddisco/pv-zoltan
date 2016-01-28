@@ -133,6 +133,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.myRank = test.controller->GetLocalProcessId();
   test.numProcs = test.controller->GetNumberOfProcesses();
   //
+  test.debugWait = false;
   test.doEdges = false;
   //
   test.gridSpacing[0] = test.gridSpacing[1] = test.gridSpacing[2] = 0.0;
@@ -180,6 +181,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   //
   DisplayParameter<const char *>("====================", "", &empty, 1, (test.myRank==0)?0:-1);
   test.testName = GetParameter<std::string>("-testName", "Test name", argc, argv, "", test.myRank, unused);
+  test.debugWait = GetParameter<bool>("-debugWait", "Wait for debugger attach", argc, argv, 0, test.myRank, unused);
   test.doRender = GetParameter<bool>("-doRender", "Enable Render", argc, argv, 0, test.myRank, unused);
   test.doEdges  = GetParameter<bool>("-edges", "Display Mesh edges", argc, argv, 0, test.myRank, unused);
   test.keepTempFiles = GetParameter<bool>("-X", "Keep Temporary Files", argc, argv, 0, test.myRank, unused);
@@ -265,6 +267,10 @@ int initTest(int argc, char* argv[], TestStruct &test)
   DisplayParameter<vtkTypeInt64>("No. of Processes", "", &test.numProcs, 1, (test.myRank==0)?0:-1);
   DisplayParameter<const char *>("--------------------", "", &empty, 1, (test.myRank==0)?0:-1);
   //
+  if (test.debugWait) {
+      DEBUG_WAIT
+      test.controller->Barrier();
+  }
   return 1;
 }
 

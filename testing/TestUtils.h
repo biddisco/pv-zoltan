@@ -75,6 +75,7 @@ class TestStruct {
   int    windowSize[2];
   //
   std::string testName;
+  bool        debugWait;
 
   bool        doRender;
   bool        doEdges;
