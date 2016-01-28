@@ -66,7 +66,7 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
 
     template <typename T>
     void BuildCellToProcessList(
-      vtkDataSet *data, 
+      vtkPointSet *data,
       PartitionInfo &cell_partitioninfo, 
       PartitionInfo &point_partitioninfo, 
       ZoltanLoadBalanceData &loadBalanceData);
@@ -140,7 +140,7 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
         LOCAL     = 1, // all points are local
         SAME      = 2, // all remote, but on same process
         SPLIT     = 3, // some local, some remote
-        SCATTERED = 4  // all remote, split on different processes
+        SCATTERED = 4, // all remote, split on different processes
     };
 
     // Description:
