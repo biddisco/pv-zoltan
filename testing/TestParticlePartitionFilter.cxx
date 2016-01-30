@@ -71,7 +71,7 @@
 int main (int argc, char* argv[])
 {
   int retVal = 1;
-  char *empty = "";
+  const char *empty = "";
   bool ok = true;
 
   //--------------------------------------------------------------
@@ -206,7 +206,7 @@ int main (int argc, char* argv[])
     DisplayParameter<vtkIdType>("Total Particles", "", &totalParticles, 1, test.myRank);
     DisplayParameter<double>("Read Time", "", &read_elapsed, 1, test.myRank);
     DisplayParameter<double>("Partition Time", "", &partition_elapsed, 1, test.myRank);
-    DisplayParameter<char *>("====================", "", &empty, 1, test.myRank);
+    DisplayParameter<const char *>("====================", "", &empty, 1, test.myRank);
   }
 
   test.controller->Finalize();
