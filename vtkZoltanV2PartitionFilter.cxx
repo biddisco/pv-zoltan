@@ -76,7 +76,19 @@ vtkCxxSetObjectMacro(vtkZoltanV2PartitionFilter, Controller, vtkMultiProcessCont
 vtkInformationKeyMacro(vtkZoltanV2PartitionFilter, ZOLTAN_SAMPLE_RESOLUTION, DoubleVector);
 vtkInformationKeyMacro(vtkZoltanV2PartitionFilter, ZOLTAN_SAMPLE_ORIGIN,     DoubleVector);
 //----------------------------------------------------------------------------
-#ifdef EXTRA_ZOLTAN_DEBUG
+#undef DEBUG_OUTPUT
+
+#ifdef DEBUG_OUTPUT
+# define debug_1(a) std::cout << a << " >>> " << this->UpdatePiece << std::endl
+# define debug_2(a) std::cout << a << " >>> " << callbackdata->ProcessRank << std::endl
+#else
+# define debug_1(a)
+# define debug_2(a)
+#endif
+//
+#define error_2(a) std::cout << a << " >>> FATAL ERROR : " << callbackdata->ProcessRank << std::endl
+//
+#ifdef DEBUG_OUTPUT
   int vtkZoltanV2PartitionFilter::pack_count = 0;
   int vtkZoltanV2PartitionFilter::unpack_count = 0;
   int vtkZoltanV2PartitionFilter::size_count = 0;
@@ -781,12 +793,12 @@ struct vtkZoltan2Helper
         result_type *problem1 = nullptr;
 
         if (weightarray==NULL) {
-            std::cout << "weights are NULL" << std::endl;
+            debug_1("weights are NULL");
             InputAdapter = new inputAdapter_t(localCount, globalIds, x, y, z, stride, stride, stride);
             problem1     = new result_type(InputAdapter, &self->ZoltanParams);
         }
         else {
-            std::cout<<"weights are not NULL" << std::endl;
+            debug_1("weights are not NULL");
             // coordinates
             std::vector<const scalar_t *> coordVec = {x, y, z};
             std::vector<int> coordStrides = {stride, stride, stride};
@@ -838,7 +850,7 @@ struct vtkZoltan2Helper
         self->LoadBalanceData.exportLocalGids  = exportLocalGids;
         self->LoadBalanceData.exportProcs = exportProcs;
         self->LoadBalanceData.exportToPart = exportProcs;
-        cout << self->UpdatePiece << " EXPORTING " << numExport << " OUT OF " << localCount << endl;
+        debug_1("EXPORTING " << numExport << " OUT OF " << localCount);
 
         // Zoltan 2 bounding box code
         self->BoxList.clear();
@@ -1225,11 +1237,11 @@ void vtkZoltanV2PartitionFilter::ComputeInvertLists(MigrationLists &migrationLis
   }
   else if ( migrationLists.found_global_ids==NULL )
   {
-    printf("migrationLists.found_global_ids==NULL\n");
+    debug_2("migrationLists.found_global_ids==NULL\n");
   }
   else if ( migrationLists.found_procs==NULL )
   {
-    printf("migrationLists.found_procs==NULL\n");
+    debug_2("migrationLists.found_procs==NULL\n");
     MPI_Finalize();
     Zoltan_Destroy(&this->ZoltanData);
     exit(0);
@@ -1348,7 +1360,7 @@ int vtkZoltanV2PartitionFilter::ZoltanPointMigrate(MigrationLists &migrationList
     );
 
 
-#ifdef EXTRA_ZOLTAN_DEBUG
+#ifdef DEBUG_OUTPUT
     vtkDebugMacro(<<"Partitioning complete on " << this->UpdatePiece << 
       " pack_count : " << pack_count <<
       " size_count : " << size_count <<
@@ -1752,7 +1764,7 @@ bool vtkZoltanV2PartitionFilter::MigratePointData(vtkDataSetAttributes *inPointD
     NULL
     );
 
-#ifdef EXTRA_ZOLTAN_DEBUG
+#ifdef DEBUG_OUTPUT
     vtkDebugMacro(<<"MigratePointData complete on " << this->UpdatePiece << 
       " pack_count : " << pack_count <<
       " size_count : " << size_count <<
