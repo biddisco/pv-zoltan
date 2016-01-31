@@ -54,7 +54,8 @@
 #include <numeric>
 #include <algorithm>
 
-#define DEBUG_OUTPUT
+#define DEBUG_OUTPUT 1
+//#undef DEBUG_OUTPUT
 
 #ifdef DEBUG_OUTPUT
 # define debug_1(a) std::cout << a << " >>> " << this->UpdatePiece << std::endl
@@ -269,10 +270,26 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
   vtkIdType GID = *global_id;
   vtkIdType LID = GID - callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank];
   //
-  //
   vtkIdType npts, *pts, newPts[32];
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
 //  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
+
+    unsigned char ghost_temp;
+    unsigned char *ghost;
+    vtkUnsignedCharArray *ghost_array =
+        dynamic_cast<vtkMeshPartitionFilter*>(callbackdata->self)->ghost_array;
+    if (ghost_array) {
+        ghost = dynamic_cast<vtkMeshPartitionFilter *>(callbackdata->self)
+            ->ghost_array->GetPointer(0);
+        ghost_temp = ghost[LID];
+        if (ghost[LID] > 0) {
+            if (ghost[LID] == (dest + 1)) {
+                ghost[LID] = 0; // (dest+1);
+                //std::cout << "pack cell " << LID << " for " << dest << std::endl;
+            }
+        }
+    }
+
   //
   // Copy all Cell data arrays into the buffer provided by zoltan
   //
@@ -282,6 +299,7 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
     memcpy(buf, dataptr, asize);
     buf += asize;
   }
+
   //
   // copy the cell point Ids into the buffer provided by zoltan.
   // before sending, we will convert local to global Ids because when the cell is unpacked on the 
@@ -298,10 +316,13 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
     }
     memcpy(buf, newPts, sizeof(vtkIdType)*(npts+2));  
   }
-  //else if (udata) { 
+  //
+  //else if (udata) {
   //  throw std::string("Implement this");
-  //}
-
+  //
+    if (ghost_array) {
+        ghost[LID] = ghost_temp;
+    }
   *ierr = ZOLTAN_OK;
   return;
 }
@@ -459,6 +480,11 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   // Distribute cells based on the usage of the points already distributed
   //
   this->PartitionCells(cell_partitioninfo);
+
+  //
+  // Distribute cells based on the usage of the points already distributed
+  //
+  this->UnmarkInvalidGhostCells(this->ZoltanCallbackData.Output);
 
   //
   // build a tree of bounding boxes to use for rendering info/hints or other spatial tests
@@ -741,7 +767,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
             if (this->GhostMode==vtkMeshPartitionFilter::Boundary && (cellstatus==SPLIT || cellstatus==SCATTERED)) {
                 // cells of type SPLIT/SCATTERED must be duplicated on all processes receiving points
                 ghost_cell = true;
-                this->ghost_array->SetValue(cellId, 1);
+                this->ghost_array->SetValue(cellId, cellDestProcess+1);
             }
             else if (this->GhostMode==vtkMeshPartitionFilter::BoundingBox) {
                 process_ghost.assign(this->UpdateNumPieces,0);
@@ -753,7 +779,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
                             if (process_ghost[p]==0 && BoxListWithHalo[p].ContainsPoint(pt)) {
                                 ghost_cell = true;
                                 process_ghost[p] = 1;
-                                this->ghost_array->SetValue(cellId, 1);
+                                this->ghost_array->SetValue(cellId, cellDestProcess+1);
                             }
                         }
                     }
@@ -904,6 +930,37 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         " numExport : " << point_partitioninfo.GlobalIds .size()
     );
 }
+
+//----------------------------------------------------------------------------
+void vtkMeshPartitionFilter::UnmarkInvalidGhostCells(vtkPointSet *data)
+{
+    if (this->GhostMode!=vtkMeshPartitionFilter::BoundingBox) {
+      //  return;
+    }
+    if (!this->ghost_array) {
+        return;
+    }
+    vtkIdType numCells = data->GetNumberOfCells();
+    //
+    vtkUnsignedCharArray *ghost_output =
+        vtkUnsignedCharArray::SafeDownCast(data->GetCellData()->GetArray("vtkGhostLevels"));
+    unsigned char *ghostdata = ghost_output->GetPointer(0);
+    //
+    debug_1("About to unmark invalid ghost cells " << numCells);
+
+    //
+    // for each cell, unmark any cells marked as ghosts that stayed local
+    //
+    for (vtkIdType cellId=0; cellId<this->ZoltanCallbackData.LocalToLocalCellMap.size(); ++cellId) {
+        //
+        vtkIdType LID = this->ZoltanCallbackData.LocalToLocalCellMap[cellId];
+        //std::cout << "here " << LID << " " << cellId << "\n";
+        if (this->ghost_array->GetValue(cellId)==this->UpdatePiece+1) {
+            ghostdata[LID] = 0;
+        }
+    }
+}
+
 //----------------------------------------------------------------------------
 
 /*

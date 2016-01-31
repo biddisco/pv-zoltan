@@ -148,6 +148,10 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
                             vtkInformationVector**,
                             vtkInformationVector*);
 
+    // called after cell partition to ensure received cells are not marked as
+    // ghost cells when they are only ghost cells on another process
+    void UnmarkInvalidGhostCells(vtkPointSet *data);
+
     int                     GhostMode;
     int                     BoundaryMode;
     double                  GhostCellOverlap;
