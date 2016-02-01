@@ -763,14 +763,21 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         else {
             // Ghost cell duplication : any SPLIT or SCATTERED cell is a boundary cell
             bool ghost_cell = false;
-            // In boundary mode, all SPLIT and SCATTERED cels are ghost cells
-            if (this->GhostMode==vtkMeshPartitionFilter::Boundary && (cellstatus==SPLIT || cellstatus==SCATTERED)) {
+            process_ghost.assign(this->UpdateNumPieces,0);
+            // In boundary mode, all SPLIT and SCATTERED cells are ghost cells
+            if (this->GhostMode==vtkMeshPartitionFilter::Boundary &&
+                (cellstatus==SPLIT || cellstatus==SCATTERED))
+            {
                 // cells of type SPLIT/SCATTERED must be duplicated on all processes receiving points
                 ghost_cell = true;
+                for (int p=0; p<this->UpdateNumPieces; p++) {
+                    if (cellDestProcess != p && process_flag[p]) {
+                        process_ghost[p] = 1;
+                    }
+                }
                 this->ghost_array->SetValue(cellId, cellDestProcess+1);
             }
             else if (this->GhostMode==vtkMeshPartitionFilter::BoundingBox) {
-                process_ghost.assign(this->UpdateNumPieces,0);
                 //
                 for (int j=0; j<npts; ++j) {
                     double *pt = data->GetPoint(pts[j]);
@@ -849,13 +856,10 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
                                 }
                             }
                             // send the cell if it wasn't already sent
-                            //if (p!=cellDestProcess) {
-                                cellDestProcesses.push_back( process_tuple(cellId, p) );
-                                if (!cell_being_sent) {
-                                    cell_partitioninfo.LocalIdsToKeep.push_back(cellId);
-//                                    std::cout << "Sending a ghost cell " << cellId << "\n";
-                                }
-                            //}
+                            cellDestProcesses.push_back( process_tuple(cellId, p) );
+                            if (!cell_being_sent) {
+                                cell_partitioninfo.LocalIdsToKeep.push_back(cellId);
+                            }
                         }
                     }
                 }
