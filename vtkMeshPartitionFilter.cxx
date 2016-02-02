@@ -54,8 +54,8 @@
 #include <numeric>
 #include <algorithm>
 
-#define DEBUG_OUTPUT 1
-//#undef DEBUG_OUTPUT
+//#define DEBUG_OUTPUT 1
+#undef DEBUG_OUTPUT
 
 #ifdef DEBUG_OUTPUT
 # define debug_1(a) std::cout << a << " >>> " << this->UpdatePiece << std::endl
@@ -274,9 +274,9 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
 //  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
 
-    unsigned char ghost_temp;
-    unsigned char *ghost;
-    vtkUnsignedCharArray *ghost_array =
+    int  ghost_temp;
+    int *ghost;
+    vtkIntArray *ghost_array =
         dynamic_cast<vtkMeshPartitionFilter*>(callbackdata->self)->ghost_array;
     if (ghost_array) {
         ghost = dynamic_cast<vtkMeshPartitionFilter *>(callbackdata->self)
@@ -284,8 +284,7 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
         ghost_temp = ghost[LID];
         if (ghost[LID] > 0) {
             if (ghost[LID] == (dest + 1)) {
-                ghost[LID] = 0; // (dest+1);
-                //std::cout << "pack cell " << LID << " for " << dest << std::endl;
+                ghost[LID] = 0;
             }
         }
     }
@@ -380,6 +379,8 @@ vtkMeshPartitionFilter::vtkMeshPartitionFilter()
   this->GhostCellOverlap    = 0.0;
   this->NumberOfGhostLevels = 0;
   this->ghost_array         = NULL;
+  this->ghost_flags         = NULL;
+  this->KeepGhostRankArray  = 0;
   //this->DebugOn();
 }
 //----------------------------------------------------------------------------
@@ -387,6 +388,10 @@ vtkMeshPartitionFilter::~vtkMeshPartitionFilter()
 {
   if (this->ZoltanData) {
     Zoltan_Destroy(&this->ZoltanData);
+  }
+  if (this->ghost_array) {
+     this->ghost_array->Delete();
+     this->ghost_flags->Delete();
   }
 }
 //----------------------------------------------------------------------------
@@ -415,8 +420,9 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   // on the output to store the ghost cell information (level 0,1,2...N ) etc
   vtkIdType numCells = this->ZoltanCallbackData.Input->GetNumberOfCells();
   if (this->GhostMode!=vtkMeshPartitionFilter::None) {
-      this->ghost_array = vtkUnsignedCharArray::New();
-      this->ghost_array->SetName("vtkGhostLevels");
+      // ghost_array stores our internal rank info about ghosts
+      this->ghost_array = vtkIntArray::New();
+      this->ghost_array->SetName("vtkGhostRanks");
       this->ghost_array->SetNumberOfTuples(numCells);
       this->ZoltanCallbackData.Input->GetCellData()->AddArray(this->ghost_array);
   }
@@ -673,7 +679,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     for (vtkIdType cellId=0; cellId<numCells; ++cellId) {
         // mark non-ghost status initially
         if (this->GhostMode!=vtkMeshPartitionFilter::None) {
-            this->ghost_array->SetTuple1(cellId, 0);
+            this->ghost_array->SetValue(cellId, 0);
         }
 
         // get a pointer to the cell points
@@ -938,17 +944,19 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
 //----------------------------------------------------------------------------
 void vtkMeshPartitionFilter::UnmarkInvalidGhostCells(vtkPointSet *data)
 {
-    if (this->GhostMode!=vtkMeshPartitionFilter::BoundingBox) {
-      //  return;
-    }
     if (!this->ghost_array) {
         return;
     }
     vtkIdType numCells = data->GetNumberOfCells();
+
+    // ghost_flags is passed downstream and holds the real ghost type flags
+    this->ghost_flags = vtkUnsignedCharArray::New();
+    this->ghost_flags->SetName("vtkGhostType");
+    this->ghost_flags->SetNumberOfTuples(numCells);
     //
-    vtkUnsignedCharArray *ghost_output =
-        vtkUnsignedCharArray::SafeDownCast(data->GetCellData()->GetArray("vtkGhostLevels"));
-    unsigned char *ghostdata = ghost_output->GetPointer(0);
+    vtkIntArray *ghost_output =
+        vtkIntArray::SafeDownCast(data->GetCellData()->GetArray("vtkGhostRanks"));
+    int *ghostdata = ghost_output->GetPointer(0);
     //
     debug_1("About to unmark invalid ghost cells " << numCells);
 
@@ -958,11 +966,23 @@ void vtkMeshPartitionFilter::UnmarkInvalidGhostCells(vtkPointSet *data)
     for (vtkIdType cellId=0; cellId<this->ZoltanCallbackData.LocalToLocalCellMap.size(); ++cellId) {
         //
         vtkIdType LID = this->ZoltanCallbackData.LocalToLocalCellMap[cellId];
-        //std::cout << "here " << LID << " " << cellId << "\n";
-        if (this->ghost_array->GetValue(cellId)==this->UpdatePiece+1) {
-            ghostdata[LID] = 0;
+        this->ghost_flags->SetValue(LID, 0);
+        //
+        if (this->ghost_array->GetValue(cellId)!=0) {
+            if (this->ghost_array->GetValue(cellId)==this->UpdatePiece+1) {
+                ghostdata[LID] = 0;
+            }
+            else {
+                this->ghost_flags->SetValue(LID, vtkDataSetAttributes::DUPLICATECELL);
+            }
         }
     }
+    //
+    this->ZoltanCallbackData.Input->GetCellData()->AddArray(this->ghost_flags);
+    if (!this->KeepGhostRankArray) {
+        this->ZoltanCallbackData.Input->GetCellData()->RemoveArray("vtkGhostRanks");
+    }
+    debug_1("Completed unmark invalid ghost cells ");
 }
 
 //----------------------------------------------------------------------------

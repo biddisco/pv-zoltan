@@ -129,6 +129,12 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     vtkSetMacro(GhostCellOverlap, double);
     vtkGetMacro(GhostCellOverlap, double);
 
+    // Stop the filter from deleting its internal ghost rank assignment array
+    // this is only useful for debugging/testing and should always be off otherwise
+    vtkSetMacro(KeepGhostRankArray, int);
+    vtkGetMacro(KeepGhostRankArray, int);
+    vtkBooleanMacro(KeepGhostRankArray, int);
+
   protected:
      vtkMeshPartitionFilter();
     ~vtkMeshPartitionFilter();
@@ -156,7 +162,9 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     int                     BoundaryMode;
     double                  GhostCellOverlap;
     int                     NumberOfGhostLevels;
-    vtkUnsignedCharArray   *ghost_array;
+    int                     KeepGhostRankArray;
+    vtkIntArray            *ghost_array;
+    vtkUnsignedCharArray   *ghost_flags;
 
   private:
     vtkMeshPartitionFilter(const vtkMeshPartitionFilter&);  // Not implemented.
