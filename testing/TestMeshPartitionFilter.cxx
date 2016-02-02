@@ -104,7 +104,7 @@ int main (int argc, char* argv[])
   }
 
   static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetBoundaryMode(test.boundaryMode);
-
+  static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetKeepGhostRankArray(1);
   //
   partition_elapsed = test.UpdatePartitioner();
 

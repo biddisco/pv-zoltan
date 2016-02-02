@@ -185,7 +185,7 @@ IF (processors)
           )
       endforeach()
   endforeach()
-    
+
   SET(test_name "TestMeshPartitionFilterCellData-P4")
   set(scalar_vars "RTNeuron Opacity" "Elevation")
   set(index 0)
@@ -212,12 +212,30 @@ IF (processors)
     math(EXPR index "${index} + 1")
   endforeach()
 
-  SET(test_name "TestMeshPartitionFilterGhost-P4")
+  set(test_name "TestMeshPartitionFilterGhost-P4")
   set(ghostmode_list "none;boundary;bbox;neighbour")
   foreach(dmode soma sphere)
       set(index 0)
       foreach(ghostmode 0 1 2 3)
           list(GET "ghostmode_list" "${ghostmode}" GMODE)
+          set(overlap_ "")
+          #
+          if ("${dmode}" STREQUAL "sphere" )
+            set(actorshift_ -actorShift 0.25)
+          else()
+            set(actorshift_ -actorShift 0.25)
+          endif()
+
+          if("${ghostmode}" STREQUAL "2")
+            if("${dmode}" STREQUAL "sphere")
+              set(overlap_ -ghostOverlap 0.09)
+              set(actorshift_ -actorShift 0.6)
+            else()
+              set(overlap_ -ghostOverlap 2.5)
+              set(actorshift_ -actorShift 0.5)
+            endif()
+          endif()
+
           ADD_TEST(
             NAME ${test_name}-${GMODE}-${dmode}
             COMMAND 
@@ -232,11 +250,11 @@ IF (processors)
               -edges 1
               -boundaryMode 2
               -ghostMode ${index}
-              -ghostOverlap 0.0
+              ${overlap_}
               -scalarMode 1
-              -scalarName vtkGhostLevels
-              -scalarRange "0 1"
-              -actorShift 0.25
+              -scalarName vtkGhostRanks
+              -scalarRange "0 4"
+              ${actorshift_}
               -windowSize "1024 800"
           )
           math(EXPR index "${index} + 1")
@@ -246,9 +264,9 @@ IF (processors)
   SET(test_name "TestMeshPartitionFilterScalars-P4")
   ADD_TEST(
     NAME ${test_name}
-    COMMAND 
+    COMMAND
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-      $<TARGET_FILE:TestMeshPartitionFilter> 
+      $<TARGET_FILE:TestMeshPartitionFilter>
       -testName ${test_name}
       -T "${PLUGIN_TEST_DIR}"
       -F soma-4-partitions.pvtp
@@ -256,9 +274,6 @@ IF (processors)
       -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars.png
       -boundaryMode 1
       -doRender 1
-#      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
-#      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
-#      -cameraViewUp   "0 1 0"
       -scalarMode 0
       -scalarName "RTNeuron Opacity"
       -scalarRange "0 1"
