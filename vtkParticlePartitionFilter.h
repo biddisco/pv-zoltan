@@ -63,12 +63,6 @@ class VTK_EXPORT vtkParticlePartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     vtkSetVector3Macro(GridOrigin, double);
     vtkGetVector3Macro(GridOrigin, double);
 
-        
-    // Description:
-    // Return the Bounding Box for a partition plus the extended region
-    // all around the box where ghost cells might be required/present
-    vtkBoundingBox *GetPartitionBoundingBoxWithHalo(int partition);
-
   protected:
      vtkParticlePartitionFilter();
     ~vtkParticlePartitionFilter();
@@ -83,7 +77,6 @@ class VTK_EXPORT vtkParticlePartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     void FindPointsInHaloRegions(vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData, PartitionInfo &ghost_info);
 
     double                      GhostCellOverlap;
-    std::vector<vtkBoundingBox> BoxListWithHalo;
     double                      GridSpacing;
     double                      GridOrigin[3];
 

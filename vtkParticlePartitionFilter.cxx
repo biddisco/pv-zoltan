@@ -51,6 +51,19 @@
 #include <math.h>
 #include <float.h>
 #include <numeric>
+
+//#define DEBUG_OUTPUT 1
+#undef DEBUG_OUTPUT
+
+#ifdef DEBUG_OUTPUT
+# define debug_1(a) std::cout << a << " >>> " << this->UpdatePiece << std::endl
+# define debug_2(a) std::cout << a << " >>> " << callbackdata->ProcessRank << std::endl
+#else
+# define debug_1(a)
+# define debug_2(a)
+#endif
+//
+#define error_2(a) std::cout << a << " >>> FATAL ERROR : " << callbackdata->ProcessRank << std::endl
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkParticlePartitionFilter);
 //----------------------------------------------------------------------------
@@ -120,13 +133,13 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // create the inverse map of who sends/receives from who : Ghost particles
   //
   this->ComputeInvertLists(ghost_info);
-  std::cout << "Rank " << this->UpdatePiece << " Imports " << ghost_info.num_found << " ghost particles " << std::endl;
+  debug_1(" Imports " << ghost_info.num_found << " ghost particles ");
 
   //
   // create the inverse map of who sends/receives from who : Core particles
   //
   this->ComputeInvertLists(this->MigrateLists);
-  std::cout << "Rank " << this->UpdatePiece << " Imports " << this->MigrateLists.num_found << " core particles " << std::endl;
+  debug_1(" Imports " << this->MigrateLists.num_found << " core particles ");
 
   // we want to reserve some extra space for the ghost particles when they are sent in
   this->MigrateLists.num_reserved = ghost_info.num_found;
@@ -214,15 +227,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   vtkDebugMacro(<<"Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds");
   return 1;
 }
-//----------------------------------------------------------------------------
-vtkBoundingBox *vtkParticlePartitionFilter::GetPartitionBoundingBoxWithHalo(int partition)
-{
-  if (partition<this->BoxListWithHalo.size()) {
-    return &this->BoxListWithHalo[partition];
-  }
-  vtkErrorMacro(<<"Partition not found in Bounding Box list");
-  return NULL;
-}
+
 //----------------------------------------------------------------------------
 void vtkParticlePartitionFilter::AddHaloToBoundingBoxes()
 {
@@ -333,14 +338,14 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
           }
         }
       }
-      std::cout << "Rank " << this->UpdatePiece << " exporting " << pc << " ghost particles to rank " << proc << std::endl;
+      debug_1(" exporting " << pc << " ghost particles to rank " << proc);
     }
   }
 
   for (int i=0; i<this->UpdateNumPieces; i++) {
-    std::cout << "Rank " << this->UpdatePiece << " exporting " << GhostProcessMap[i].size() << " ghost particles to rank " << i << std::endl;
+    debug_1(" exporting " << GhostProcessMap[i].size() << " ghost particles to rank " << i);
   }
-  std::cout << "Rank " << this->UpdatePiece << " LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size() << std::endl;
+  debug_1(" LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size());
   
   //
   // Set the send list to the points from original zoltan load balance 
