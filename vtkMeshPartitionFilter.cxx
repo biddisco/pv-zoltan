@@ -54,8 +54,8 @@
 #include <numeric>
 #include <algorithm>
 
-//#define DEBUG_OUTPUT 1
-#undef DEBUG_OUTPUT
+#define DEBUG_OUTPUT 1
+//#undef DEBUG_OUTPUT
 
 #ifdef DEBUG_OUTPUT
 # define debug_1(a) std::cout << a << " >>> " << this->UpdatePiece << std::endl
@@ -966,6 +966,8 @@ void vtkMeshPartitionFilter::UnmarkInvalidGhostCells(vtkPointSet *data)
     for (vtkIdType cellId=0; cellId<this->ZoltanCallbackData.LocalToLocalCellMap.size(); ++cellId) {
         //
         vtkIdType LID = this->ZoltanCallbackData.LocalToLocalCellMap[cellId];
+        if (LID==-1) continue;
+        //
         this->ghost_flags->SetValue(LID, 0);
         //
         if (this->ghost_array->GetValue(cellId)!=0) {
