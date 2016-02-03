@@ -260,7 +260,29 @@ IF (processors)
           math(EXPR index "${index} + 1")
       endforeach()
   endforeach()
-  
+
+
+
+  SET(test_name "TestMeshPartitionFilterUnstructured-P4")
+  ADD_TEST(
+    NAME ${test_name}
+    COMMAND
+    ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+    $<TARGET_FILE:TestMeshPartitionFilter>
+    -testName ${test_name}
+    -T "${PLUGIN_TEST_DIR}"
+    -F wavelet-unstructured.vtu
+    -D ${PROJECT_SOURCE_DIR}/testing/data
+    -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars.png
+    -boundaryMode 1
+    -doRender 1
+    -scalarMode 0
+    -scalarName "RTData"
+    -scalarRange "0 1"
+    -actorShift 0.25
+    -windowSize "1024 800"
+  )
+
   SET(test_name "TestMeshPartitionFilterScalars-P4")
   ADD_TEST(
     NAME ${test_name}
