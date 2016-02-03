@@ -205,6 +205,7 @@ IF(Trilinos_FOUND)
   # Add source which depends on trilinos to our plugin
   #
   SET(TRILINOS_CXX 
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanBasePartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.cxx

@@ -53,19 +53,6 @@
 #include <float.h>
 #include <numeric>
 #include <algorithm>
-
-#define DEBUG_OUTPUT 1
-//#undef DEBUG_OUTPUT
-
-#ifdef DEBUG_OUTPUT
-# define debug_1(a) std::cout << a << " >>> " << this->UpdatePiece << std::endl
-# define debug_2(a) std::cout << a << " >>> " << callbackdata->ProcessRank << std::endl
-#else
-# define debug_1(a)
-# define debug_2(a)
-#endif
-//
-#define error_2(a) std::cout << a << " >>> FATAL ERROR : " << callbackdata->ProcessRank << std::endl
 //
 namespace debug {
     template<typename T>
