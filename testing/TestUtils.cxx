@@ -19,6 +19,9 @@
 #include "vtkXMLPolyDataReader.h"
 #include "vtkXMLPPolyDataReader.h"
 //
+#include "vtkXMLUnstructuredGridReader.h"
+#include "vtkXMLPUnstructuredGridReader.h"
+//
 #include "vtkActor.h"
 #include "vtkAppendPolyData.h"
 #include "vtkCamera.h"
@@ -283,7 +286,25 @@ void TestStruct::CreateXMLPolyDataReader()
 }
 
 //----------------------------------------------------------------------------
-void TestStruct::DeleteXMLPolyDataReader()
+void TestStruct::CreateXMLUnstructuredGridReader()
+{
+    this->xmlreader = vtkSmartPointer<vtkXMLPUnstructuredGridReader>::New();
+    this->xmlreader->SetFileName(this->fullName.c_str());
+}
+
+//----------------------------------------------------------------------------
+void TestStruct::CreateXMLReader()
+{
+    if (this->fullName.find(".pvtu")!=std::string::npos) {
+        CreateXMLUnstructuredGridReader();
+    }
+    else {
+        CreateXMLPolyDataReader();
+    }
+}
+
+//----------------------------------------------------------------------------
+void TestStruct::DeleteXMLReader()
 {
   this->xmlreader->SetFileName(NULL);
   this->xmlreader = NULL;

@@ -83,7 +83,7 @@ int main (int argc, char* argv[])
   double partition_elapsed = 0.0;
   vtkSmartPointer<vtkAlgorithm> data_algorithm; 
 
-  test.CreateXMLPolyDataReader();
+  test.CreateXMLReader();
   test.xmlreader->Update();
   test.ghostLevels = 0;
 
@@ -170,7 +170,7 @@ int main (int argc, char* argv[])
   //
   test.controller->Barrier();
   //
-  test.DeleteXMLPolyDataReader();
+  test.DeleteXMLReader();
   test.DeletePartitioner();
   //
   test.controller->Finalize();

@@ -24,8 +24,11 @@
 
 // only defined if trilinos used
 class VTK_ZOLTAN_PARTITION_FILTER;
+class vtkXMLReader;
 class vtkXMLPolyDataReader;
 class vtkXMLPPolyDataReader;
+class vtkXMLUnstructuredGridReader;
+class vtkXMLPUnstructuredGridReader;
 //----------------------------------------------------------------------------
 #if 0
   #define OUTPUTTEXT(a) std::cout << (a);
@@ -57,7 +60,7 @@ class TestStruct {
   vtkSmartPointer<vtkMultiProcessController>   controller;
   vtkSmartPointer<VTK_ZOLTAN_PARTITION_FILTER> partitioner;
   vtkSmartPointer<vtkAlgorithm>                sphResampler;
-  vtkSmartPointer<vtkXMLPPolyDataReader>       xmlreader;
+  vtkSmartPointer<vtkXMLReader>                xmlreader;
   //
   vtkTypeInt64 myRank;
   vtkTypeInt64 numProcs;
@@ -126,7 +129,9 @@ class TestStruct {
   double      actor_shift;
   //
   void    CreateXMLPolyDataReader();
-  void    DeleteXMLPolyDataReader();
+  void    CreateXMLUnstructuredGridReader();
+  void    CreateXMLReader();
+  void    DeleteXMLReader();
   void    CreatePartitioner_Particles();
   void    CreatePartitioner_Mesh();
   double  UpdatePartitioner();
