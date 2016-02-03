@@ -142,6 +142,7 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
     // Description:
     // Return the Bounding Box for a partition
     vtkBoundingBox *GetPartitionBoundingBox(int partition);
+    vtkBoundingBox *GetPartitionBoundingBoxHalo(int partition);
 
     // Description:
     // Return the Bounding Box of all the data (uses MPI to collect all boxes)
@@ -380,9 +381,12 @@ class VTK_EXPORT vtkZoltanV1PartitionFilter : public vtkDataSetAlgorithm
 
     vtkSmartPointer<vtkPKdTree> CreatePkdTree();
 
+    void AddHaloToBoundingBoxes(double GhostCellOverlap);
+
     //
     vtkBoundingBox                             *LocalBox;
     std::vector<vtkBoundingBox>                 BoxList;
+    std::vector<vtkBoundingBox>                 BoxListWithHalo;
     //
     vtkMultiProcessController                  *Controller;
      //

@@ -369,6 +369,15 @@ vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBox(int partitio
   return NULL;
 }
 //----------------------------------------------------------------------------
+vtkBoundingBox *vtkZoltanV1PartitionFilter::GetPartitionBoundingBoxHalo(int partition)
+{
+  if (partition<this->BoxListWithHalo.size()) {
+    return &this->BoxListWithHalo[partition];
+  }
+  vtkErrorMacro(<< "Partition not found in Bounding Box list");
+  return NULL;
+}
+//----------------------------------------------------------------------------
 void vtkZoltanV1PartitionFilter::ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells)
 {
   // offset arrays
@@ -1455,4 +1464,32 @@ bool vtkZoltanV1PartitionFilter::MigratePointData(vtkDataSetAttributes *inPointD
   vtkDebugMacro(<< "Expected " << N1 << " Points , found " << this->ZoltanCallbackData.MigrationPointCount);
 
   return true;
+}
+
+//----------------------------------------------------------------------------
+void vtkZoltanV1PartitionFilter::AddHaloToBoundingBoxes(double GhostCellOverlap)
+{
+  //
+  // Set the halo/ghost regions we need around each process bounding box
+  //
+  this->BoxListWithHalo.clear();
+  if (this->InputExtentTranslator && this->InputExtentTranslator->GetBoundsHalosEnabled()) {
+    this->ExtentTranslator->SetBoundsHalosEnabled(1);
+    for (int p = 0; p<this->UpdateNumPieces; p++) {
+      vtkBoundingBox box;
+      box.SetBounds(this->InputExtentTranslator->GetBoundsHaloForPiece(p));
+      this->BoxListWithHalo.push_back(box);
+      this->ExtentTranslator->SetBoundsHaloForPiece(p, this->InputExtentTranslator->GetBoundsHaloForPiece(p));
+    }
+  }
+  else {
+    this->ExtentTranslator->SetBoundsHalosEnabled(1);
+    // @todo : extend this to handle AMR ghost regions etc.
+    for (int p = 0; p<this->UpdateNumPieces; p++) {
+      vtkBoundingBox box = this->BoxList[p];
+      box.Inflate(GhostCellOverlap);
+      this->BoxListWithHalo.push_back(box);
+      this->ExtentTranslator->SetBoundsHaloForPiece(p, box);
+    }
+  }
 }
