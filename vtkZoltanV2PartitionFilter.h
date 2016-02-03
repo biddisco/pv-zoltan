@@ -60,42 +60,6 @@ class vtkInformationDataObjectMetaDataKey;
 class vtkInformationIntegerRequestKey;
 class vtkInformationIntegerKey;
 
-
-//----------------------------------------------------------------------------
-//#define JB_DEBUG__
-//#define EXTRA_ZOLTAN_DEBUG 1
-//----------------------------------------------------------------------------
-#ifdef EXTRA_ZOLTAN_DEBUG
-  #define INC_PACK_COUNT pack_count++;
-  #define INC_UNPACK_COUNT unpack_count++;
-  #define INC_SIZE_COUNT size_count++;
-  #define CLEAR_ZOLTAN_DEBUG pack_count = 0; size_count = 0; unpack_count = 0;
-#else
-  #define INC_PACK_COUNT 
-  #define INC_UNPACK_COUNT 
-  #define INC_SIZE_COUNT 
-  #define CLEAR_ZOLTAN_DEBUG 
-#endif
-//----------------------------------------------------------------------------
-#if defined JB_DEBUG__ && !defined VTK_WRAPPING_CXX
-#define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
-
-  #undef vtkDebugMacro
-  #define vtkDebugMacro(a)  \
-  { \
-    if (this->UpdatePiece>=0) { \
-      vtkOStreamWrapper::EndlType endl; \
-      vtkOStreamWrapper::UseEndl(endl); \
-      vtkOStrStreamWrapper vtkmsg; \
-      vtkmsg << "P(" << this->UpdatePiece << "): " a << "\n"; \
-      OUTPUTTEXT(vtkmsg.str()); \
-      vtkmsg.rdbuf()->freeze(0); \
-    } \
-  }
-
-  #undef  vtkErrorMacro
-  #define vtkErrorMacro(a) vtkDebugMacro(a)  
-#endif
 //----------------------------------------------------------------------------
 //
 // GCC has trouble resolving some templated function pointers, 

@@ -54,6 +54,27 @@
 #include <numeric>
 #include <algorithm>
 //
+//----------------------------------------------------------------------------
+#if defined ZOLTAN_DEBUG_OUTPUT && !defined VTK_WRAPPING_CXX
+#define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
+
+#undef vtkDebugMacro
+#define vtkDebugMacro(a)  \
+  { \
+    if (this->UpdatePiece>=0) { \
+      vtkOStreamWrapper::EndlType endl; \
+      vtkOStreamWrapper::UseEndl(endl); \
+      vtkOStrStreamWrapper vtkmsg; \
+      vtkmsg << "P(" << this->UpdatePiece << "): " a << "\n"; \
+      OUTPUTTEXT(vtkmsg.str()); \
+      vtkmsg.rdbuf()->freeze(0); \
+    } \
+  }
+
+#undef  vtkErrorMacro
+#define vtkErrorMacro(a) vtkDebugMacro(a)
+#endif
+//----------------------------------------------------------------------------
 namespace debug {
     template<typename T>
     void output(const std::string &name, const std::vector<T> &v)
@@ -156,7 +177,7 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(
     }
   }
 
-  debug_2("Callback LocalIdsToKeep:" << callbackdata->LocalIdsToKeep.size());;
+  debug_2("Callback LocalIdsToKeep:" << callbackdata->LocalIdsToKeep.size());
   // now mark those we are keeping as local again
   for (vtkIdType i=0; i<callbackdata->LocalIdsToKeep.size(); i++) {
     vtkIdType LID = callbackdata->LocalIdsToKeep[i];

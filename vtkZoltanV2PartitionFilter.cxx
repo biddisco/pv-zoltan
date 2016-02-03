@@ -74,6 +74,28 @@
 #include "vtkZoltanBasePartitionFilter.txx"
 
 //----------------------------------------------------------------------------
+#if defined ZOLTAN_DEBUG_OUTPUT && !defined VTK_WRAPPING_CXX
+#define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
+
+#undef vtkDebugMacro
+#define vtkDebugMacro(a)  \
+  { \
+    if (this->UpdatePiece>=0) { \
+      vtkOStreamWrapper::EndlType endl; \
+      vtkOStreamWrapper::UseEndl(endl); \
+      vtkOStrStreamWrapper vtkmsg; \
+      vtkmsg << "P(" << this->UpdatePiece << "): " a << "\n"; \
+      OUTPUTTEXT(vtkmsg.str()); \
+      vtkmsg.rdbuf()->freeze(0); \
+    } \
+  }
+
+#undef  vtkErrorMacro
+#define vtkErrorMacro(a) vtkDebugMacro(a)
+#endif
+//----------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkZoltanV2PartitionFilter);
 //----------------------------------------------------------------------------
 
@@ -186,7 +208,7 @@ struct vtkZoltan2Helper
         const scalar_t *y = static_cast<const scalar_t *>(datarray->GetVoidPointer(1));
         const scalar_t *z = static_cast<const scalar_t *>(datarray->GetVoidPointer(2));
         const int stride = 3;
-        std::cout << "USING ZERO COPY " << std::endl;
+        debug_2("USING ZERO COPY ");
 #else
         scalar_t *coords = new scalar_t[3*localCount];
         scalar_t *x = coords;
@@ -206,12 +228,10 @@ struct vtkZoltan2Helper
         result_type *problem1 = nullptr;
 
         if (weightarray==NULL) {
-            debug_1("weights are NULL");
             InputAdapter = new inputAdapter_t(localCount, globalIds, x, y, z, stride, stride, stride);
             problem1     = new result_type(InputAdapter, &self->ZoltanParams);
         }
         else {
-            debug_1("weights are not NULL");
             // coordinates
             std::vector<const scalar_t *> coordVec = {x, y, z};
             std::vector<int> coordStrides = {stride, stride, stride};
@@ -263,7 +283,6 @@ struct vtkZoltan2Helper
         self->LoadBalanceData.exportLocalGids  = exportLocalGids;
         self->LoadBalanceData.exportProcs = exportProcs;
         self->LoadBalanceData.exportToPart = exportProcs;
-        debug_1("EXPORTING " << numExport << " OUT OF " << localCount);
 
         // Zoltan 2 bounding box code
         self->BoxList.clear();

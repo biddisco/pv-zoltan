@@ -78,6 +78,34 @@ vtkInformationKeyMacro(vtkZoltanBasePartitionFilter, ZOLTAN_SAMPLE_RESOLUTION, D
 vtkInformationKeyMacro(vtkZoltanBasePartitionFilter, ZOLTAN_SAMPLE_ORIGIN,     DoubleVector);
 //----------------------------------------------------------------------------
 
+#ifdef ZOLTAN_DEBUG_OUTPUT
+int vtkZoltanBasePartitionFilter::pack_count = 0;
+int vtkZoltanBasePartitionFilter::unpack_count = 0;
+int vtkZoltanBasePartitionFilter::size_count = 0;
+#endif
+
+//----------------------------------------------------------------------------
+#if defined ZOLTAN_DEBUG_OUTPUT && !defined VTK_WRAPPING_CXX
+#define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
+
+#undef vtkDebugMacro
+#define vtkDebugMacro(a)  \
+  { \
+    if (this->UpdatePiece>=0) { \
+      vtkOStreamWrapper::EndlType endl; \
+      vtkOStreamWrapper::UseEndl(endl); \
+      vtkOStrStreamWrapper vtkmsg; \
+      vtkmsg << "P(" << this->UpdatePiece << "): " a << "\n"; \
+      OUTPUTTEXT(vtkmsg.str()); \
+      vtkmsg.rdbuf()->freeze(0); \
+    } \
+  }
+
+#undef  vtkErrorMacro
+#define vtkErrorMacro(a) vtkDebugMacro(a)
+#endif
+//----------------------------------------------------------------------------
+
 //----------------------------------------------------------------------------
 // Zoltan callback which returns number of objects participating in exchange
 //----------------------------------------------------------------------------
@@ -797,11 +825,11 @@ void vtkZoltanBasePartitionFilter::ComputeInvertLists(MigrationLists &migrationL
   }
   else if ( migrationLists.found_global_ids==NULL )
   {
-    debug_2("migrationLists.found_global_ids==NULL\n");
+    debug_1("migrationLists.found_global_ids==NULL\n");
   }
   else if ( migrationLists.found_procs==NULL )
   {
-    debug_2("migrationLists.found_procs==NULL\n");
+    debug_1("migrationLists.found_procs==NULL\n");
     MPI_Finalize();
     Zoltan_Destroy(&this->ZoltanData);
     exit(0);
@@ -922,7 +950,7 @@ int vtkZoltanBasePartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLi
     );
 
 
-#ifdef DEBUG_OUTPUT
+#ifdef ZOLTAN_DEBUG_OUTPUT
     vtkDebugMacro(<<"Partitioning complete on " << this->UpdatePiece << 
       " pack_count : " << pack_count <<
       " size_count : " << size_count <<
@@ -1231,7 +1259,7 @@ bool vtkZoltanBasePartitionFilter::MigratePointData(vtkDataSetAttributes *inPoin
     NULL
     );
 
-#ifdef DEBUG_OUTPUT
+#ifdef ZOLTAN_DEBUG_OUTPUT
     vtkDebugMacro(<<"MigratePointData complete on " << this->UpdatePiece << 
       " pack_count : " << pack_count <<
       " size_count : " << size_count <<

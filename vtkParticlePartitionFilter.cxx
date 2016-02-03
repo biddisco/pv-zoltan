@@ -51,19 +51,28 @@
 #include <math.h>
 #include <float.h>
 #include <numeric>
+//----------------------------------------------------------------------------
+#if defined ZOLTAN_DEBUG_OUTPUT && !defined VTK_WRAPPING_CXX
+#define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
 
-//#define DEBUG_OUTPUT 1
-#undef DEBUG_OUTPUT
+#undef vtkDebugMacro
+#define vtkDebugMacro(a)  \
+  { \
+    if (this->UpdatePiece>=0) { \
+      vtkOStreamWrapper::EndlType endl; \
+      vtkOStreamWrapper::UseEndl(endl); \
+      vtkOStrStreamWrapper vtkmsg; \
+      vtkmsg << "P(" << this->UpdatePiece << "): " a << "\n"; \
+      OUTPUTTEXT(vtkmsg.str()); \
+      vtkmsg.rdbuf()->freeze(0); \
+    } \
+  }
 
-#ifdef DEBUG_OUTPUT
-# define debug_1(a) std::cout << a << " >>> " << this->UpdatePiece << std::endl
-# define debug_2(a) std::cout << a << " >>> " << callbackdata->ProcessRank << std::endl
-#else
-# define debug_1(a)
-# define debug_2(a)
+#undef  vtkErrorMacro
+#define vtkErrorMacro(a) vtkDebugMacro(a)
 #endif
-//
-#define error_2(a) std::cout << a << " >>> FATAL ERROR : " << callbackdata->ProcessRank << std::endl
+//----------------------------------------------------------------------------
+
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkParticlePartitionFilter);
 //----------------------------------------------------------------------------

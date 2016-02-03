@@ -43,23 +43,20 @@
 # include <Zoltan2_InputTraits.hpp>
 #endif
 
-#undef DEBUG_OUTPUT
+//BTX
+//#undef ZOLTAN_DEBUG_OUTPUT
+#define ZOLTAN_DEBUG_OUTPUT 1
 
-#ifdef DEBUG_OUTPUT
+#ifdef ZOLTAN_DEBUG_OUTPUT
 # define debug_1(a) std::cout << a << " >>> " << this->UpdatePiece << std::endl
 # define debug_2(a) std::cout << a << " >>> " << callbackdata->ProcessRank << std::endl
 #else
 # define debug_1(a)
 # define debug_2(a)
 #endif
+//ETX
 //
 #define error_2(a) std::cout << a << " >>> FATAL ERROR : " << callbackdata->ProcessRank << std::endl
-//
-#ifdef DEBUG_OUTPUT
-int vtkZoltanBasePartitionFilter::pack_count = 0;
-  int vtkZoltanBasePartitionFilter::unpack_count = 0;
-  int vtkZoltanBasePartitionFilter::size_count = 0;
-#endif
 
 // standard vtk classes
 class  vtkMultiProcessController;
@@ -78,12 +75,8 @@ class vtkInformationDataObjectMetaDataKey;
 class vtkInformationIntegerRequestKey;
 class vtkInformationIntegerKey;
 
-
 //----------------------------------------------------------------------------
-//#define JB_DEBUG__
-//#define EXTRA_ZOLTAN_DEBUG 1
-//----------------------------------------------------------------------------
-#ifdef EXTRA_ZOLTAN_DEBUG
+#ifdef ZOLTAN_DEBUG_OUTPUT
   #define INC_PACK_COUNT pack_count++;
   #define INC_UNPACK_COUNT unpack_count++;
   #define INC_SIZE_COUNT size_count++;
@@ -93,26 +86,6 @@ class vtkInformationIntegerKey;
   #define INC_UNPACK_COUNT 
   #define INC_SIZE_COUNT 
   #define CLEAR_ZOLTAN_DEBUG 
-#endif
-//----------------------------------------------------------------------------
-#if defined JB_DEBUG__ && !defined VTK_WRAPPING_CXX
-#define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
-
-  #undef vtkDebugMacro
-  #define vtkDebugMacro(a)  \
-  { \
-    if (this->UpdatePiece>=0) { \
-      vtkOStreamWrapper::EndlType endl; \
-      vtkOStreamWrapper::UseEndl(endl); \
-      vtkOStrStreamWrapper vtkmsg; \
-      vtkmsg << "P(" << this->UpdatePiece << "): " a << "\n"; \
-      OUTPUTTEXT(vtkmsg.str()); \
-      vtkmsg.rdbuf()->freeze(0); \
-    } \
-  }
-
-  #undef  vtkErrorMacro
-  #define vtkErrorMacro(a) vtkDebugMacro(a)  
 #endif
 //----------------------------------------------------------------------------
 //
@@ -491,7 +464,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     //
     float                       ImbalanceValue;
 
-#ifdef EXTRA_ZOLTAN_DEBUG
+#ifdef ZOLTAN_DEBUG_OUTPUT
     //
     // For debugging
     //
