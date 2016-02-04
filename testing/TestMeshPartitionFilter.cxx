@@ -111,7 +111,7 @@ int main (int argc, char* argv[])
   static_cast<vtkMeshPartitionFilter *>(test.partitioner.GetPointer())
       ->SetKeepGhostRankArray(1);
   //
-  partition_elapsed = test.UpdatePartitioner();
+  //partition_elapsed = test.UpdatePartitioner();
 
   //--------------------------------------------------------------
   // Add process Id's
@@ -125,12 +125,6 @@ int main (int argc, char* argv[])
   vtkSmartPointer<vtkGeometryFilter> geometry = vtkSmartPointer<vtkGeometryFilter>::New();
   if (test.unstructured) {
     geometry->SetInputConnection(processId->GetOutputPort());
-  }
-
-  //
-//  test.controller->Barrier();
-  if (test.myRank==0) {
-    testDebugMacro( "Process Id : " << test.myRank << " Generated N Points : " << test.generateN );
   }
 
   //--------------------------------------------------------------
