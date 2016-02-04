@@ -347,6 +347,27 @@ IF (processors)
       -actorShift 0.25
       -windowSize "1024 800"
   )
+
+  SET(test_name "TestMeshPartitionFilterMixedPolys-P4")
+  ADD_TEST(
+          NAME ${test_name}-${_test_version}
+          COMMAND
+          ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+          $<TARGET_FILE:TestMeshPartitionFilter>
+          -testName ${test_name}
+          -T "${PLUGIN_TEST_DIR}"
+          -F Polydata-MixedCells.vtp
+          -D ${PROJECT_SOURCE_DIR}/testing/data
+          -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars.png
+          -boundaryMode 1
+          -doRender 1
+          -scalarMode 0
+          -scalarName "RTData"
+          -scalarRange "40 180"
+          -actorShift 0.25
+          -windowSize "1024 800"
+  )
+
 ENDIF (processors)
  
 #SET(test_name "TestPartitionCompositing-P4")
