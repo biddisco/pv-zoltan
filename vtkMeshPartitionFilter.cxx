@@ -192,10 +192,43 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(
 
   callbackdata->OutputPointsData     = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
 
-  // we'll need enough space to handle the largest cells
+  // get the output dataset pointer
+  vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
+  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
+  vtkPolyData         *pdata2 = vtkPolyData::SafeDownCast(callbackdata->Output);
+  vtkUnstructuredGrid *udata2 = vtkUnstructuredGrid::SafeDownCast(callbackdata->Output);
+
+  // we'll need enough space to handle the largest cells,
+  // for PolyData we must create a cell array for each of points/lines/strips/polys
+  // for UnstructuredGrid, we will manage CellArray and CellTypeArray ourselves
   callbackdata->MaxCellSize     = callbackdata->Input->GetMaxCellSize();
-  callbackdata->OutputCellArray = vtkSmartPointer<vtkCellArray>::New();
-  callbackdata->OutputCellArray->Allocate(OutputNumberOfFinalCells*(callbackdata->MaxCellSize+1));
+  callbackdata->OutputUnstructuredCellTypes = NULL;
+  if (pdata && pdata->GetVerts()) {
+      vtkSmartPointer<vtkCellArray> verts = vtkSmartPointer<vtkCellArray>::New();
+      verts->Allocate(OutputNumberOfFinalCells * (callbackdata->MaxCellSize + 1));
+      pdata2->SetVerts(verts);
+  }
+  if (pdata && pdata->GetLines()) {
+      vtkSmartPointer<vtkCellArray> lines = vtkSmartPointer<vtkCellArray>::New();
+      lines->Allocate(OutputNumberOfFinalCells*(callbackdata->MaxCellSize+1));
+      pdata2->SetLines(lines);
+  }
+  if (pdata && pdata->GetPolys()) {
+      vtkSmartPointer<vtkCellArray> polys = vtkSmartPointer<vtkCellArray>::New();
+      polys->Allocate(OutputNumberOfFinalCells * (callbackdata->MaxCellSize + 1));
+      pdata2->SetPolys(polys);
+  }
+  if (pdata && pdata->GetStrips()) {
+      vtkSmartPointer<vtkCellArray> strips = vtkSmartPointer<vtkCellArray>::New();
+      strips->Allocate(OutputNumberOfFinalCells*(callbackdata->MaxCellSize+1));
+      pdata2->SetStrips(strips);
+  }
+  if (udata) {
+      callbackdata->OutputUnstructuredCellArray = vtkSmartPointer<vtkCellArray>::New();
+      callbackdata->OutputUnstructuredCellArray->Allocate(OutputNumberOfFinalCells*(callbackdata->MaxCellSize+1));
+      callbackdata->OutputUnstructuredCellArray->InitTraversal();
+      callbackdata->OutputUnstructuredCellTypes = new int[OutputNumberOfFinalCells];
+  }
   //
   vtkCellData *inCD  = callbackdata->Input->GetCellData();
   vtkCellData *outCD = callbackdata->Output->GetCellData();
@@ -204,15 +237,9 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(
   //
   callbackdata->self->InitializeFieldDataArrayPointers(callbackdata, inCD, outCD, OutputNumberOfFinalCells);
 
+  debug_2("Setting up output dataset");
   //
-  vtkIdType npts, *pts, newpts[32];
-  vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
-//  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
-  vtkPolyData         *pdata2 = vtkPolyData::SafeDownCast(callbackdata->Output);
-//  vtkUnstructuredGrid *udata2 = vtkUnstructuredGrid::SafeDownCast(callbackdata->Output);
-  if (pdata2) {
-    pdata2->SetPolys(callbackdata->OutputCellArray);
-  }
+  vtkIdType npts, *pts, newPts[32];
   //
   callbackdata->OutCellCount = 0;
   for (vtkIdType cellId=0; cellId<OutputNumberOfLocalCells; cellId++) {
@@ -220,30 +247,35 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(
           // copy cell data from old to new datasets
           outCD->CopyData(inCD, cellId, callbackdata->OutCellCount);
           // copy cell point Ids to new dataset,
+          int ctype;
           if (pdata) {
-              int ctype = pdata->GetCellType(cellId);
+              ctype = pdata->GetCellType(cellId);
               pdata->GetCellPoints(cellId, npts, pts);
-              for (int i=0; i<npts; i++) {
-                  if (callbackdata->LocalToLocalIdMap[pts[i]]!=-1) {
-                      newpts[i] = callbackdata->LocalToLocalIdMap[pts[i]];
-                  }
-                  else {
-                      error_2("Fatal ERROR in cell " << cellId << " point " << i << " assignment " << pts[i]);
-                  }
-              }
-              pdata2->InsertNextCell(ctype, npts, newpts);
           }
-          //else if (udata) {
-          //  int ctype = udata->GetCellType(cellId);
-          //  udata->GetCellPoints(cellId, npts, pts);
-          //  udata2->InsertNextCell(ctype, npts, pts);
-          //}
+          else if (udata) {
+              ctype = udata->GetCellType(cellId);
+              udata->GetCellPoints(cellId, npts, pts);
+          }
+          for (int i=0; i<npts; i++) {
+              if (callbackdata->LocalToLocalIdMap[pts[i]]!=-1) {
+                  newPts[i] = callbackdata->LocalToLocalIdMap[pts[i]];
+              }
+              else {
+                  error_2("Fatal ERROR in cell " << cellId << " point " << i << " assignment " << pts[i]);
+              }
+          }
+          if (pdata) {
+              pdata2->InsertNextCell(ctype, npts, newPts);
+          }
+          else if (udata) {
+              callbackdata->OutputUnstructuredCellArray->InsertNextCell(npts, newPts);
+              callbackdata->OutputUnstructuredCellTypes[callbackdata->OutCellCount] = ctype;
+          }
           callbackdata->LocalToLocalCellMap[cellId] = callbackdata->OutCellCount;
           callbackdata->OutCellCount++;
       }
   }
-  // make sure final point count is actual point count, not the reserved amount
-  //  callbackdata->Output->GetPoints()->SetNumberOfPoints(callbackdata->OutPointCount);
+  debug_2("completed zoltan_pre_migrate_function_cell");
 }
 //----------------------------------------------------------------------------
 // Zoltan callback function : returns size of each cell and all its data
@@ -260,10 +292,17 @@ int vtkMeshPartitionFilter::zoltan_obj_size_function_cell(void *data, int num_gi
   //
   vtkIdType npts, *pts;
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
-//  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
+  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
   //
-  int ctype = pdata->GetCellType(LID);
-  pdata->GetCellPoints(LID,npts,pts);
+  int ctype;
+  if (pdata) {
+      ctype = pdata->GetCellType(LID);
+      pdata->GetCellPoints(LID, npts, pts);
+  }
+  else if (udata) {
+      ctype = udata->GetCellType(LID);
+      udata->GetCellPoints(LID, npts, pts);
+  }
   int size = 2 + npts; // npts + ctype + pts
   return callbackdata->TotalSizePerId + size*sizeof(vtkIdType);
 }
@@ -280,7 +319,7 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
   //
   vtkIdType npts, *pts, newPts[32];
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
-//  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
+  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
 
     int  ghost_temp;
     int *ghost;
@@ -312,24 +351,21 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
   // before sending, we will convert local to global Ids because when the cell is unpacked on the 
   // remote process, the local Ids are meaningless - there is no way to find where they really came from 
   //
-  if (pdata) {
-    pdata->GetCellPoints(LID, npts, pts);
-    // copy the number of points and cell type so we know what's been sent when we unpack
-    newPts[0] = npts;
-    newPts[1] = pdata->GetCellType(LID);
-    // and the points Ids converted to global Ids
-    for (int i=0; i<npts; i++) {
-      newPts[i+2] = pts[i] + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-    }
-    memcpy(buf, newPts, sizeof(vtkIdType)*(npts+2));  
+  if (pdata) pdata->GetCellPoints(LID, npts, pts);
+  else if (udata) udata->GetCellPoints(LID, npts, pts);
+
+  // copy the number of points and cell type so we know what's been sent when we unpack
+  newPts[0] = npts;
+  newPts[1] = pdata ? pdata->GetCellType(LID) : udata->GetCellType(LID);
+  // and the points Ids converted to global Ids
+  for (int i=0; i<npts; i++) {
+    newPts[i+2] = pts[i] + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
   }
-  //
-  //else if (udata) {
-  //  throw std::string("Implement this");
-  //
-    if (ghost_array) {
-        ghost[LID] = ghost_temp;
-    }
+  memcpy(buf, newPts, sizeof(vtkIdType)*(npts+2));
+
+  if (ghost_array) {
+      ghost[LID] = ghost_temp;
+  }
   *ierr = ZOLTAN_OK;
   return;
 }
@@ -347,9 +383,9 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
   //
   vtkIdType npts, *pts, ctype, newPts[32];
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
-//  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
+  vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
   vtkPolyData         *pdata2 = vtkPolyData::SafeDownCast(callbackdata->Output);
-//  vtkUnstructuredGrid *udata2 = vtkUnstructuredGrid::SafeDownCast(callbackdata->Output);
+  vtkUnstructuredGrid *udata2 = vtkUnstructuredGrid::SafeDownCast(callbackdata->Output);
   //
   for (int i=0; i<callbackdata->NumberOfFields; i++) {
     int asize = callbackdata->MemoryPerTuple[i];
@@ -366,12 +402,11 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
   for (int i=0; i<npts; i++) {
     newPts[i] = callbackdata->self->global_to_local_Id(pts[i]);
   }
-  if (pdata) {
-    pdata2->InsertNextCell(ctype, npts, newPts);
+  if (pdata) pdata2->InsertNextCell(ctype, npts, newPts);
+  else if (udata) {
+      callbackdata->OutputUnstructuredCellArray->InsertNextCell(npts, newPts);
+      callbackdata->OutputUnstructuredCellTypes[callbackdata->OutCellCount] = ctype;
   }
-  //else if (udata) { 
-  //  throw std::string("Implement this");
-  //}
 
   callbackdata->OutCellCount++;
   *ierr = ZOLTAN_OK;
@@ -605,6 +640,12 @@ int vtkMeshPartitionFilter::PartitionCells(PartitionInfo &cell_partitioninfo)
   cell_partitioninfo.GlobalIds.clear();
   cell_partitioninfo.Procs.clear();
   this->ZoltanCallbackData.LocalIdsToKeep.clear();
+
+  // For UnstructuredGrids, we must put the cells into the actual output dataset
+  vtkUnstructuredGrid *udata2 = vtkUnstructuredGrid::SafeDownCast(ZoltanCallbackData.Output);
+  if (udata2) {
+    udata2->SetCells(ZoltanCallbackData.OutputUnstructuredCellTypes, ZoltanCallbackData.OutputUnstructuredCellArray);
+  }
 
   return 1;
 }
