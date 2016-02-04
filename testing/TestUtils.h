@@ -30,7 +30,7 @@ class vtkXMLPPolyDataReader;
 class vtkXMLUnstructuredGridReader;
 class vtkXMLPUnstructuredGridReader;
 //----------------------------------------------------------------------------
-#if 0
+#if 1
   #define OUTPUTTEXT(a) std::cout << (a);
   #define testDebugMacro(a)  \
   { \
@@ -94,6 +94,7 @@ class TestStruct {
   // H5Part Reader 
   //
   bool        ReadData;
+  bool        unstructured;
   std::string fullName;
   std::string Xarray;
   std::string Yarray;
@@ -129,7 +130,9 @@ class TestStruct {
   double      actor_shift;
   //
   void    CreateXMLPolyDataReader();
+  void    CreateXMLPPolyDataReader();
   void    CreateXMLUnstructuredGridReader();
+  void    CreateXMLPUnstructuredGridReader();
   void    CreateXMLReader();
   void    DeleteXMLReader();
   void    CreatePartitioner_Particles();

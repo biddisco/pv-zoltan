@@ -150,6 +150,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.cameraViewUp[2] = 1.0;
   test.windowSize[0] = test.windowSize[1] = 400; // +8;
 
+  test.unstructured = 0;
   test.scalarMode = 0;
   test.actor_shift = 0.0;
 
@@ -281,12 +282,42 @@ int initTest(int argc, char* argv[], TestStruct &test)
 //----------------------------------------------------------------------------
 void TestStruct::CreateXMLPolyDataReader()
 {
-  this->xmlreader = vtkSmartPointer<vtkXMLPPolyDataReader>::New();
-  this->xmlreader->SetFileName(this->fullName.c_str());
+  // serial operation, only read stuff on rank 0
+  if (this->myRank==0) {
+      this->xmlreader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
+      this->xmlreader->SetFileName(this->fullName.c_str());
+  }
+  else {
+      this->xmlreader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
+      std::string name = vtksys::SystemTools::GetFilenamePath(this->fullName) + "//empty.vtp";
+      this->xmlreader->SetFileName(name.c_str());
+  }
+}
+
+//----------------------------------------------------------------------------
+void TestStruct::CreateXMLPPolyDataReader()
+{
+    this->xmlreader = vtkSmartPointer<vtkXMLPPolyDataReader>::New();
+    this->xmlreader->SetFileName(this->fullName.c_str());
 }
 
 //----------------------------------------------------------------------------
 void TestStruct::CreateXMLUnstructuredGridReader()
+{
+    // serial operation, only read stuff on rank 0
+    if (this->myRank==0) {
+        this->xmlreader = vtkSmartPointer<vtkXMLUnstructuredGridReader>::New();
+        this->xmlreader->SetFileName(this->fullName.c_str());
+    }
+    else {
+        this->xmlreader = vtkSmartPointer<vtkXMLUnstructuredGridReader>::New();
+        std::string name = vtksys::SystemTools::GetFilenamePath(this->fullName) + "//empty.vtu";
+        this->xmlreader->SetFileName(name.c_str());
+    }
+}
+
+//----------------------------------------------------------------------------
+void TestStruct::CreateXMLPUnstructuredGridReader()
 {
     this->xmlreader = vtkSmartPointer<vtkXMLPUnstructuredGridReader>::New();
     this->xmlreader->SetFileName(this->fullName.c_str());
@@ -295,11 +326,24 @@ void TestStruct::CreateXMLUnstructuredGridReader()
 //----------------------------------------------------------------------------
 void TestStruct::CreateXMLReader()
 {
-    if (this->fullName.find(".pvtu")!=std::string::npos) {
+    if (this->fullName.find(".vtu")!=std::string::npos) {
         CreateXMLUnstructuredGridReader();
+        this->unstructured = true;
+    }
+    else if (this->fullName.find(".pvtu")!=std::string::npos) {
+        CreateXMLPUnstructuredGridReader();
+        this->unstructured = true;
+    }
+    else if (this->fullName.find(".vtp")!=std::string::npos){
+        CreateXMLPolyDataReader();
+        this->unstructured = false;
+    }
+    else if (this->fullName.find(".pvtp")!=std::string::npos){
+        CreateXMLPPolyDataReader();
+        this->unstructured = false;
     }
     else {
-        CreateXMLPolyDataReader();
+        throw std::string("Unknown input type");
     }
 }
 
