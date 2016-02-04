@@ -49,6 +49,7 @@
 #include "vtkXMLPolyDataReader.h"
 #include "vtkXMLPPolyDataReader.h"
 #include "vtkTransform.h"
+#include "vtkGeometryFilter.h"
 //
 #include <vtksys/SystemTools.hxx>
 #include <sstream>
@@ -81,7 +82,7 @@ int main (int argc, char* argv[])
   // if testing partition from file
   double read_elapsed = 0.0;
   double partition_elapsed = 0.0;
-  vtkSmartPointer<vtkAlgorithm> data_algorithm; 
+  vtkSmartPointer<vtkAlgorithm> data_algorithm;
 
   test.CreateXMLReader();
   test.xmlreader->Update();
@@ -95,25 +96,37 @@ int main (int argc, char* argv[])
   test.partitioner->SetInputDisposable(1);
   test.partitioner->SetKeepInversePointLists(1);
   // setup ghost options
-  static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetGhostMode(test.ghostMode);
-  if (test.ghostMode==vtkMeshPartitionFilter::Neighbour) {
-      static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetNumberOfGhostLevels(1);
-  }
-  else if (test.ghostMode==vtkMeshPartitionFilter::BoundingBox) {
-      static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
+  static_cast<vtkMeshPartitionFilter *>(test.partitioner.GetPointer())
+      ->SetGhostMode(test.ghostMode);
+  if (test.ghostMode == vtkMeshPartitionFilter::Neighbour) {
+    static_cast<vtkMeshPartitionFilter *>(test.partitioner.GetPointer())
+        ->SetNumberOfGhostLevels(1);
+  } else if (test.ghostMode == vtkMeshPartitionFilter::BoundingBox) {
+    static_cast<vtkMeshPartitionFilter *>(test.partitioner.GetPointer())
+        ->SetGhostCellOverlap(test.ghostOverlap);
   }
 
-  static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetBoundaryMode(test.boundaryMode);
-  static_cast<vtkMeshPartitionFilter*>(test.partitioner.GetPointer())->SetKeepGhostRankArray(1);
+  static_cast<vtkMeshPartitionFilter *>(test.partitioner.GetPointer())
+      ->SetBoundaryMode(test.boundaryMode);
+  static_cast<vtkMeshPartitionFilter *>(test.partitioner.GetPointer())
+      ->SetKeepGhostRankArray(1);
   //
   partition_elapsed = test.UpdatePartitioner();
 
   //--------------------------------------------------------------
   // Add process Id's
   //--------------------------------------------------------------
-  vtkSmartPointer<vtkProcessIdScalars> processId = vtkSmartPointer<vtkProcessIdScalars>::New();
+  vtkSmartPointer<vtkProcessIdScalars> processId = vtkSmartPointer<
+      vtkProcessIdScalars
+  >::New();
   processId->SetInputConnection(test.partitioner->GetOutputPort());
   processId->SetController(test.controller);
+
+  vtkSmartPointer<vtkGeometryFilter> geometry = vtkSmartPointer<vtkGeometryFilter>::New();
+  if (test.unstructured) {
+    geometry->SetInputConnection(processId->GetOutputPort());
+  }
+
   //
 //  test.controller->Barrier();
   if (test.myRank==0) {
@@ -128,7 +141,13 @@ int main (int argc, char* argv[])
   // then set piece update extent,
   //--------------------------------------------------------------
   testDebugMacro( "Setting piece information " << test.myRank << " of " << test.numProcs );
-  vtkStreamingDemandDrivenPipeline *sddp = vtkStreamingDemandDrivenPipeline::SafeDownCast(processId->GetExecutive());
+  vtkStreamingDemandDrivenPipeline *sddp;
+  if (test.unstructured) {
+    sddp = vtkStreamingDemandDrivenPipeline::SafeDownCast(geometry->GetExecutive());
+  }
+  else {
+    sddp = vtkStreamingDemandDrivenPipeline::SafeDownCast(processId->GetExecutive());
+  }
   // no piece info set yet, assumes info is not piece dependent
   sddp->UpdateInformation();
   // now set piece info and update
