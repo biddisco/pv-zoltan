@@ -911,7 +911,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
                                 }
                             }
                             // send the cell if it wasn't already sent
-                            cellDestProcesses.push_back( process_tuple(cellId, p) );
+                            if (p!=this->UpdatePiece) cellDestProcesses.push_back( process_tuple(cellId, p) );
                             if (!cell_being_sent) {
                                 cell_partitioninfo.LocalIdsToKeep.push_back(cellId);
                             }
