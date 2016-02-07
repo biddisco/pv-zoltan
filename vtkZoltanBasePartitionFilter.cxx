@@ -86,23 +86,13 @@ int vtkZoltanBasePartitionFilter::size_count = 0;
 
 //----------------------------------------------------------------------------
 #if defined ZOLTAN_DEBUG_OUTPUT && !defined VTK_WRAPPING_CXX
-#define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
 
-#undef vtkDebugMacro
-#define vtkDebugMacro(a)  \
-  { \
-    if (this->UpdatePiece>=0) { \
-      vtkOStreamWrapper::EndlType endl; \
-      vtkOStreamWrapper::UseEndl(endl); \
-      vtkOStrStreamWrapper vtkmsg; \
-      vtkmsg << "P(" << this->UpdatePiece << "): " a << "\n"; \
-      OUTPUTTEXT(vtkmsg.str()); \
-      vtkmsg.rdbuf()->freeze(0); \
-    } \
-  }
+# undef vtkDebugMacro
+# define vtkDebugMacro(msg)  \
+   DebugSynchronized(this->UpdatePiece, this->UpdateNumPieces, this->Controller, msg);
 
-#undef  vtkErrorMacro
-#define vtkErrorMacro(a) vtkDebugMacro(a)
+# undef  vtkErrorMacro
+# define vtkErrorMacro(a) vtkDebugMacro(a)
 #endif
 //----------------------------------------------------------------------------
 
@@ -206,7 +196,7 @@ vtkZoltanBasePartitionFilter::~vtkZoltanBasePartitionFilter()
   this->SetPointWeightsArrayName(NULL);
   // make sure we do not leave any memory unfreed
   if (this->MigrateLists.num_found!=-1) {
-    vtkDebugMacro(<<"Deleting InverseMigrationLists");
+    vtkDebugMacro("Deleting InverseMigrationLists");
     Zoltan_LB_Free_Part(
       &this->MigrateLists.found_global_ids, 
       &this->MigrateLists.found_local_ids, 
@@ -248,7 +238,7 @@ vtkBoundingBox *vtkZoltanBasePartitionFilter::GetPartitionBoundingBox(int partit
   if (partition<this->BoxList.size()) {
     return &this->BoxList[partition];
   }
-  vtkErrorMacro(<<"Partition not found in Bounding Box list");
+  vtkErrorMacro("Partition not found in Bounding Box list");
   return NULL;
 }
 
@@ -258,7 +248,7 @@ vtkBoundingBox *vtkZoltanBasePartitionFilter::GetPartitionBoundingBoxHalo(int pa
   if (partition<this->BoxListWithHalo.size()) {
     return &this->BoxListWithHalo[partition];
   }
-  vtkErrorMacro(<<"Partition not found in Bounding Box list");
+  vtkErrorMacro("Partition not found in Bounding Box list");
   return NULL;
 }
 
@@ -284,20 +274,34 @@ void vtkZoltanBasePartitionFilter::ComputeIdOffsets(vtkIdType Npoints, vtkIdType
 struct vtkZPF_datainfo {
   int  datatype;
   int  numC;
-  char name[64];
-  vtkZPF_datainfo() : datatype(-1), numC(-1) {};
+  int  attributes;
+  char name[256];
+  vtkZPF_datainfo() : datatype(-1), numC(-1), attributes(-1) {};
 };
 
 //----------------------------------------------------------------------------
-bool vtkZoltanBasePartitionFilter::GatherDataArrayInfo(vtkDataArray *data, 
-  int &datatype, std::string &dataname, int &numComponents)
+bool vtkZoltanBasePartitionFilter::GatherDataArrayInfo(
+    vtkDataArray *data, vtkDataSetAttributes *attribs,
+  int &datatype, std::string &dataname, int &numComponents, int &attrib)
 {
 #ifdef VTK_USE_MPI
   std::vector< vtkZPF_datainfo > datatypes(this->UpdateNumPieces);
   if (data) {
-    ((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->datatype = data->GetDataType();
-    ((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->numC     = data->GetNumberOfComponents();
+    vtkZPF_datainfo &info = datatypes[this->UpdatePiece];
+    info.datatype   = data->GetDataType();
+    info.numC       = data->GetNumberOfComponents();
+    info.attributes = -1;
     strncpy(((vtkZPF_datainfo*)&datatypes[this->UpdatePiece])->name, data->GetName(), 64);
+    // we need the index of the array to get attribute type if present
+    int index = -1;
+    vtkAbstractArray *dummy = attribs->GetAbstractArray(data->GetName(), index);
+    if (dummy==data) {
+        info.attributes = attribs->IsArrayAnAttribute(index);
+        if (info.attributes>=0) {
+            debug_no_sync(data->GetName() << " is attribute " << info.attributes);
+        }
+    }
+
   }
   vtkMPICommunicator* com = vtkMPICommunicator::SafeDownCast(
     this->Controller->GetCommunicator()); 
@@ -308,6 +312,7 @@ bool vtkZoltanBasePartitionFilter::GatherDataArrayInfo(vtkDataArray *data,
       datatype = newdata.datatype;
       numComponents = newdata.numC;
       dataname = newdata.name;
+      attrib = newdata.attributes;
     }
   }
   return (result == 1) ;
@@ -334,7 +339,7 @@ int vtkZoltanBasePartitionFilter::GatherDataTypeInfo(vtkPoints *points)
       datatype = newdatatype;
     }
     else if (datatype!=-1 && newdatatype!=-1 && newdatatype!=datatype) {
-      vtkErrorMacro(<<"Fatal datatype error in Point DataType Gather");
+      vtkErrorMacro("Fatal datatype error in Point DataType Gather");
     }
   }
   return datatype;
@@ -375,14 +380,15 @@ void vtkZoltanBasePartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fie
 {
   int NumberOfFieldArrays = fields->GetNumberOfArrays();
   this->Controller->AllReduce(&NumberOfFieldArrays, &this->ZoltanCallbackData.NumberOfFields, 1, vtkCommunicator::MAX_OP);
+  vtkDebugMacro("NULL data found, NumberOfFieldArrays " << this->ZoltanCallbackData.NumberOfFields);
   for (int i=0; i<this->ZoltanCallbackData.NumberOfFields; i++) {
     vtkSmartPointer<vtkDataArray> darray = fields->GetArray(i);
     //
-    int correctType = -1, numComponents = -1;
+    int correctType = -1, numComponents = -1, attrib = -1;
     std::string correctName;
-    this->GatherDataArrayInfo(darray, correctType, correctName, numComponents);
+    this->GatherDataArrayInfo(darray, fields, correctType, correctName, numComponents, attrib);
     if (!darray) {
-      vtkDebugMacro(<<"NULL data found, used MPI_Gather to find :" 
+      vtkDebugMacro("NULL data found, used MPI_Gather to find :"
         << " DataType " << correctType
         << " Name " << correctName.c_str()
         << " NumComponents " << numComponents);
@@ -390,8 +396,21 @@ void vtkZoltanBasePartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fie
       darray->SetNumberOfComponents(numComponents);
       darray->SetName(correctName.c_str());
       fields->AddArray(darray);
+      if (attrib!=-1) {
+          vtkDebugMacro("setting " << correctName.c_str() << " attrib " << attrib);
+          fields->SetActiveAttribute(correctName.c_str(), attrib);
+      }
+      else {
+          vtkDebugMacro(correctName.c_str() << " no attrib ");
+      }
+    }
+    else {
+        // twice because they are synchronized with the debug messages above
+        vtkDebugMacro("Data Ok " << darray->GetName());
+        vtkDebugMacro("Data Ok " << darray->GetName());
     }
   }
+  vtkDebugMacro("AllocateFieldArrays completed");
 }
 
 //-------------------------------------------------------------------------
@@ -527,11 +546,11 @@ void vtkZoltanBasePartitionFilter::InitializeZoltanLoadBalance()
 
   Zoltan_Set_Num_Geom_Fn(this->ZoltanData, get_num_geometry, &this->ZoltanCallbackData);
   if (this->ZoltanCallbackData.PointType == VTK_FLOAT) {
-//    vtkDebugMacro(<<"Using float data pointers ");
+//    vtkDebugMacro("Using float data pointers ");
     Zoltan_Set_Geom_Multi_Fn(this->ZoltanData, get_geometry_list < float > ,
         &this->ZoltanCallbackData);
   } else if (this->ZoltanCallbackData.PointType == VTK_DOUBLE) {
-//    vtkDebugMacro(<<"Using double data pointers ");
+//    vtkDebugMacro("Using double data pointers ");
     Zoltan_Set_Geom_Multi_Fn(this->ZoltanData, get_geometry_list < double > ,
         &this->ZoltanCallbackData);
   }
@@ -555,7 +574,7 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
 //  this->UpdatePiece     = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER());
 //  this->UpdateNumPieces = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES());
 //  int ghostLevel        = inInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS());
-//  vtkDebugMacro(<<"Partition filter " << this->UpdatePiece << " Ghost level " << ghostLevel);
+//  vtkDebugMacro("Partition filter " << this->UpdatePiece << " Ghost level " << ghostLevel);
   //
   Timer = vtkSmartPointer<vtkTimerLog>::New();
   Timer->StartTimer();
@@ -564,7 +583,7 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
   vtkIdType       numPoints = input->GetNumberOfPoints();
   vtkIdType        numCells = input->GetNumberOfCells();
   vtkDataArray    *inPoints = numPoints>0 ? input->GetPoints()->GetData() : NULL;
-  vtkDebugMacro(<<"Partitioning { Points : " << numPoints << " } | { Cells " << numCells << " }");
+  vtkDebugMacro("Partitioning { Points : " << numPoints << " } | { Cells " << numCells << " }");
 
   //--------------------------------------------------------------
   // Use Zoltan library to re-partition data in parallel
@@ -626,7 +645,7 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
     printf("Zoltan initialization failed ...\n");
     return 0;
   }
-  vtkDebugMacro(<<"Zoltan Initialized");
+  vtkDebugMacro("Zoltan Initialized");
 
   //
   // if a process has zero points, we need to make dummy data arrays to allow
@@ -635,7 +654,7 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
   //
   vtkSmartPointer<vtkPointData> PointDataCopy = input->GetPointData();
   this->AllocateFieldArrays(PointDataCopy);
-  vtkDebugMacro(<<"FieldArrayPointers (point) Initialized");
+  vtkDebugMacro("FieldArrayPointers (point) Initialized");
 
   //
   // To convert Global to Local IDs we need to know the offsets of points/cells
@@ -694,7 +713,7 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
   else {
     this->ExecuteZoltanPartition(output, input);
 
-    vtkDebugMacro(<<"Partitioning "  <<
+    vtkDebugMacro("Partitioning "  <<
         " numImport : " << this->LoadBalanceData.numImport <<
         " numExport : " << this->LoadBalanceData.numExport
     );
@@ -772,20 +791,27 @@ void vtkZoltanBasePartitionFilter::InitializeFieldDataArrayPointers(
   callbackdata->MemoryPerTuple.clear();
   callbackdata->InputArrayPointers.clear();
   callbackdata->OutputArrayPointers.clear();
-  callbackdata->NumberOfFields = infielddata->GetNumberOfArrays();
-  for (int i=0; i<callbackdata->NumberOfFields; i++) {
+  callbackdata->NumberOfFields = outfielddata->GetNumberOfArrays();
+  vtkDebugMacro("InitializeFieldDataArrayPointers "
+                << outfielddata->GetNumberOfArrays()
+                << ", in " <<infielddata->GetNumberOfArrays()
+                << " out " << outfielddata->GetNumberOfArrays());
+  for (int i=0; i<outfielddata->GetNumberOfArrays(); i++) {
     vtkDataArray *iarray = infielddata->GetArray(i);
     vtkDataArray *oarray = outfielddata->GetArray(i);
     oarray->Resize(Nfinal);
     oarray->SetNumberOfTuples(Nfinal);
-    callbackdata->InputArrayPointers.push_back(iarray->GetVoidPointer(0));
+    callbackdata->InputArrayPointers.push_back(iarray ? iarray->GetVoidPointer(0) : NULL);
     callbackdata->OutputArrayPointers.push_back(oarray->GetVoidPointer(0));
     // we need to know the amount of data to copy for each array tuple
-    int Nc = iarray->GetNumberOfComponents();
-    int Ns = iarray->GetDataTypeSize();
+    int Nc = oarray->GetNumberOfComponents();
+    int Ns = oarray->GetDataTypeSize();
     callbackdata->MemoryPerTuple.push_back(Nc*Ns);
     callbackdata->TotalSizePerId += Nc*Ns;
+    vtkDebugMacro("Got out array " << " " << oarray->GetName() << " sized " << Nfinal
+        << " TotalSizePerId " << callbackdata->TotalSizePerId);
   }
+  vtkDebugMacro("InitializeFieldDataArrayPointers completed");
 }
 
 //----------------------------------------------------------------------------
@@ -825,21 +851,23 @@ void vtkZoltanBasePartitionFilter::ComputeInvertLists(MigrationLists &migrationL
   }
   else if ( migrationLists.found_global_ids==NULL )
   {
-    debug_1("migrationLists.found_global_ids==NULL\n");
+    vtkDebugMacro("migrationLists.found_global_ids==NULL");
   }
   else if ( migrationLists.found_procs==NULL )
   {
-    debug_1("migrationLists.found_procs==NULL\n");
+    vtkDebugMacro("migrationLists.found_procs==NULL");
     MPI_Finalize();
     Zoltan_Destroy(&this->ZoltanData);
     exit(0);
   }
+  else {
+    vtkDebugMacro("migrationLists.found_procs or found_global_ids");
+  }
 
-  vtkDebugMacro(<<"ComputeInvertLists "  << 
+  vtkDebugMacro("ComputeInvertLists "  <<
     " numImport : " << migrationLists.num_found <<
     " numExport : " << num_known
     );
-
 }
 
 //----------------------------------------------------------------------------
@@ -888,14 +916,8 @@ int vtkZoltanBasePartitionFilter::ManualPointMigrate(MigrationLists &migrationLi
       &err
     );
   }
-//        if (this->UpdatePiece==0) {
-//            for (int i=0; i<migrationLists.known.nIDs; i++) {
-//                cout<<"##>>\t\t"<<i<<"\t"<<migrationLists.known.GlobalIdsPtr[i]<<"\t"<<migrationLists.known.ProcsPtr[i]<<endl;
-//            }
-//        }
 
-
-  vtkDebugMacro(<<"ManualPointMigrate (CopyPointsToSelf) ");
+  vtkDebugMacro("ManualPointMigrate (CopyPointsToSelf) ");
   return this->ZoltanPointMigrate(migrationLists, keepinformation);
 }
 
@@ -951,7 +973,7 @@ int vtkZoltanBasePartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLi
 
 
 #ifdef ZOLTAN_DEBUG_OUTPUT
-    vtkDebugMacro(<<"Partitioning complete on " << this->UpdatePiece << 
+    vtkDebugMacro("Partitioning complete " <<
       " pack_count : " << pack_count <<
       " size_count : " << size_count <<
       " unpack_count : " << unpack_count 
@@ -1000,7 +1022,7 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanBasePartitionFilter::CreatePkdTree()
   struct rcb_tree *treept = rcb->Tree_Ptr;
   //
   if (treept[0].dim < 0) {
-    vtkErrorMacro(<<"RCB Tree invalid");
+    vtkErrorMacro("RCB Tree invalid");
     return NULL;
   }
 
@@ -1234,7 +1256,7 @@ bool vtkZoltanBasePartitionFilter::MigratePointData(vtkDataSetAttributes *inPoin
     }
   }
   if (maxID>this->ZoltanCallbackData.MigrationPointCount) {
-    vtkErrorMacro(<<"Local ID mapped to new ID outside of permitted range");
+    vtkErrorMacro("Local ID mapped to new ID outside of permitted range");
   }
 
   //
@@ -1260,14 +1282,14 @@ bool vtkZoltanBasePartitionFilter::MigratePointData(vtkDataSetAttributes *inPoin
     );
 
 #ifdef ZOLTAN_DEBUG_OUTPUT
-    vtkDebugMacro(<<"MigratePointData complete on " << this->UpdatePiece << 
+    vtkDebugMacro("MigratePointData complete on " << this->UpdatePiece <<
       " pack_count : " << pack_count <<
       " size_count : " << size_count <<
       " unpack_count : " << unpack_count 
      );
 #endif
 
-  vtkDebugMacro(<< "Expected " << N1 << " Points , found " << this->ZoltanCallbackData.MigrationPointCount);
+  vtkDebugMacro( "Expected " << N1 << " Points , found " << this->ZoltanCallbackData.MigrationPointCount);
 
   return true;
 }

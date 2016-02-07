@@ -190,11 +190,6 @@ void vtkZoltanBasePartitionFilter::CopyPointsToSelf(
   CallbackData *callbackdata = static_cast<CallbackData*>(data);
   // newTotal = original points - sent away + received
   vtkIdType N  = callbackdata->Input->GetNumberOfPoints();
-//    if (this->UpdatePiece==0)
-//    for (int i=0 ; i<num_export; i++) {
-//        cout<<i<<"...."<<export_global_ids[i]<<"\t"<<export_procs[i]<<endl;
-//    }
-//    cout<<"Smooth"<<endl;
   //
   // our size estimates of the final number of points can be messed up because the list of points being sent away
   // contains some points which are sent to multiple remote processes. We can't therefore use the size of this list
@@ -213,19 +208,17 @@ void vtkZoltanBasePartitionFilter::CopyPointsToSelf(
     }
   }
 
-
   // now compute the final number of points we'll have
   vtkIdType N2 = N + num_reserved + num_import - (uniqueSends - LocalPointsToKeep.size());
-    this->Controller->Barrier();
-    
-//    cout<<this->UpdatePiece
-//    <<"\tN2:"<<N2
-//    <<"\tN:"<<N
-//    <<"\tnum_reserved:"<<num_reserved
-//    <<"\tnum_import:"<<num_import
-//    <<"\tuniqueSends:"<<uniqueSends
-//    <<"\tLocalPointsToKeep:"<<LocalPointsToKeep.size()
-//    <<endl;
+
+  vtkDebugMacro("Copying points to self"
+    <<  " N2:"<<N2
+    << "\tN:"<<N
+    << "\tnum_reserved:"<<num_reserved
+    << "\tnum_import:"<<num_import
+    << "\tuniqueSends:"<<uniqueSends
+    << "\tLocalPointsToKeep:"<<LocalPointsToKeep.size());
+
   callbackdata->Output->GetPoints()->SetNumberOfPoints(N2);
   callbackdata->OutputPointsData = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
   vtkPointData    *inPD  = callbackdata->Input->GetPointData();
@@ -236,6 +229,7 @@ void vtkZoltanBasePartitionFilter::CopyPointsToSelf(
   // prepare for copying data by setting up pointers to field arrays
   //
   callbackdata->self->InitializeFieldDataArrayPointers(callbackdata, inPD, outPD, N2);
+
   // Loop over each local point and copy it to the output.
   // WARNING: point Ids are changing so any cells referencing the points
   // must have their Ids updated to the new index - create an IdMap to hold this info.
@@ -266,15 +260,15 @@ void vtkZoltanBasePartitionFilter::CopyPointsToSelf(
       callbackdata->OutPointCount++;
     }
     else if (callbackdata->LocalToLocalIdMap[LID]>=maxInitialId) {
-      vtkErrorMacro(<<callbackdata->ProcessRank << " Point already mapped from " << LID << " to " << callbackdata->LocalToLocalIdMap[LID]);
+      vtkErrorMacro("Point already mapped from " << LID << " to " << callbackdata->LocalToLocalIdMap[LID]);
     }
     else {
-      vtkErrorMacro(<<callbackdata->ProcessRank << " Serious Error : Point already mapped from " << LID << " to " << callbackdata->LocalToLocalIdMap[LID]);
+      vtkErrorMacro("Serious Error : Point already mapped from " << LID << " to " << callbackdata->LocalToLocalIdMap[LID]);
     }
   }
   // callbackdata->OutPointCount<N2 is allowed as we may receive points, but > is forbidden
   if (callbackdata->OutPointCount>N2) {
-    vtkErrorMacro(<<"Serious Error : Point allocation N2 " << N2 << " greater than " << callbackdata->OutPointCount);
+    vtkErrorMacro("Serious Error : Point allocation N2 " << N2 << " greater than " << callbackdata->OutPointCount);
   }
 }
 //----------------------------------------------------------------------------

@@ -163,8 +163,9 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     double                  GhostCellOverlap;
     int                     NumberOfGhostLevels;
     int                     KeepGhostRankArray;
-    vtkIntArray            *ghost_array;
-    vtkUnsignedCharArray   *ghost_flags;
+    vtkSmartPointer<vtkIntArray>          ghost_cell_rank;
+    vtkSmartPointer<vtkIntArray>          ghost_cell_out_rank;
+    vtkSmartPointer<vtkUnsignedCharArray> ghost_cell_flags;
 
   private:
     vtkMeshPartitionFilter(const vtkMeshPartitionFilter&);  // Not implemented.

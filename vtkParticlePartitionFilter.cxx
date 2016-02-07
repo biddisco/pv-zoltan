@@ -53,23 +53,13 @@
 #include <numeric>
 //----------------------------------------------------------------------------
 #if defined ZOLTAN_DEBUG_OUTPUT && !defined VTK_WRAPPING_CXX
-#define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
 
-#undef vtkDebugMacro
-#define vtkDebugMacro(a)  \
-  { \
-    if (this->UpdatePiece>=0) { \
-      vtkOStreamWrapper::EndlType endl; \
-      vtkOStreamWrapper::UseEndl(endl); \
-      vtkOStrStreamWrapper vtkmsg; \
-      vtkmsg << "P(" << this->UpdatePiece << "): " a << "\n"; \
-      OUTPUTTEXT(vtkmsg.str()); \
-      vtkmsg.rdbuf()->freeze(0); \
-    } \
-  }
+# undef vtkDebugMacro
+# define vtkDebugMacro(msg)  \
+   DebugSynchronized(this->UpdatePiece, this->UpdateNumPieces, this->Controller, msg);
 
-#undef  vtkErrorMacro
-#define vtkErrorMacro(a) vtkDebugMacro(a)
+# undef  vtkErrorMacro
+# define vtkErrorMacro(a) vtkDebugMacro(a)
 #endif
 //----------------------------------------------------------------------------
 
@@ -142,13 +132,13 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // create the inverse map of who sends/receives from who : Ghost particles
   //
   this->ComputeInvertLists(ghost_info);
-  debug_1(" Imports " << ghost_info.num_found << " ghost particles ");
+  vtkDebugMacro(" Imports " << ghost_info.num_found << " ghost particles ");
 
   //
   // create the inverse map of who sends/receives from who : Core particles
   //
   this->ComputeInvertLists(this->MigrateLists);
-  debug_1(" Imports " << this->MigrateLists.num_found << " core particles ");
+  vtkDebugMacro(" Imports " << this->MigrateLists.num_found << " core particles ");
 
   // we want to reserve some extra space for the ghost particles when they are sent in
   this->MigrateLists.num_reserved = ghost_info.num_found;
@@ -233,7 +223,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
 
   this->Controller->Barrier();
   this->Timer->StopTimer();
-  vtkDebugMacro(<<"Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds");
+  vtkDebugMacro("Particle partitioning : " << this->Timer->GetElapsedTime() << " seconds");
   return 1;
 }
 
@@ -347,14 +337,14 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
           }
         }
       }
-      debug_1(" exporting " << pc << " ghost particles to rank " << proc);
+      vtkDebugMacro(" exporting " << pc << " ghost particles to rank " << proc);
     }
   }
 
   for (int i=0; i<this->UpdateNumPieces; i++) {
-    debug_1(" exporting " << GhostProcessMap[i].size() << " ghost particles to rank " << i);
+    vtkDebugMacro(" exporting " << GhostProcessMap[i].size() << " ghost particles to rank " << i);
   }
-  debug_1(" LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size());
+  vtkDebugMacro(" LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size());
   
   //
   // Set the send list to the points from original zoltan load balance 
@@ -363,7 +353,7 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
   point_partitioninfo.GlobalIdsPtr = loadBalanceData.exportGlobalGids;
   point_partitioninfo.ProcsPtr     = loadBalanceData.exportProcs;
   
-  vtkDebugMacro(<<"FindPointsInHaloRegions "  << 
+  vtkDebugMacro("FindPointsInHaloRegions "  <<
     " numImport : " << this->LoadBalanceData.numImport <<
     " numExport : " << point_partitioninfo.GlobalIds .size()
   );

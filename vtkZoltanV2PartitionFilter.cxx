@@ -75,23 +75,13 @@
 
 //----------------------------------------------------------------------------
 #if defined ZOLTAN_DEBUG_OUTPUT && !defined VTK_WRAPPING_CXX
-#define OUTPUTTEXT(a) std::cout <<(a); std::cout.flush();
 
-#undef vtkDebugMacro
-#define vtkDebugMacro(a)  \
-  { \
-    if (this->UpdatePiece>=0) { \
-      vtkOStreamWrapper::EndlType endl; \
-      vtkOStreamWrapper::UseEndl(endl); \
-      vtkOStrStreamWrapper vtkmsg; \
-      vtkmsg << "P(" << this->UpdatePiece << "): " a << "\n"; \
-      OUTPUTTEXT(vtkmsg.str()); \
-      vtkmsg.rdbuf()->freeze(0); \
-    } \
-  }
+# undef vtkDebugMacro
+# define vtkDebugMacro(msg)  \
+   DebugSynchronized(this->UpdatePiece, this->UpdateNumPieces, this->Controller, msg);
 
-#undef  vtkErrorMacro
-#define vtkErrorMacro(a) vtkDebugMacro(a)
+# undef  vtkErrorMacro
+# define vtkErrorMacro(a) vtkDebugMacro(a)
 #endif
 //----------------------------------------------------------------------------
 

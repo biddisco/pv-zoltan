@@ -47,16 +47,39 @@
 //#undef ZOLTAN_DEBUG_OUTPUT
 #define ZOLTAN_DEBUG_OUTPUT 1
 
+#define DebugSynchronized(piece, numpieces, comm, msg) \
+{ \
+  for (int i=0; i<numpieces; ++i) { \
+    if (piece==i) { \
+      std::cout << "P(" << piece << "): " << msg << "\n" << std::flush; \
+    } \
+    comm->Barrier(); \
+  } \
+}
+
+#define DebugNonSynchronized(piece, numpieces, msg) \
+{ \
+  for (int i=0; i<numpieces; ++i) { \
+    if (piece==i) { \
+      std::cout << "P(" << piece << "): " << msg << "\n" << std::flush; \
+    } \
+  } \
+}
+
 #ifdef ZOLTAN_DEBUG_OUTPUT
-# define debug_1(a) std::cout << a << " >>> " << this->UpdatePiece << std::endl
-# define debug_2(a) std::cout << a << " >>> " << callbackdata->ProcessRank << std::endl
+# define debug_no_sync(msg) \
+  DebugNonSynchronized(this->UpdatePiece, this->UpdateNumPieces, msg);
+
+# define debug_2(msg) \
+  DebugSynchronized(callbackdata->self->UpdatePiece, \
+    callbackdata->self->UpdateNumPieces, callbackdata->self->GetController(), msg);
 #else
-# define debug_1(a)
-# define debug_2(a)
+# define debug_2(msg)
 #endif
 //ETX
 //
-#define error_2(a) std::cout << a << " >>> FATAL ERROR : " << callbackdata->ProcessRank << std::endl
+#define error_2(a) std::cout << a << " >>> FATAL ERROR : " \
+  << callbackdata->ProcessRank << std::endl
 
 // standard vtk classes
 class  vtkMultiProcessController;
@@ -122,6 +145,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     // By default this filter uses the global controller,
     // but this method can be used to set another instead.
     virtual void SetController(vtkMultiProcessController*);
+    vtkMultiProcessController *GetController() { return this->Controller; }
 
     // Description:
     // Set the maximum aspect ratio allowed for any pair of axes when subdividing
@@ -362,6 +386,8 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
   // initial partitioning takes place.
   bool MigratePointData(vtkDataSetAttributes *inPointData, vtkDataSetAttributes *outPointData);
 
+  void AllocateFieldArrays(vtkDataSetAttributes *fields);
+
   // utility function to find average of point list
   template <typename T>
   void FindCentroid(int npts, vtkIdType *pts, CallbackData *callbackdata, T avg[3])
@@ -394,6 +420,10 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
   template<typename U>
   friend struct vtkZoltan2Helper;
 //ETX
+
+    int                                         UpdatePiece;
+    int                                         UpdateNumPieces;
+
   protected:
      vtkZoltanBasePartitionFilter();
     ~vtkZoltanBasePartitionFilter();
@@ -401,8 +431,8 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     virtual void ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells);
 
     int  GatherDataTypeInfo(vtkPoints *points);
-    bool GatherDataArrayInfo(vtkDataArray *data, int &datatype, std::string &dataname, int &numComponents);
-    void AllocateFieldArrays(vtkDataSetAttributes *fields);
+    bool GatherDataArrayInfo(vtkDataArray *data,  vtkDataSetAttributes *attribs,
+        int &datatype, std::string &dataname, int &numComponents, int &attrib);
 
     // Override to specify support for vtkPointSet input type.
     virtual int FillInputPortInformation(int port, vtkInformation* info);
@@ -446,8 +476,6 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     //
     vtkMultiProcessController                  *Controller;
      //
-    int                                         UpdatePiece;
-    int                                         UpdateNumPieces;
     double                                      MaxAspectRatio;
     int                                         KeepInversePointLists;
     int                                         InputDisposable;
