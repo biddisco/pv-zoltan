@@ -261,27 +261,44 @@ IF (processors)
       endforeach()
   endforeach()
 
-
-
-  SET(test_name "TestMeshPartitionFilterUnstructured-P4")
-  ADD_TEST(
-    NAME ${test_name}
-    COMMAND
-    ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-    $<TARGET_FILE:TestMeshPartitionFilter>
-    -testName ${test_name}
-    -T "${PLUGIN_TEST_DIR}"
-    -F wavelet-unstructured.vtu
-    -D ${PROJECT_SOURCE_DIR}/testing/data
-    -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars.png
-    -boundaryMode 1
-    -doRender 1
-    -scalarMode 0
-    -scalarName "RTData"
-    -scalarRange "0 1"
-    -actorShift 0.25
-    -windowSize "1024 800"
-  )
+  set(test_name "TestMeshPartitionFilterUnstructured-P4")
+  set(ghostmode_list "none;boundary;bbox")
+  set(index 0)
+  foreach(ghostmode 0 1 2)
+      list(GET "ghostmode_list" "${ghostmode}" GMODE)
+      #
+      set(overlap_ "")
+      #
+      if("${ghostmode}" STREQUAL "0")
+        set(scalars_ -scalarMode 0 -scalarName RTData -scalarRange "0 1")
+      elseif("${ghostmode}" STREQUAL "1")
+        set(scalars_ -scalarMode 1 -scalarName vtkGhostRanks -scalarRange "0 4")
+      elseif("${ghostmode}" STREQUAL "2")
+        set(overlap_ -ghostOverlap 0.2)
+        set(scalars_ -scalarMode 1 -scalarName vtkGhostRanks -scalarRange "0 4")
+      endif()
+          
+      ADD_TEST(
+        NAME ${test_name}-${GMODE}
+        COMMAND 
+          ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+          $<TARGET_FILE:TestMeshPartitionFilter> 
+          -testName ${test_name}-${GMODE}
+          -T "${PLUGIN_TEST_DIR}"
+          -F wavelet-unstructured.vtu
+          -D ${PROJECT_SOURCE_DIR}/testing/data
+          -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-unstructured-${GMODE}.png
+          -doRender 1
+          -edges 1
+          -boundaryMode 2
+          -ghostMode ${index}
+          ${overlap_}
+          ${scalars_}
+          -actorShift 1.0
+          -windowSize "1024 800"
+      )
+      math(EXPR index "${index} + 1")
+  endforeach()
 
   SET(test_name "TestMeshPartitionFilterScalars-P4")
   ADD_TEST(
