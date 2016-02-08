@@ -260,7 +260,7 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(
                   newPts[i] = callbackdata->LocalToLocalIdMap[pts[i]];
               }
               else {
-                  error_2("Fatal ERROR in cell " << cellId << " point " << i << " assignment " << pts[i]);
+                  error_2("cell " << cellId << " point " << i << " assignment " << pts[i]);
               }
           }
           if (pdata) {
@@ -908,7 +908,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
                 }
 
                 // if the cell is partially on this process and partially elsewhere
-                if (cellstatus==SPLIT) {
+                if (cellstatus==SPLIT || cellstatus==SCATTERED) {
                     // if the cell is staying, but this point exported, keep a local copy
                     if (!cell_being_sent && point_migrating) {
                         point_partitioninfo.LocalIdsToKeep.push_back(ptId);
