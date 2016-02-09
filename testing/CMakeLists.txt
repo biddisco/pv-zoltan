@@ -171,7 +171,8 @@ IF (processors)
               $<TARGET_FILE:TestMeshPartitionFilter> 
               -testName ${test_name}-${BMODE}-${dmode}
               -T "${PLUGIN_TEST_DIR}"
-              -F ${dmode}-4-partitions.pvtp
+              #-F ${dmode}-4-partitions.pvtp
+              -F ${dmode}.vtp
               -D ${PROJECT_SOURCE_DIR}/testing/data
               -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-${BMODE}-${dmode}.png
               -doRender 1
@@ -198,7 +199,8 @@ IF (processors)
         $<TARGET_FILE:TestMeshPartitionFilter> 
         -testName ${test_name}-${dmode}
         -T "${PLUGIN_TEST_DIR}"
-        -F ${dmode}-4-partitions.pvtp
+        #-F ${dmode}-4-partitions.pvtp
+        -F ${dmode}.vtp
         -D ${PROJECT_SOURCE_DIR}/testing/data
         -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-celldata-${dmode}.png
         -doRender 1
@@ -243,7 +245,8 @@ IF (processors)
               $<TARGET_FILE:TestMeshPartitionFilter> 
               -testName ${test_name}-${GMODE}-${dmode}
               -T "${PLUGIN_TEST_DIR}"
-              -F ${dmode}-4-partitions.pvtp
+              #-F ${dmode}-4-partitions.pvtp
+              -F ${dmode}.vtp
               -D ${PROJECT_SOURCE_DIR}/testing/data
               -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-ghost-${GMODE}-${dmode}.png
               -doRender 1
