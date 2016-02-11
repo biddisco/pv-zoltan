@@ -281,19 +281,10 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     static int get_number_of_objects_points(void *data, int *ierr);
 
     // Description:
-    // Zoltan callback which fills the Ids for each point in the exchange
+    // Zoltan callback which fills the Ids/weights for each point in the exchange
     static void get_object_list_points(void *data, int sizeGID, int sizeLID,
-      ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID, int wgt_dim, float *obj_wgts, int *ierr);
-
-    static int get_first_object_points(
-      void *data, int num_gid_entries, int num_lid_entries,
-      ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id,
-      int wdim, float *wgt, int *ierr);
-
-    static int get_next_object_points(
-      void * data, int num_gid_entries, int num_lid_entries, 
-      ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, ZOLTAN_ID_PTR next_global_id, ZOLTAN_ID_PTR next_local_id, 
-      int wgt_dim, float *next_obj_wgt, int *ierr);
+      ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
+      int wgt_dim, float *obj_wgts, int *ierr);
 
     // Description:
     // Zoltan callback which returns the dimension of geometry (3D for us)
@@ -468,6 +459,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     vtkSmartPointer<vtkPKdTree> CreatePkdTree();
 
     void AddHaloToBoundingBoxes(double GhostCellOverlap);
+    void SetupPointWeights(vtkDataSet *input);
 
     //
     vtkBoundingBox                             *LocalBox;
@@ -486,6 +478,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     MigrationLists                              MigrateLists;
     //
     char                                       *PointWeightsArrayName;
+    void                                       *weights_data_ptr;
     //
     struct Zoltan_Struct       *ZoltanData;
     CallbackData                ZoltanCallbackData;

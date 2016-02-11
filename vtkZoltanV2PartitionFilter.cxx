@@ -319,22 +319,6 @@ void vtkZoltanV2PartitionFilter::ExecuteZoltanPartition(
     vtkPoints    *myInPoints = input->GetPoints();
     vtkDataArray *coordArray = (myInPoints!=nullptr)?myInPoints->GetData():nullptr;
 
-    // get the array that is used for weights, check it the same as coords because
-    // @TODO, zoltan only allows one template param for coords and weights
-    // so we can't use different types yet
-    vtkDataArray *weightsArray = this->PointWeightsArrayName ?
-                                 input->GetPointData()->GetArray(this->PointWeightsArrayName) : NULL;
-    void *weights_data_ptr = NULL;
-    //
-    if (weightsArray && coordArray && (coordArray->GetDataType() != weightsArray->GetDataType())) {
-        vtkWarningMacro(<<"Weights datatype must be the same as coordinate type");
-        weightsArray = NULL;
-    }
-    if (weightsArray) {
-        // get the pointer to the actual data
-        weights_data_ptr = weightsArray->GetVoidPointer(0);
-    }
-
     //////////////////////////////////////////////////////////////////////
     // Zoltan 2 partitioning
     //////////////////////////////////////////////////////////////////////
@@ -352,7 +336,7 @@ void vtkZoltanV2PartitionFilter::ExecuteZoltanPartition(
     {
         vtkZoltanTemplateMacro(
             vtkZoltan2Helper<VTK_TT>::SolveZoltan2Partition(
-                coordArray, localCount, globalIds, static_cast<VTK_TT*>(weights_data_ptr), this, input));
+                coordArray, localCount, globalIds, static_cast<VTK_TT*>(this->weights_data_ptr), this, input));
     }
 
 

@@ -342,7 +342,7 @@ void vtkParticlePartitionFilter::FindPointsInHaloRegions(
   }
 
   for (int i=0; i<this->UpdateNumPieces; i++) {
-    vtkDebugMacro(" exporting " << GhostProcessMap[i].size() << " ghost particles to rank " << i);
+//    vtkDebugMacro(" exporting " << GhostProcessMap[i].size() << " ghost particles to rank " << i);
   }
   vtkDebugMacro(" LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size());
   

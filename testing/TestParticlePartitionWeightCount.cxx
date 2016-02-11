@@ -151,11 +151,9 @@ int main (int argc, char* argv[])
     //--------------------------------------------------------------
     test.CreatePartitioner_Particles();
     test.partitioner->SetInputData(Sprites);
-#ifdef VTK_ZOLTAN2_PARTITION_FILTER
     if (test.useWeights) {
       test.partitioner->SetPointWeightsArrayName("Weights");
     }
-#endif
     //  test.partitioner->SetIdChannelArray("PointIds");
     static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
     partition_elapsed = test.UpdatePartitioner();

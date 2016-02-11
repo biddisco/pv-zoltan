@@ -570,13 +570,17 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   //
   // build a tree of bounding boxes to use for rendering info/hints or other spatial tests
   //
-  // this->CreatePkdTree();
-  // this->ExtentTranslator->SetKdTree(this->GetKdtree());
+#ifndef VTK_ZOLTAN2_PARTITION_FILTER
+  vtkDebugMacro("Create KdTree");
+  this->CreatePkdTree();
+  this->ExtentTranslator->SetKdTree(this->GetKdtree());
+#endif
 
   //*****************************************************************
   // Free the storage allocated for the Zoltan structure.
   //*****************************************************************
   if (!this->KeepInversePointLists) {
+    vtkDebugMacro("Zoltan_Destroy");
     Zoltan_Destroy(&this->ZoltanData);
   }
   
@@ -820,13 +824,11 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
                 cellDestProcess = std::distance(process_flag.begin(),
                     std::max_element(process_flag.begin(), process_flag.end()));
             }
-#ifdef VTK_ZOLTAN2_PARTITION_FILTER
             else if (this->BoundaryMode==vtkMeshPartitionFilter::Centroid) {
                 T centroid[3];
                 this->FindCentroid<T>(npts, pts, &this->ZoltanCallbackData, centroid);
                 cellDestProcess = this->FindProcessFromPoint<T>(centroid);
             }
-#endif
 
             // step 4: mark cell for sending if necessary
             if (cellDestProcess!=this->UpdatePiece) {

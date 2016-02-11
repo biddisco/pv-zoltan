@@ -107,44 +107,22 @@ int vtkZoltanBasePartitionFilter::get_number_of_objects_points(void *data, int *
 }
 
 //----------------------------------------------------------------------------
-// Zoltan callback which fills the Ids for each object in the exchange
+// Zoltan callback which fills the Ids/weights for each object in the exchange
 //----------------------------------------------------------------------------
-int vtkZoltanBasePartitionFilter::get_first_object_points(
-  void *data, int num_gid_entries, int num_lid_entries,
-  ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id,
-  int wdim, float *wgt, int *ierr)
+void vtkZoltanBasePartitionFilter::get_object_list_points(void *data, int sizeGID, int sizeLID,
+    ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
+    int wgt_dim, float *obj_wgts, int *ierr)
 {
-  CallbackData *callbackdata = static_cast<CallbackData*>(data);
+    CallbackData *callbackdata = static_cast<CallbackData*>(data);
 
-  *ierr = ZOLTAN_OK;
-  vtkIdType N = callbackdata->Input->GetNumberOfPoints();
-  if (N>0) {
-    global_id[0] = 0 + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-    return 1;
-  }
-  return 0;
-}
-
-//----------------------------------------------------------------------------
-// Zoltan callback which fills the Ids for each object in the exchange
-//----------------------------------------------------------------------------
-int vtkZoltanBasePartitionFilter::get_next_object_points(
-  void * data, int num_gid_entries, int num_lid_entries, 
-  ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, ZOLTAN_ID_PTR next_global_id, ZOLTAN_ID_PTR next_local_id, 
-  int wgt_dim, float *next_obj_wgt, int *ierr)
-{
-  CallbackData *callbackdata = static_cast<CallbackData*>(data);
-  //
-  vtkIdType GID = *global_id;
-  vtkIdType LID = GID - callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-
-  *ierr = ZOLTAN_OK;
-  vtkIdType N = callbackdata->Input->GetNumberOfPoints();
-  if (LID<N) {
-    next_global_id[0] = LID + 1  + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-    return 1;
-  }
-  return 0;
+    *ierr = ZOLTAN_OK;
+    vtkIdType N = callbackdata->Input->GetNumberOfPoints();
+    for (vtkIdType i=0; i<N; ++i) {
+        globalID[i] = i + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
+        if (wgt_dim && callbackdata->self->weights_data_ptr) {
+            obj_wgts[i] = ((float*)callbackdata->self->weights_data_ptr)[i];
+        }
+    }
 }
 
 //----------------------------------------------------------------------------
@@ -182,7 +160,8 @@ vtkZoltanBasePartitionFilter::vtkZoltanBasePartitionFilter()
   this->ZoltanData                     = NULL;
   this->InputDisposable                = 0;
   this->KeepInversePointLists          = 0;
-  this->PointWeightsArrayName          = 0;
+  this->PointWeightsArrayName          = NULL;
+  this->weights_data_ptr               = NULL;
   this->ImbalanceValue                 =-1.0; // invalid
   this->Controller                     = NULL;
   this->SetController(vtkMultiProcessController::GetGlobalController());
@@ -414,6 +393,24 @@ void vtkZoltanBasePartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fie
 }
 
 //-------------------------------------------------------------------------
+void vtkZoltanBasePartitionFilter::SetupPointWeights(vtkDataSet *input) {
+    // get the array that is used for weights, check it the same as coords because
+    // @TODO, zoltan only allows one template param for coords and weights
+    // so we can't use different types yet
+    vtkDataArray *weightsArray = this->PointWeightsArrayName ?
+        input->GetPointData()->GetArray(this->PointWeightsArrayName) : NULL;
+    this->weights_data_ptr = NULL;
+    //
+    if (weightsArray && (VTK_FLOAT != weightsArray->GetDataType())) {
+        vtkWarningMacro(<<"Weights datatype must be the same as coordinate type");
+        weightsArray = NULL;
+    }
+    if (weightsArray) {
+        // get the pointer to the actual data
+        this->weights_data_ptr = weightsArray->GetVoidPointer(0);
+    }
+}
+//-------------------------------------------------------------------------
 int vtkZoltanBasePartitionFilter::RequestUpdateExtent(
   vtkInformation *vtkNotUsed(request),
   vtkInformationVector **inputVector,
@@ -508,8 +505,17 @@ void vtkZoltanBasePartitionFilter::InitializeZoltanLoadBalance()
 //  Zoltan_Set_Param(this->ZoltanData, "NUM_GLOBAL_PARTS", global.str().c_str());
 //  Zoltan_Set_Param(this->ZoltanData, "NUM_LOCAL_PARTS",  local.str().c_str());
 
-  // All points have the same weight
-  Zoltan_Set_Param(this->ZoltanData, "OBJ_WEIGHT_DIM", "0");
+  // if we have weights, turn on weight
+  if(this->weights_data_ptr) {
+      vtkDebugMacro("Setting zoltan weights dimension 1");
+      Zoltan_Set_Param(this->ZoltanData, "OBJ_WEIGHT_DIM", "1");
+  }
+  else {
+      vtkDebugMacro("Setting zoltan weights dimension 0");
+      Zoltan_Set_Param(this->ZoltanData, "OBJ_WEIGHT_DIM", "0");
+  }
+
+  // we need the import and export lists
   Zoltan_Set_Param(this->ZoltanData, "RETURN_LISTS", "IMPORT AND EXPORT");
 
   // RCB parameters
@@ -530,7 +536,7 @@ void vtkZoltanBasePartitionFilter::InitializeZoltanLoadBalance()
   Zoltan_Set_Param(this->ZoltanData, "RCB_RECTILINEAR_BLOCKS", "1");
 
   // Let Zoltan compute the load balance step, but we will manually
-  // do the mirations of points/cells afterwards
+  // do the migrations of points/cells afterwards
   Zoltan_Set_Param(this->ZoltanData, "AUTO_MIGRATE", "0");
   Zoltan_Set_Param(this->ZoltanData, "MIGRATE_ONLY_PROC_CHANGES", "1");
 
@@ -539,9 +545,7 @@ void vtkZoltanBasePartitionFilter::InitializeZoltanLoadBalance()
   //
   Zoltan_Set_Num_Obj_Fn(this->ZoltanData, get_number_of_objects_points,
       &this->ZoltanCallbackData);
-  Zoltan_Set_First_Obj_Fn(this->ZoltanData, get_first_object_points,
-      &this->ZoltanCallbackData);
-  Zoltan_Set_Next_Obj_Fn(this->ZoltanData, get_next_object_points,
+  Zoltan_Set_Obj_List_Fn(this->ZoltanData, get_object_list_points,
       &this->ZoltanCallbackData);
 
   Zoltan_Set_Num_Geom_Fn(this->ZoltanData, get_num_geometry, &this->ZoltanCallbackData);
@@ -663,8 +667,15 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
   this->ComputeIdOffsets(input->GetNumberOfPoints(), input->GetNumberOfCells());
 
   //
+  // if weights are supplied, configure them
+  //
+  vtkDebugMacro("Setting up weights array");
+  this->SetupPointWeights(input);
+
+  //
   // Set all the callbacks and user config parameters that will be used during the loadbalance
   //
+  vtkDebugMacro("InitializeZoltanLoadBalance");
   this->InitializeZoltanLoadBalance();
 
   //
