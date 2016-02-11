@@ -36,13 +36,6 @@
 //
 #include "zoltan.h"              // required for definitions
 
-#ifdef VTK_ZOLTAN2_PARTITION_FILTER
-# include <Zoltan2_PartitioningSolution.hpp>
-# include <Zoltan2_PartitioningProblem.hpp>
-# include <Zoltan2_BasicVectorAdapter.hpp>
-# include <Zoltan2_InputTraits.hpp>
-#endif
-
 //BTX
 //#undef ZOLTAN_DEBUG_OUTPUT
 #define ZOLTAN_DEBUG_OUTPUT 1

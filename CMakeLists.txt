@@ -129,7 +129,9 @@ Git_External(
 # option to use old zoltan 1 version
 #--------------------------------------------------
 option(PV_ZOLTAN_USE_ZOLTAN_1 "Use version 1 of zoltan (legacy)" OFF)
-if(NOT PV_ZOLTAN_USE_ZOLTAN_1)
+if(PV_ZOLTAN_USE_ZOLTAN_1)
+  add_definitions(-DVTK_ZOLTAN1_PARTITION_FILTER)
+else()
   add_definitions(-DVTK_ZOLTAN2_PARTITION_FILTER)
 endif()
 

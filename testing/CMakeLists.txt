@@ -82,9 +82,9 @@ endif()
 IF (processors)
 
   if (PV_ZOLTAN_USE_ZOLTAN_1)
-    set(_test_version "-v1")
+    set(_test_version "v1")
   else()
-    set(_test_version "")
+    set(_test_version "v2")
   endif()
     
   #------------------------------------------------
@@ -92,7 +92,7 @@ IF (processors)
   #------------------------------------------------
   SET(test_name "TestParticlePartitionFilter-P4")
   ADD_TEST(
-    NAME ${test_name}${_test_version}
+    NAME ${test_name}-${_test_version}
     COMMAND 
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
       $<TARGET_FILE:TestParticlePartitionFilter> 
@@ -104,14 +104,14 @@ IF (processors)
       -scalarMode 0
       -scalarRange "0 3"
       -actorShift 0.5
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition${_test_version}.png
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition-${_test_version}.png
       -doRender 1
       -windowSize "800 800"
   )
   
   SET(test_name "TestParticlePartitionFilterGhost-P4")
   ADD_TEST(
-    NAME ${test_name}
+    NAME ${test_name}-${_test_version}
     COMMAND 
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
       $<TARGET_FILE:TestParticlePartitionFilter> 
@@ -124,14 +124,14 @@ IF (processors)
       -scalarMode 0
       -scalarRange "0 1"
       -actorShift 0.5
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartitionGhosts${_test_version}.png
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartitionGhosts-${_test_version}.png
       -doRender 1
       -windowSize "800 800"
   )
   
   SET(test_name "TestParticlePartitionWeights-P4")
   ADD_TEST(
-    NAME ${test_name}
+    NAME ${test_name}-${_test_version}
     COMMAND 
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
       $<TARGET_FILE:TestParticlePartitionFilter> 
@@ -145,14 +145,14 @@ IF (processors)
       -scalarRange "0 1"
       -actorShift 0.5
       -useWeights 1
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartitionWeights${_test_version}.png
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartitionWeights-${_test_version}.png
       -doRender 1
       -windowSize "800 800"
   )
   
   SET(test_name "TestParticlePartitionWeightCount-P4")
   ADD_TEST(
-    NAME ${test_name}
+    NAME ${test_name}-${_test_version}
     COMMAND 
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
       $<TARGET_FILE:TestParticlePartitionWeightCount> 
@@ -170,8 +170,14 @@ IF (processors)
   foreach(dmode soma sphere)
       foreach(mode 0 1 2)
           list(GET "boundary_list" "${mode}" BMODE)
+          set(camera_) 
+          if ("${dmode}" STREQUAL "sphere" )
+            if (PV_ZOLTAN_USE_ZOLTAN_1)
+              set(camera_ -cameraPosition "0 4 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
+            endif()  
+          endif()
           ADD_TEST(
-            NAME ${test_name}-${BMODE}-${dmode}
+            NAME ${test_name}-${BMODE}-${dmode}-${_test_version}
             COMMAND 
               ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
               $<TARGET_FILE:TestMeshPartitionFilter> 
@@ -180,8 +186,9 @@ IF (processors)
               #-F ${dmode}-4-partitions.pvtp
               -F ${dmode}.vtp
               -D ${PROJECT_SOURCE_DIR}/testing/data
-              -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-${BMODE}-${dmode}${_test_version}.png
+              -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-${BMODE}-${dmode}-${_test_version}.png
               -doRender 1
+              ${camera_}
               -ghostMode 0
               -boundaryMode ${mode}
               -scalarMode 0
@@ -198,8 +205,14 @@ IF (processors)
   set(index 0)
   foreach(dmode soma sphere)
     list(GET "scalar_vars" "${index}" SCALAR)
+    set(camera_) 
+    if ("${dmode}" STREQUAL "sphere" )
+      if (PV_ZOLTAN_USE_ZOLTAN_1)
+        set(camera_ -cameraPosition "0 4 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
+      endif()  
+    endif()
     ADD_TEST(
-      NAME ${test_name}-${dmode}
+      NAME ${test_name}-${dmode}-${_test_version}
       COMMAND 
         ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
         $<TARGET_FILE:TestMeshPartitionFilter> 
@@ -208,8 +221,9 @@ IF (processors)
         #-F ${dmode}-4-partitions.pvtp
         -F ${dmode}.vtp
         -D ${PROJECT_SOURCE_DIR}/testing/data
-        -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-celldata-${dmode}${_test_version}.png
+        -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-celldata-${dmode}-${_test_version}.png
         -doRender 1
+        ${camera}
         -ghostMode 0
         -scalarMode 1
         -scalarName ${SCALAR}
@@ -249,7 +263,7 @@ IF (processors)
           endif()
 
           ADD_TEST(
-            NAME ${test_name}-${GMODE}-${dmode}
+            NAME ${test_name}-${GMODE}-${dmode}-${_test_version}
             COMMAND 
               ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
               $<TARGET_FILE:TestMeshPartitionFilter> 
@@ -258,7 +272,7 @@ IF (processors)
               #-F ${dmode}-4-partitions.pvtp
               -F ${dmode}.vtp
               -D ${PROJECT_SOURCE_DIR}/testing/data
-              -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-ghost-${GMODE}-${dmode}${_test_version}.png
+              -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-ghost-${GMODE}-${dmode}-${_test_version}.png
               -doRender 1
               ${camera_}
               -edges 1
@@ -293,7 +307,7 @@ IF (processors)
       endif()
           
       ADD_TEST(
-        NAME ${test_name}-${GMODE}
+        NAME ${test_name}-${GMODE}-${_test_version}
         COMMAND 
           ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
           $<TARGET_FILE:TestMeshPartitionFilter> 
@@ -301,7 +315,7 @@ IF (processors)
           -T "${PLUGIN_TEST_DIR}"
           -F wavelet-unstructured.vtu
           -D ${PROJECT_SOURCE_DIR}/testing/data
-          -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-unstructured-${GMODE}${_test_version}.png
+          -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-unstructured-${GMODE}-${_test_version}.png
           -doRender 1
           -edges 1
           -boundaryMode 2
@@ -316,7 +330,7 @@ IF (processors)
 
   SET(test_name "TestMeshPartitionFilterScalars-P4")
   ADD_TEST(
-    NAME ${test_name}
+    NAME ${test_name}-${_test_version}
     COMMAND
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
       $<TARGET_FILE:TestMeshPartitionFilter>
@@ -324,7 +338,7 @@ IF (processors)
       -T "${PLUGIN_TEST_DIR}"
       -F soma-4-partitions.pvtp
       -D ${PROJECT_SOURCE_DIR}/testing/data
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars${_test_version}.png
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars-${_test_version}.png
       -boundaryMode 1
       -doRender 1
       -scalarMode 0
@@ -338,7 +352,7 @@ ENDIF (processors)
 #SET(test_name "TestPartitionCompositing-P4")
 #IF (processors)
 #  ADD_TEST(
-#    NAME ${test_name}
+#    NAME ${test_name}-${_test_version}
 #    COMMAND 
 #      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
 #      $<TARGET_FILE:TestPartitionCompositing> 
@@ -346,7 +360,7 @@ ENDIF (processors)
 #      -T "${PLUGIN_TEST_DIR}"
 #      -F neuron-test.vtp
 #      -D ${PROJECT_SOURCE_DIR}/testing/data
-#      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition${_test_version}.png
+#      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-${_test_version}.png
 #      -doRender 1
 #      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
 #      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
@@ -399,7 +413,7 @@ IF (EXISTS ${SC12_DATA_PATH}/${SC12_DATA_FILE}${SC12_TEST}.h5part)
             SET (MPI_DEPTH_FLAGS -d ${CORES_PER_NODE})
           ENDIF (${MPI_DEPTH} GREATER ${CORES_PER_NODE})
           ADD_TEST(
-            NAME ${test_name}
+            NAME ${test_name}-${_test_version}
             COMMAND 
               ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${M} ${MPI_DEPTH_FLAGS}
               $<TARGET_FILE:TestParticlePartitionFilter> 

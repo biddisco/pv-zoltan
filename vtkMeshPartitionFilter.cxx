@@ -570,7 +570,7 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   //
   // build a tree of bounding boxes to use for rendering info/hints or other spatial tests
   //
-#ifndef VTK_ZOLTAN2_PARTITION_FILTER
+#ifdef VTK_ZOLTAN1_PARTITION_FILTER
   vtkDebugMacro("Create KdTree");
   this->CreatePkdTree();
   this->ExtentTranslator->SetKdTree(this->GetKdtree());

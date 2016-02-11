@@ -236,7 +236,11 @@ int main (int argc, char* argv[])
         double sq_sum = std::inner_product(weightCounts.begin(), weightCounts.end(), weightCounts.begin(), 0.0);
         double stdev = std::sqrt(sq_sum / weightCounts.size() - mean * mean);
         std::cout << "standard deviation : " << stdev << ")\n";
+#ifdef VTK_ZOLTAN1_PARTITION_FILTER
+        ok = (stdev<0.7);
+#else
         ok = (stdev<0.2);
+#endif
     }
 
     if (ok && test.myRank==0) {
