@@ -520,7 +520,7 @@ void vtkZoltanBasePartitionFilter::InitializeZoltanLoadBalance()
 
   // RCB parameters
   // Zoltan_Set_Param(this->ZoltanData, "PARMETIS_METHOD", "PARTKWAY");
-  Zoltan_Set_Param(this->ZoltanData, "RCB_RECOMPUTE_BOX", "0");
+  Zoltan_Set_Param(this->ZoltanData, "RCB_RECOMPUTE_BOX", "1");
   Zoltan_Set_Param(this->ZoltanData, "REDUCE_DIMENSIONS", "0");
 
   // Don't allow very extended regions
