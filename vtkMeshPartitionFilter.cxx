@@ -200,18 +200,28 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(
   callbackdata->MaxCellSize     = callbackdata->Input->GetMaxCellSize();
   callbackdata->OutputUnstructuredCellTypes = NULL;
   if (pdata) {
-      vtkSmartPointer<vtkCellArray> verts = vtkSmartPointer<vtkCellArray>::New();
-      verts->Allocate(OutputNumberOfFinalCells * 2);
-      pdata2->SetVerts(verts);
-      vtkSmartPointer<vtkCellArray> lines = vtkSmartPointer<vtkCellArray>::New();
-      lines->Allocate(OutputNumberOfFinalCells * (callbackdata->MaxCellSize + 1));
-      pdata2->SetLines(lines);
-      vtkSmartPointer<vtkCellArray> polys = vtkSmartPointer<vtkCellArray>::New();
-      polys->Allocate(OutputNumberOfFinalCells * (callbackdata->MaxCellSize + 1));
-      pdata2->SetPolys(polys);
-      vtkSmartPointer<vtkCellArray> strips = vtkSmartPointer<vtkCellArray>::New();
-      strips->Allocate(OutputNumberOfFinalCells * (callbackdata->MaxCellSize + 1));
-      pdata2->SetStrips(strips);
+
+      if ((callbackdata->self->polydata_types & 1) == 1) {
+          vtkSmartPointer<vtkCellArray> verts = vtkSmartPointer<vtkCellArray>::New();
+          verts->Allocate(OutputNumberOfFinalCells * 2);
+          pdata2->SetVerts(verts);
+      }
+      if ((callbackdata->self->polydata_types & 2) == 2) {
+          vtkSmartPointer<vtkCellArray> lines = vtkSmartPointer<vtkCellArray>::New();
+          lines->Allocate(OutputNumberOfFinalCells * (callbackdata->MaxCellSize + 1));
+          pdata2->SetLines(lines);
+      }
+      if ((callbackdata->self->polydata_types & 4) == 4) {
+          vtkSmartPointer<vtkCellArray> polys = vtkSmartPointer<vtkCellArray>::New();
+          polys->Allocate(OutputNumberOfFinalCells * (callbackdata->MaxCellSize + 1));
+          pdata2->SetPolys(polys);
+      }
+      if ((callbackdata->self->polydata_types & 8) == 8) {
+          vtkSmartPointer<vtkCellArray> strips = vtkSmartPointer<vtkCellArray>::New();
+          strips->Allocate(OutputNumberOfFinalCells * (callbackdata->MaxCellSize + 1));
+          pdata2->SetStrips(strips);
+      }
+      debug_2("Poly data types is " << callbackdata->self->polydata_types);
   }
   if (udata) {
       callbackdata->OutputUnstructuredCellArray = vtkSmartPointer<vtkCellArray>::New();

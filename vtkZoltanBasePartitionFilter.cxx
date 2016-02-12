@@ -258,6 +258,12 @@ struct vtkZPF_datainfo {
   vtkZPF_datainfo() : datatype(-1), numC(-1), attributes(-1) {};
 };
 
+struct vtkZPF_datasetinfo {
+  int  point_data_type;
+  int  polydata_types;
+  vtkZPF_datasetinfo() : point_data_type(-1), polydata_types(-1) {};
+};
+
 //----------------------------------------------------------------------------
 bool vtkZoltanBasePartitionFilter::GatherDataArrayInfo(
     vtkDataArray *data, vtkDataSetAttributes *attribs,
@@ -301,25 +307,36 @@ bool vtkZoltanBasePartitionFilter::GatherDataArrayInfo(
 }
 
 //----------------------------------------------------------------------------
-int vtkZoltanBasePartitionFilter::GatherDataTypeInfo(vtkPoints *points)
+int vtkZoltanBasePartitionFilter::GatherDataTypeInfo(vtkDataSet *input, vtkPoints *points)
 {
 #ifdef VTK_USE_MPI
   if (this->UpdateNumPieces==1) {
       return points->GetDataType();
   }
-  std::vector< int > datatypes(this->UpdateNumPieces, -1);
-  int datatype = -1;
-  datatypes[this->UpdatePiece] = points ? points->GetDataType() : -1;
+  std::vector< vtkZPF_datasetinfo > datatypes(this->UpdateNumPieces, vtkZPF_datasetinfo());
+  datatypes[this->UpdatePiece].point_data_type = points->GetNumberOfPoints() ? points->GetDataType() : -1;
+  int datatype = datatypes[this->UpdatePiece].point_data_type;
+  //
+  vtkPolyData *pdata = vtkPolyData::SafeDownCast(input);
+  if (pdata) {
+      int v = pdata->GetNumberOfVerts()>0  ? 1 : 0;
+      int l = pdata->GetNumberOfLines()>0  ? 2 : 0;
+      int p = pdata->GetNumberOfPolys()>0  ? 4 : 0;
+      int s = pdata->GetNumberOfStrips()>0 ? 8 : 0;
+      datatypes[this->UpdatePiece].polydata_types = v + l + p + s;
+  }
   vtkMPICommunicator* com = vtkMPICommunicator::SafeDownCast(this->Controller->GetCommunicator()); 
-  int result = com->AllGather((int*)MPI_IN_PLACE, (int*)&datatypes[0], 1);
+  int result = com->AllGather((const char *)MPI_IN_PLACE, (char *)&datatypes[0], sizeof(vtkZPF_datasetinfo));
+  this->polydata_types = 0;
   for (int i=0; i<this->UpdateNumPieces; i++) {
-    int &newdatatype = datatypes[i];
+    int &newdatatype = datatypes[i].point_data_type;
     if (datatype==-1 && newdatatype!=-1) {
       datatype = newdatatype;
     }
     else if (datatype!=-1 && newdatatype!=-1 && newdatatype!=datatype) {
       vtkErrorMacro("Fatal datatype error in Point DataType Gather");
     }
+    this->polydata_types |= datatypes[i].polydata_types;
   }
   return datatype;
 #else
@@ -615,7 +632,7 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
     // if input had 0 points, make sure output is still setup correctly (float/double?)
     // collective exchanges will break if this is wrong as we may still receive data from another process
     // even though we are not sending any
-    this->ZoltanCallbackData.PointType = this->GatherDataTypeInfo(input->GetPoints());
+    this->ZoltanCallbackData.PointType = this->GatherDataTypeInfo(input, input->GetPoints());
     outPoints->SetDataType(this->ZoltanCallbackData.PointType);
     output->SetPoints(outPoints);
   }

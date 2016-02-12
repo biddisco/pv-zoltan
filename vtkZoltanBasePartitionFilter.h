@@ -408,13 +408,17 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     int                                         UpdatePiece;
     int                                         UpdateNumPieces;
 
+    // flag for verts, lines, polys, strips to ensure ranks with
+    // no data can correctly initialize output
+    int                                         polydata_types;
+
   protected:
      vtkZoltanBasePartitionFilter();
     ~vtkZoltanBasePartitionFilter();
 
     virtual void ComputeIdOffsets(vtkIdType Npoints, vtkIdType Ncells);
 
-    int  GatherDataTypeInfo(vtkPoints *points);
+    int  GatherDataTypeInfo(vtkDataSet *input, vtkPoints *points);
     bool GatherDataArrayInfo(vtkDataArray *data,  vtkDataSetAttributes *attribs,
         int &datatype, std::string &dataname, int &numComponents, int &attrib);
 
