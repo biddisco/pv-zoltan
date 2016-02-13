@@ -314,7 +314,8 @@ int vtkZoltanBasePartitionFilter::GatherDataTypeInfo(vtkDataSet *input, vtkPoint
       return points->GetDataType();
   }
   std::vector< vtkZPF_datasetinfo > datatypes(this->UpdateNumPieces, vtkZPF_datasetinfo());
-  datatypes[this->UpdatePiece].point_data_type = points->GetNumberOfPoints() ? points->GetDataType() : -1;
+  datatypes[this->UpdatePiece].point_data_type = points ?
+      (points->GetNumberOfPoints() ? points->GetDataType() : -1) : -1;
   int datatype = datatypes[this->UpdatePiece].point_data_type;
   //
   vtkPolyData *pdata = vtkPolyData::SafeDownCast(input);
