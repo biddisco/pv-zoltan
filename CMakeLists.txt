@@ -157,7 +157,6 @@ endif()
 # --------------------------------------------------
 # Trilinos support 
 # --------------------------------------------------
-SET(TRILINOS_ENABLED 0)
 OPTION(USE_SYSTEM_TRILINOS "Use System Trilinos library" OFF)
 IF(USE_SYSTEM_TRILINOS)
   FIND_PACKAGE(Trilinos)
@@ -177,62 +176,55 @@ ELSE(USE_SYSTEM_TRILINOS)
     set(TPL_ENABLE_LAPACK                      ON CACHE BOOL "Do not change" FORCE)
   endif()
 
-#  set(Trilinos_ENABLE_Eptra                  ON CACHE BOOL "Do not change")
-#  set(Trilinos_ENABLE_Xpetra                 ON CACHE BOOL "Do not change")
-#  set(Trilinos_ENABLE_Teuchos                ON CACHE BOOL "Do not change")
-#  set(Trilinos_ENABLE_Thyra                  ON CACHE BOOL "Do not change")
-#  set(Trilinos_ENABLE_Kokkos                 ON CACHE BOOL "Do not change")
-  set(Trilinos_ENABLE_Fortran               OFF CACHE BOOL "Do not change")
   set(TPL_ENABLE_MPI                         ON CACHE BOOL "Do not change")
+  set(Trilinos_ENABLE_Fortran               OFF CACHE BOOL "Do not change")
   set(Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES OFF CACHE BOOL "Do not change")
   set(Trilinos_ENABLE_TESTS                 OFF CACHE BOOL "Do not change")
   set(Trilinos_REQUIRES_PYTHON              OFF CACHE BOOL "Do not change")
   set(Trilinos_USES_PYTHON                  OFF CACHE BOOL "Do not change")
+
   IF (WIN32)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS)
     INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/trilinos/cmake/tribits/common_tools/win_interface/include")
   ENDIF(WIN32)
+  set(BUILD_SHARED_LIBS OFF)
   ADD_SUBDIRECTORY(trilinos)
   SET(Trilinos_FOUND 1)
   SET(Trilinos_DEPS_HTML_OUTPUT_FILE "" CACHE STRING "Leave empty" FORCE)
 ENDIF(USE_SYSTEM_TRILINOS)
 
-IF(Trilinos_FOUND)
-  INCLUDE_DIRECTORIES("${Trilinos_INCLUDE_DIRS}")
-  LINK_DIRECTORIES("${Trilinos_LIBRARY_DIRS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-  # MESSAGE("Trilinos Include Dirs ${Trilinos_INCLUDE_DIRS} and Trilinos Link Dirs ${Trilinos_LIBRARY_DIRS} ")
-  #
-  # Add source which depends on trilinos to our plugin
-  #
-  SET(TRILINOS_CXX 
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanBasePartitionFilter.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.cxx
-  )
-  SET(TRILINOS_XML 
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.xml
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.xml
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.xml
-  )
-  if(PV_ZOLTAN_USE_ZOLTAN_1)
-    SET(TRILINOS_LIBS zoltan)
-  else()
-    SET(TRILINOS_LIBS zoltan zoltan2)
-  endif()
-  SET(TRILINOS_ENABLED 1)
-  ADD_DEFINITIONS(-DPLUGIN_USE_TRILINOS)
-ELSE(Trilinos_FOUND)
+IF(NOT Trilinos_FOUND)
   message(FATAL_ERROR "pv-zoltan cannot be built unless Trilinos is correctly found")
 ENDIF(Trilinos_FOUND)
 
+# --------------------------------------------------
+# Include dirs for plugin
+# --------------------------------------------------
+INCLUDE_DIRECTORIES("${Trilinos_INCLUDE_DIRS}")
+LINK_DIRECTORIES("${Trilinos_LIBRARY_DIRS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+# MESSAGE("Trilinos Include Dirs ${Trilinos_INCLUDE_DIRS} and Trilinos Link Dirs ${Trilinos_LIBRARY_DIRS} ")
+
+# --------------------------------------------------
+# Zoltan libs for plugin
+# --------------------------------------------------
+if(PV_ZOLTAN_USE_ZOLTAN_1)
+  SET(TRILINOS_LIBS zoltan)
+else()
+  SET(TRILINOS_LIBS zoltan zoltan2)
+endif()
+
+# --------------------------------------------------
+# Zoltan libs for plugin
+# --------------------------------------------------
+
 if(NOT PV_ZOLTAN_USE_ZOLTAN_1)
-  SET(TRILINOS_CXX ${TRILINOS_CXX}
+  SET(ZOLTAN_V2_FILTER
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV2PartitionFilter.cxx
   )
-  SET(TRILINOS_XML ${TRILINOS_XML}
+  SET(ZOLTAN_V2_XML
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV2PartitionFilter.xml
   )
 endif()
@@ -252,18 +244,25 @@ ADD_PARAVIEW_PLUGIN(
   "1.0" 
 
   SERVER_MANAGER_XML     
-    ${TRILINOS_XML}
-    ${XML_PATH}/vtkPartitionOutline.xml
-
-  SERVER_MANAGER_SOURCES
-    ${TRILINOS_CXX}
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkBoundsExtentTranslator.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkPartitionOutline.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.xml
+    ${ZOLTAN_V2_XML}
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.xml
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.xml
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkPartitionOutline.xml
 
   SERVER_SOURCES
     ${Module_SRCS}
     ${Module_CUDA_C_SRCS}
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkPKdTree2.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanBasePartitionFilter.cxx
+
+  SERVER_MANAGER_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.cxx
+    ${ZOLTAN_V2_FILTER}
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkBoundsExtentTranslator.cxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkPartitionOutline.cxx
 
   GUI_INTERFACES 
     ${ZOLTAN_IFACE}
@@ -329,8 +328,6 @@ if(WIN32)
   )
 endif()
 
-
-return()
 
 include(CMakeInstallation)
 
