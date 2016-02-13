@@ -244,6 +244,7 @@ ADD_PARAVIEW_PLUGIN(
   "1.0" 
 
   SERVER_MANAGER_XML     
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanBasePartitionFilter.xml
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.xml
     ${ZOLTAN_V2_XML}
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.xml
@@ -254,9 +255,9 @@ ADD_PARAVIEW_PLUGIN(
     ${Module_SRCS}
     ${Module_CUDA_C_SRCS}
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkPKdTree2.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanBasePartitionFilter.cxx
 
   SERVER_MANAGER_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanBasePartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.cxx
     ${ZOLTAN_V2_FILTER}
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.cxx
