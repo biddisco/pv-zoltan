@@ -223,7 +223,7 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(
       }
       debug_2("Poly data types is " << callbackdata->self->polydata_types);
   }
-  if (udata) {
+  else if (udata) {
       callbackdata->OutputUnstructuredCellArray = vtkSmartPointer<vtkCellArray>::New();
       callbackdata->OutputUnstructuredCellArray->Allocate(OutputNumberOfFinalCells*(callbackdata->MaxCellSize+1));
       callbackdata->OutputUnstructuredCellArray->InitTraversal();
