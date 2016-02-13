@@ -329,6 +329,8 @@ if(WIN32)
 endif()
 
 
+return()
+
 include(CMakeInstallation)
 
 #--------------------------------------------------
