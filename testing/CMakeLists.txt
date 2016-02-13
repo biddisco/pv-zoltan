@@ -356,14 +356,17 @@ IF (processors)
           $<TARGET_FILE:TestMeshPartitionFilter>
           -testName ${test_name}
           -T "${PLUGIN_TEST_DIR}"
-          -F Polydata-MixedCells.vtp
+          -F polydata-mixed.pvtp
           -D ${PROJECT_SOURCE_DIR}/testing/data
-          -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars.png
+          -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-mixed-polydata.png
           -boundaryMode 1
           -doRender 1
+          -cameraPosition "50 140 50"
+          -cameraFocus    "12 0 12"
+          -cameraViewUp   "-0.6 0.4 -0.6"
           -scalarMode 0
-          -scalarName "RTData"
-          -scalarRange "40 180"
+          -scalarName "Elevation"
+          -scalarRange "0 1"
           -actorShift 0.25
           -windowSize "1024 800"
   )

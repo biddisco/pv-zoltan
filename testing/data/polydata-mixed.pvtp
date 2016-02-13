@@ -1,0 +1,13 @@
+<VTKFile type="PPolyData" version="1.0" byte_order="LittleEndian" header_type="UInt64">
+  <PPolyData GhostLevel="0">
+    <PPointData Scalars="Elevation">
+      <PDataArray type="Float64" Name="Elevation"/>
+    </PPointData>
+    <PPoints>
+      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>
+    </PPoints>
+    <Piece Source="polydata-mixed-verts.vtp"/>
+    <Piece Source="polydata-mixed-lines.vtp"/>
+    <Piece Source="polydata-mixed-polys.vtp"/>
+  </PPolyData>
+</VTKFile>
