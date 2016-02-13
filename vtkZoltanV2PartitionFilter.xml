@@ -1,0 +1,45 @@
+<ServerManagerConfiguration>
+
+  <!-- ================================================================ -->
+  <!-- Filters                                                          -->
+  <!-- ================================================================ -->
+  <ProxyGroup name="filters">
+
+    <!-- ================================================================ -->
+    <!-- Base class for Partitioning datasets between parallel processes  -->
+    <!-- ================================================================ -->
+    <SourceProxy
+      name="Zoltan2PartitionFilter"
+      class="vtkZoltanV2PartitionFilter">
+
+      <InputProperty
+        name="Input"
+        command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources"/>
+          <Group name="filters"/>
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkPointSet"/>
+        </DataTypeDomain>
+        <InputArrayDomain name="input_array" optional="1"/>
+      </InputProperty>
+
+      <DoubleVectorProperty
+        name="MaxAspectRatio"
+        command="SetMaxAspectRatio"
+        label="Max aspect ratio between bounding box axes"
+        number_of_elements="1"
+        animateable="1"
+        default_values="5.0" >
+        <DoubleRangeDomain name="range" min="1" max="20.0"/>
+        <Documentation>
+          Max aspect ratio allowed between any bounding box axis
+        </Documentation>
+      </DoubleVectorProperty>
+
+    </SourceProxy>
+
+  </ProxyGroup>
+
+</ServerManagerConfiguration>

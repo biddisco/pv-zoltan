@@ -25,7 +25,8 @@
 #ifndef __vtkParticlePartitionFilter_h
 #define __vtkParticlePartitionFilter_h
 
-#include "vtkZoltanV1PartitionFilter.h" // superclass
+#include "vtkZoltanVersion.h"
+
 #include "vtkBoundingBox.h"
 #include <vector>
 
@@ -36,11 +37,11 @@ class vtkIntArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
-class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
+class VTK_EXPORT vtkParticlePartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
 {
   public:
     static vtkParticlePartitionFilter *New();
-    vtkTypeMacro(vtkParticlePartitionFilter,vtkZoltanV1PartitionFilter);
+    vtkTypeMacro(vtkParticlePartitionFilter,VTK_ZOLTAN_PARTITION_FILTER);
 
     // Description:
     // The thickness of the region between each partition that is used for 
@@ -49,7 +50,7 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
     // at corner region overlaps)
     vtkSetMacro(GhostCellOverlap, double);
     vtkGetMacro(GhostCellOverlap, double);
-        
+  
     // Description:
     // Specify the point spacing on the X/Y/Z axis
     vtkSetMacro(GridSpacing, double);
@@ -61,12 +62,6 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
     // sampled using the specified resolutions
     vtkSetVector3Macro(GridOrigin, double);
     vtkGetVector3Macro(GridOrigin, double);
-
-        
-    // Description:
-    // Return the Bounding Box for a partition plus the extended region
-    // all around the box where ghost cells might be required/present
-    vtkBoundingBox *GetPartitionBoundingBoxWithHalo(int partition);
 
   protected:
      vtkParticlePartitionFilter();
@@ -82,7 +77,6 @@ class VTK_EXPORT vtkParticlePartitionFilter : public vtkZoltanV1PartitionFilter
     void FindPointsInHaloRegions(vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData, PartitionInfo &ghost_info);
 
     double                      GhostCellOverlap;
-    std::vector<vtkBoundingBox> BoxListWithHalo;
     double                      GridSpacing;
     double                      GridOrigin[3];
 

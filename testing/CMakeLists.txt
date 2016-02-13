@@ -11,17 +11,6 @@
 set(IMAGE_THRESHOLD "0")
 
 #--------------------------------------------------
-# a macro to add one test
-#--------------------------------------------------
-MACRO(add_local_test test_name) 
-  ADD_EXECUTABLE(${test_name} ${test_name}.cxx)
-  TARGET_LINK_LIBRARIES(${test_name}
-    pv_meshless 
-    )
-  ADD_TEST(${test_name} ${PROJECT_BINARY_DIR}/../bin/${test_name})
-ENDMACRO(add_local_test)
-
-#--------------------------------------------------
 # convenience macro for a>=b for testing processor count
 #--------------------------------------------------
 MACRO(greater_equal a b boolresult) 
@@ -31,16 +20,6 @@ MACRO(greater_equal a b boolresult)
     SET(${boolresult} 0)
   ENDIF ((${a} GREATER ${b}) OR (${a} EQUAL ${b}))
 ENDMACRO(greater_equal)
-
-#--------------------------------------------------
-# Simple non MPI Filter/Kernel Tests 
-#--------------------------------------------------
-SET(TEST_LIST 
-)
-
-FOREACH(test_name ${TEST_LIST})
-  add_local_test(${test_name})
-ENDFOREACH(test_name)
 
 #--------------------------------------------------
 # Slurm job manager require "-rmk" "slurm" arguments
@@ -61,22 +40,22 @@ TARGET_LINK_LIBRARIES(TestParticlePartitionFilter
   pv_zoltan 
   ${Trilinos_LIBRARIES}
 )
-  
+
+ADD_EXECUTABLE(TestParticlePartitionWeightCount
+  TestParticlePartitionWeightCount.cxx
+  TestUtils.cxx
+)
+TARGET_LINK_LIBRARIES(TestParticlePartitionWeightCount
+  vtkTestingRendering
+  pv_zoltan 
+  ${Trilinos_LIBRARIES}
+)
+
 ADD_EXECUTABLE(TestMeshPartitionFilter 
   TestMeshPartitionFilter.cxx
   TestUtils.cxx
 )
 TARGET_LINK_LIBRARIES(TestMeshPartitionFilter
-  vtkTestingRendering
-  pv_zoltan 
-  ${Trilinos_LIBRARIES}
-)
-  
-ADD_EXECUTABLE(TestMeshPartitionScalarsFilter 
-  TestMeshPartitionScalarsFilter.cxx
-  TestUtils.cxx
-)
-TARGET_LINK_LIBRARIES(TestMeshPartitionScalarsFilter
   vtkTestingRendering
   pv_zoltan 
   ${Trilinos_LIBRARIES}
@@ -91,69 +70,313 @@ TARGET_LINK_LIBRARIES(TestMeshPartitionScalarsFilter
 #  ${Trilinos_LIBRARIES}
 #)
 
-# 
-# This test will only run if we have 4 processors
-#   
+#--------------------------------------------------
+# Tests will only run if we have 4+ processors
+#--------------------------------------------------
+
 greater_equal(${MPIEXEC_MAX_NUMPROCS} 4 processors)
-SET(test_name "TestParticlePartitionFilter-P4")
+if (NOT processors)
+    message(WARNING "pv-zoltan tests require at least 4 mpi ranks in MPIEXEC_MAX_NUMPROCS") 
+endif()
+
 IF (processors)
+
+  if (PV_ZOLTAN_USE_ZOLTAN_1)
+    set(_test_version "v1")
+  else()
+    set(_test_version "v2")
+  endif()
+    
+  #------------------------------------------------
+  # Particle partition tests
+  #------------------------------------------------
+  SET(test_name "TestParticlePartitionFilter-P4")
   ADD_TEST(
-    NAME ${test_name}
+    NAME ${test_name}-${_test_version}
     COMMAND 
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
       $<TARGET_FILE:TestParticlePartitionFilter> 
       -testName ${test_name}
       -T "${PLUGIN_TEST_DIR}"
       -generateParticles 1000
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition.png
+      -particleGenerator 0
+      -scalarName ProcessId
+      -scalarMode 0
+      -scalarRange "0 3"
+      -actorShift 0.5
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartition-${_test_version}.png
       -doRender 1
-      -windowSize "400 400"
+      -windowSize "800 800"
   )
-ENDIF (processors)
+  
+  SET(test_name "TestParticlePartitionFilterGhost-P4")
+  ADD_TEST(
+    NAME ${test_name}-${_test_version}
+    COMMAND 
+      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestParticlePartitionFilter> 
+      -testName ${test_name}
+      -T "${PLUGIN_TEST_DIR}"
+      -generateParticles 1000
+      -particleGenerator 0
+      -ghostOverlap 100
+      -scalarName vtkGhostLevels
+      -scalarMode 0
+      -scalarRange "0 1"
+      -actorShift 0.5
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartitionGhosts-${_test_version}.png
+      -doRender 1
+      -windowSize "800 800"
+  )
+  
+  SET(test_name "TestParticlePartitionWeights-P4")
+  ADD_TEST(
+    NAME ${test_name}-${_test_version}
+    COMMAND 
+      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestParticlePartitionFilter> 
+      -testName ${test_name}
+      -T "${PLUGIN_TEST_DIR}"
+      -generateParticles 5000
+      -particleGenerator 1
+      -ghostOverlap 50
+      -scalarName Weights
+      -scalarMode 0
+      -scalarRange "0 1"
+      -actorShift 0.5
+      -useWeights 1
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/ParticlePartitionWeights-${_test_version}.png
+      -doRender 1
+      -windowSize "800 800"
+  )
+  
+  SET(test_name "TestParticlePartitionWeightCount-P4")
+  ADD_TEST(
+    NAME ${test_name}-${_test_version}
+    COMMAND 
+      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestParticlePartitionWeightCount> 
+      -testName ${test_name}
+      -generateParticles 5000
+      -particleGenerator 1
+      -useWeights 1
+  )
+  
+  #------------------------------------------------
+  # Mesh partition tests
+  #------------------------------------------------
+  SET(test_name "TestMeshPartitionFilterBoundary-P4")
+  set(boundary_list "first;most;centroid")
+  foreach(dmode soma sphere)
+      foreach(mode 0 1 2)
+          list(GET "boundary_list" "${mode}" BMODE)
+          set(camera_) 
+          if ("${dmode}" STREQUAL "sphere" )
+            if (PV_ZOLTAN_USE_ZOLTAN_1)
+              set(camera_ -cameraPosition "0 4 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
+            endif()  
+          endif()
+          ADD_TEST(
+            NAME ${test_name}-${BMODE}-${dmode}-${_test_version}
+            COMMAND 
+              ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+              $<TARGET_FILE:TestMeshPartitionFilter> 
+              -testName ${test_name}-${BMODE}-${dmode}
+              -T "${PLUGIN_TEST_DIR}"
+              #-F ${dmode}-4-partitions.pvtp
+              -F ${dmode}.vtp
+              -D ${PROJECT_SOURCE_DIR}/testing/data
+              -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-${BMODE}-${dmode}-${_test_version}.png
+              -doRender 1
+              ${camera_}
+              -ghostMode 0
+              -boundaryMode ${mode}
+              -scalarMode 0
+              -scalarName ProcessId
+              -scalarRange "0 3"
+              -actorShift 0.0
+              -windowSize "1024 800"
+          )
+      endforeach()
+  endforeach()
 
-SET(test_name "TestMeshPartitionFilter-P4")
-IF (processors)
+  SET(test_name "TestMeshPartitionFilterCellData-P4")
+  set(scalar_vars "RTNeuron Opacity" "Elevation")
+  set(index 0)
+  foreach(dmode soma sphere)
+    list(GET "scalar_vars" "${index}" SCALAR)
+    set(camera_) 
+    if ("${dmode}" STREQUAL "sphere" )
+      if (PV_ZOLTAN_USE_ZOLTAN_1)
+        set(camera_ -cameraPosition "0 4 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
+      endif()  
+    endif()
+    ADD_TEST(
+      NAME ${test_name}-${dmode}-${_test_version}
+      COMMAND 
+        ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+        $<TARGET_FILE:TestMeshPartitionFilter> 
+        -testName ${test_name}-${dmode}
+        -T "${PLUGIN_TEST_DIR}"
+        #-F ${dmode}-4-partitions.pvtp
+        -F ${dmode}.vtp
+        -D ${PROJECT_SOURCE_DIR}/testing/data
+        -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-celldata-${dmode}-${_test_version}.png
+        -doRender 1
+        ${camera}
+        -ghostMode 0
+        -scalarMode 1
+        -scalarName ${SCALAR}
+        -scalarRange "0 1"
+        -actorShift 0.0
+        -windowSize "1024 800"
+    )
+    math(EXPR index "${index} + 1")
+  endforeach()
+
+  set(test_name "TestMeshPartitionFilterGhost-P4")
+  set(ghostmode_list "none;boundary;bbox") # ;neighbour")
+  foreach(dmode soma sphere)
+      set(index 0)
+      foreach(ghostmode 0 1 2)
+          list(GET "ghostmode_list" "${ghostmode}" GMODE)
+          set(overlap_ "")
+          set(camera_)
+          #
+          if ("${dmode}" STREQUAL "sphere" )
+            set(actorshift_ -actorShift 0.25)
+            if (PV_ZOLTAN_USE_ZOLTAN_1)
+              set(camera_ -cameraPosition "0 4 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
+            endif()  
+          else()
+            set(actorshift_ -actorShift 0.25)
+          endif()
+
+          if("${ghostmode}" STREQUAL "2")
+            if("${dmode}" STREQUAL "sphere")
+              set(overlap_ -ghostOverlap 0.09)
+              set(actorshift_ -actorShift 0.6)
+            else()
+              set(overlap_ -ghostOverlap 2.5)
+              set(actorshift_ -actorShift 0.5)
+            endif()
+          endif()
+
+          ADD_TEST(
+            NAME ${test_name}-${GMODE}-${dmode}-${_test_version}
+            COMMAND 
+              ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+              $<TARGET_FILE:TestMeshPartitionFilter> 
+              -testName ${test_name}-${GMODE}-${dmode}
+              -T "${PLUGIN_TEST_DIR}"
+              #-F ${dmode}-4-partitions.pvtp
+              -F ${dmode}.vtp
+              -D ${PROJECT_SOURCE_DIR}/testing/data
+              -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-ghost-${GMODE}-${dmode}-${_test_version}.png
+              -doRender 1
+              ${camera_}
+              -edges 1
+              -boundaryMode 2
+              -ghostMode ${index}
+              ${overlap_}
+              -scalarMode 1
+              -scalarName vtkGhostRanks
+              -scalarRange "0 4"
+              ${actorshift_}
+              -windowSize "1024 800"
+          )
+          math(EXPR index "${index} + 1")
+      endforeach()
+  endforeach()
+
+  set(test_name "TestMeshPartitionFilterUnstructured-P4")
+  set(ghostmode_list "none;boundary;bbox")
+  set(index 0)
+  foreach(ghostmode 0 1 2)
+      list(GET "ghostmode_list" "${ghostmode}" GMODE)
+      #
+      set(overlap_ "")
+      #
+      if("${ghostmode}" STREQUAL "0")
+        set(scalars_ -scalarMode 0 -scalarName RTData -scalarRange "0 1")
+      elseif("${ghostmode}" STREQUAL "1")
+        set(scalars_ -scalarMode 1 -scalarName vtkGhostRanks -scalarRange "0 4")
+      elseif("${ghostmode}" STREQUAL "2")
+        set(overlap_ -ghostOverlap 0.2)
+        set(scalars_ -scalarMode 1 -scalarName vtkGhostRanks -scalarRange "0 4")
+      endif()
+          
+      ADD_TEST(
+        NAME ${test_name}-${GMODE}-${_test_version}
+        COMMAND 
+          ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+          $<TARGET_FILE:TestMeshPartitionFilter> 
+          -testName ${test_name}-${GMODE}
+          -T "${PLUGIN_TEST_DIR}"
+          -F wavelet-unstructured.vtu
+          -D ${PROJECT_SOURCE_DIR}/testing/data
+          -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-unstructured-${GMODE}-${_test_version}.png
+          -doRender 1
+          -edges 1
+          -boundaryMode 2
+          -ghostMode ${index}
+          ${overlap_}
+          ${scalars_}
+          -actorShift 1.0
+          -windowSize "1024 800"
+      )
+      math(EXPR index "${index} + 1")
+  endforeach()
+
+  SET(test_name "TestMeshPartitionFilterScalars-P4")
   ADD_TEST(
-    NAME ${test_name}
-    COMMAND 
+    NAME ${test_name}-${_test_version}
+    COMMAND
       ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-      $<TARGET_FILE:TestMeshPartitionFilter> 
+      $<TARGET_FILE:TestMeshPartitionFilter>
       -testName ${test_name}
       -T "${PLUGIN_TEST_DIR}"
-      -F neuron-test.vtp
+      -F soma-4-partitions.pvtp
       -D ${PROJECT_SOURCE_DIR}/testing/data
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition.png
+      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars-${_test_version}.png
+      -boundaryMode 1
       -doRender 1
-      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
-      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
-      -cameraViewUp   "0 1 0"
-      -scalar "vtkProcessId"
+      -scalarMode 0
+      -scalarName "RTNeuron Opacity"
+      -scalarRange "0 1"
+      -actorShift 0.25
       -windowSize "1024 800"
   )
-  SET(test_name "TestMeshPartitionScalarsFilter-P4")
+
+  SET(test_name "TestMeshPartitionFilterMixedPolys-P4")
   ADD_TEST(
-    NAME ${test_name}
-    COMMAND 
-      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
-      $<TARGET_FILE:TestMeshPartitionScalarsFilter> 
-      -testName ${test_name}
-      -T "${PLUGIN_TEST_DIR}"
-      -F neuron-test.vtp
-      -D ${PROJECT_SOURCE_DIR}/testing/data
-      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartitionScalars.png
-      -doRender 1
-      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
-      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
-      -cameraViewUp   "0 1 0"
-      -scalar "vtkProcessId"
-      -windowSize "1024 800"
+          NAME ${test_name}-${_test_version}
+          COMMAND
+          ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
+          $<TARGET_FILE:TestMeshPartitionFilter>
+          -testName ${test_name}
+          -T "${PLUGIN_TEST_DIR}"
+          -F polydata-mixed.pvtp
+          -D ${PROJECT_SOURCE_DIR}/testing/data
+          -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-mixed-polydata.png
+          -boundaryMode 1
+          -doRender 1
+          -cameraPosition "50 140 50"
+          -cameraFocus    "12 0 12"
+          -cameraViewUp   "-0.6 0.4 -0.6"
+          -scalarMode 0
+          -scalarName "Elevation"
+          -scalarRange "0 1"
+          -actorShift 0.25
+          -windowSize "1024 800"
   )
+
 ENDIF (processors)
  
 #SET(test_name "TestPartitionCompositing-P4")
 #IF (processors)
 #  ADD_TEST(
-#    NAME ${test_name}
+#    NAME ${test_name}-${_test_version}
 #    COMMAND 
 #      ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 4
 #      $<TARGET_FILE:TestPartitionCompositing> 
@@ -161,7 +384,7 @@ ENDIF (processors)
 #      -T "${PLUGIN_TEST_DIR}"
 #      -F neuron-test.vtp
 #      -D ${PROJECT_SOURCE_DIR}/testing/data
-#      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition.png
+#      -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-${_test_version}.png
 #      -doRender 1
 #      -cameraPosition "-100.613214826891 1393.997094168 353.866251068379"
 #      -cameraFocus    "-100.613214826891 1393.997094168 -1565.74007414479"
@@ -214,7 +437,7 @@ IF (EXISTS ${SC12_DATA_PATH}/${SC12_DATA_FILE}${SC12_TEST}.h5part)
             SET (MPI_DEPTH_FLAGS -d ${CORES_PER_NODE})
           ENDIF (${MPI_DEPTH} GREATER ${CORES_PER_NODE})
           ADD_TEST(
-            NAME ${test_name}
+            NAME ${test_name}-${_test_version}
             COMMAND 
               ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${M} ${MPI_DEPTH_FLAGS}
               $<TARGET_FILE:TestParticlePartitionFilter> 

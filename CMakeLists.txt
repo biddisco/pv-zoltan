@@ -20,7 +20,23 @@ foreach(p
   endif()
 endforeach()
 
-add_definitions(-DCMAKE_IS_BROKEN)
+#--------------------------------------------------
+# Setup Output directories
+#--------------------------------------------------
+SET (CMAKE_RUNTIME_OUTPUT_DIRECTORY
+        ${PROJECT_BINARY_DIR}/bin CACHE PATH "Single Directory for all Executables."
+        )
+SET (CMAKE_LIBRARY_OUTPUT_DIRECTORY
+        ${PROJECT_BINARY_DIR}/bin CACHE PATH "Single Directory for all Libraries"
+        )
+SET (CMAKE_ARCHIVE_OUTPUT_DIRECTORY
+        ${PROJECT_BINARY_DIR}/bin CACHE PATH "Single Directory for all static libraries."
+        )
+
+#-----------------------------------------------------------------------------
+# Testing support
+#-----------------------------------------------------------------------------
+include(CTest)
 
 #-----------------------------------------------------------------------------
 # Basic naming/config stuff here
@@ -86,25 +102,96 @@ ENDIF (PARAVIEW_USE_MPI)
 # --------------------------------------------------
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+#--------------------------------------------------
+# GitExternal config
+#--------------------------------------------------
+set(GIT_EXTERNAL_DISABLE_UPDATE ON)
+set(GIT_EXTERNAL_USER_FORK "" CACHE STRING "Disabled")
+
+#--------------------------------------------------
+# load script for checking out projects from git
+#--------------------------------------------------
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/GitExternal.cmake)
+#include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SubProject.cmake)
+
+#--------------------------------------------------
+# checkout reduced version of trilinos 
+#--------------------------------------------------
+Git_External(
+  ${CMAKE_CURRENT_SOURCE_DIR}/trilinos
+  https://github.com/biddisco/trilinos
+  zoltan_subset
+  NO_UPDATE
+  VERBOSE
+)
+
+#--------------------------------------------------
+# option to use old zoltan 1 version
+#--------------------------------------------------
+option(PV_ZOLTAN_USE_ZOLTAN_1 "Use version 1 of zoltan (legacy)" OFF)
+if(PV_ZOLTAN_USE_ZOLTAN_1)
+  add_definitions(-DVTK_ZOLTAN1_PARTITION_FILTER)
+else()
+  add_definitions(-DVTK_ZOLTAN2_PARTITION_FILTER)
+endif()
+
+#--------------------------------------------------
+# CLAPACK
+#--------------------------------------------------
+if (WIN32 AND NOT PV_ZOLTAN_USE_ZOLTAN_1)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/trilinos/cmake/tribits/core/utils/AdvancedSet.cmake)
+  add_subdirectory(clapack-3.2.1-CMAKE)
+  set(CLAPACK_DIR ${PROJECT_BINARY_DIR}/clapack-3.2.1-CMAKE CACHE STRING "Do not change" FORCE)
+  FIND_PACKAGE(CLAPACK 3.2.1 NO_MODULE)
+    IF (CLAPACK_FOUND)
+    ADVANCED_SET(TPL_BLAS_LIBRARIES blas
+      CACHE FILEPATH "Set from MSVC CLAPACK specialization")
+  ENDIF()
+  set(BLAS_LIBRARY_DIRS "${PROJECT_BINARY_DIR}/bin")
+  set(LAPACK_LIBRARY_DIRS "${PROJECT_BINARY_DIR}/bin")
+  set(TPL_BLAS_LIBRARIES "blas")
+  set(TPL_LAPACK_LIBRARIES "lapack")
+#  install(EXPORT "blas" )
+endif()
+
 # --------------------------------------------------
 # Trilinos support 
 # --------------------------------------------------
 SET(TRILINOS_ENABLED 0)
-
 OPTION(USE_SYSTEM_TRILINOS "Use System Trilinos library" OFF)
 IF(USE_SYSTEM_TRILINOS)
   FIND_PACKAGE(Trilinos)
 ELSE(USE_SYSTEM_TRILINOS)
-  SET(TPL_ENABLE_MPI ON CACHE BOOL "Do not change")
-  SET(Trilinos_ENABLE_TESTS OFF CACHE BOOL "Do not change")
-  SET(Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES OFF CACHE BOOL "Do not change")
-  SET(Trilinos_ENABLE_Zoltan ON CACHE BOOL "Do not change")
-  SET(Trilinos_ENABLE_Fortran OFF CACHE BOOL "Do not change")
+  set(Trilinos_ASSERT_MISSING_PACKAGES      OFF CACHE BOOL "Do not change")
+
+  set(Trilinos_ENABLE_Zoltan                 ON CACHE BOOL "Do not change" FORCE)
+  if (PV_ZOLTAN_USE_ZOLTAN_1)
+    set(Trilinos_ENABLE_Tpetra                 OFF CACHE BOOL "Do not change" FORCE)
+    set(Trilinos_ENABLE_Zoltan2                OFF CACHE BOOL "Do not change" FORCE) 
+    set(TPL_ENABLE_BLAS                        OFF CACHE BOOL "Do not change" FORCE)
+    set(TPL_ENABLE_LAPACK                      OFF CACHE BOOL "Do not change" FORCE)
+  else()
+    set(Trilinos_ENABLE_Tpetra                 ON CACHE BOOL "Do not change" FORCE)
+    set(Trilinos_ENABLE_Zoltan2                ON CACHE BOOL "Do not change" FORCE) 
+    set(TPL_ENABLE_BLAS                        ON CACHE BOOL "Do not change" FORCE)
+    set(TPL_ENABLE_LAPACK                      ON CACHE BOOL "Do not change" FORCE)
+  endif()
+
+#  set(Trilinos_ENABLE_Eptra                  ON CACHE BOOL "Do not change")
+#  set(Trilinos_ENABLE_Xpetra                 ON CACHE BOOL "Do not change")
+#  set(Trilinos_ENABLE_Teuchos                ON CACHE BOOL "Do not change")
+#  set(Trilinos_ENABLE_Thyra                  ON CACHE BOOL "Do not change")
+#  set(Trilinos_ENABLE_Kokkos                 ON CACHE BOOL "Do not change")
+  set(Trilinos_ENABLE_Fortran               OFF CACHE BOOL "Do not change")
+  set(TPL_ENABLE_MPI                         ON CACHE BOOL "Do not change")
+  set(Trilinos_ENABLE_ALL_OPTIONAL_PACKAGES OFF CACHE BOOL "Do not change")
+  set(Trilinos_ENABLE_TESTS                 OFF CACHE BOOL "Do not change")
+  set(Trilinos_REQUIRES_PYTHON              OFF CACHE BOOL "Do not change")
+  set(Trilinos_USES_PYTHON                  OFF CACHE BOOL "Do not change")
   IF (WIN32)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS)
     INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/trilinos/cmake/tribits/common_tools/win_interface/include")
   ENDIF(WIN32)
-#  ADD_DEFINITIONS(-DREALLOC_BUG)
   ADD_SUBDIRECTORY(trilinos)
   SET(Trilinos_FOUND 1)
   SET(Trilinos_DEPS_HTML_OUTPUT_FILE "" CACHE STRING "Leave empty" FORCE)
@@ -113,11 +200,14 @@ ENDIF(USE_SYSTEM_TRILINOS)
 IF(Trilinos_FOUND)
   INCLUDE_DIRECTORIES("${Trilinos_INCLUDE_DIRS}")
   LINK_DIRECTORIES("${Trilinos_LIBRARY_DIRS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
   # MESSAGE("Trilinos Include Dirs ${Trilinos_INCLUDE_DIRS} and Trilinos Link Dirs ${Trilinos_LIBRARY_DIRS} ")
   #
   # Add source which depends on trilinos to our plugin
   #
   SET(TRILINOS_CXX 
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanBasePartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.cxx
@@ -127,12 +217,25 @@ IF(Trilinos_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.xml
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.xml
   )
-  SET(TRILINOS_LIBS zoltan)
+  if(PV_ZOLTAN_USE_ZOLTAN_1)
+    SET(TRILINOS_LIBS zoltan)
+  else()
+    SET(TRILINOS_LIBS zoltan zoltan2)
+  endif()
   SET(TRILINOS_ENABLED 1)
   ADD_DEFINITIONS(-DPLUGIN_USE_TRILINOS)
 ELSE(Trilinos_FOUND)
   message(FATAL_ERROR "pv-zoltan cannot be built unless Trilinos is correctly found")
 ENDIF(Trilinos_FOUND)
+
+if(NOT PV_ZOLTAN_USE_ZOLTAN_1)
+  SET(TRILINOS_CXX ${TRILINOS_CXX}
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV2PartitionFilter.cxx
+  )
+  SET(TRILINOS_XML ${TRILINOS_XML}
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV2PartitionFilter.xml
+  )
+endif()
 
 # --------------------------------------------------
 # Plugin config
@@ -183,10 +286,13 @@ TARGET_LINK_LIBRARIES(${PLUGIN_NAME}
     ${ZOLTAN_SDK_LIBRARIES}
     ${TRILINOS_LIBS}
 )
+ 
+#--------------------------------------------------
+# Enable Testing
+#--------------------------------------------------
+include( CTest )
+enable_testing()
 
-#--------------------------------------------------
-# Testing
-#--------------------------------------------------
 IF (BUILD_TESTING)
   SET(PLUGIN_TEST_DIR ${PROJECT_BINARY_DIR}/Testing/Temporary)
   MAKE_DIRECTORY(${PLUGIN_TEST_DIR})
@@ -208,6 +314,13 @@ set (${PROJECT_NAME}_INCLUDES_BUILD_TIME
   "${PROJECT_BINARY_DIR}"
   "${PROJECT_BINARY_DIR}/trilinos/packages/zoltan/src"
   "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan/src/include"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/algorithms"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/environment"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/input"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/models"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/problems"
+  "${PROJECT_SOURCE_DIR}/trilinos/packages/zoltan2/src/util"
 )
 if(WIN32)
   set(${PROJECT_NAME}_INCLUDES_BUILD_TIME 
