@@ -259,104 +259,118 @@ void vtkParticlePartitionFilter::AddHaloToBoundingBoxes()
 void vtkParticlePartitionFilter::FindPointsInHaloRegions(
   vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData, PartitionInfo &ghost_info)
 {
-  // create N maps to store ghost assignments
-  std::vector< std::map<int, vtkIdType> > GhostProcessMap(this->UpdateNumPieces);
-  //
-  // What is the bounding box of points we have been given to start with
-  //
-  vtkIdType numPts = pts->GetNumberOfPoints();
-  double bounds[6];
-  pts->GetBounds(bounds);
-  vtkBoundingBox localPointsbox(bounds);
-
-  // we know that some points on this process will be exported to remote processes
-  // so build a point to process map to quickly lookup the process Id from the point Id
-  // 1) initially set all points as local to this process
-  std::vector<int> localId_to_process_map(numPts, this->UpdatePiece); 
-  std::vector<int> ghost_flag(numPts, 0); 
-  // 2) loop over all to be exported and note the destination
-  int offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
-  for (vtkIdType i=0; i<loadBalanceData.numExport; i++) {
-    vtkIdType id               = loadBalanceData.exportGlobalGids[i] - offset;
-    // cout<<"i: "<<i<<" \tlocal_id:"<<id<<"\tproc:"<<loadBalanceData.exportProcs[i]<<">>"<<this->UpdatePiece<<endl;
-    localId_to_process_map[id] = loadBalanceData.exportProcs[i];
-    // points marked for export by load balance are not ghost points
-    ghost_flag[i] = 0;
-  }
-  // Since we already have a list of points to export, we don't want to
-  // duplicate them, so traverse the points list once per process
-  // skipping those already flagged for export
-  vtkIdType N = pts->GetNumberOfPoints(), pE=0;
-  for (int proc=0; proc<this->UpdateNumPieces; proc++) {
-    vtkBoundingBox &b = this->BoxListWithHalo[proc];
-    int pc = 0;
-    //
-    // any remote process box (+halo) which does not overlap our local points does not need to be tested
-    //
-    if (localPointsbox.Intersects(b)) {      
-      for (vtkIdType i=0; i<N; i++) {
-        vtkIdType gID = i + this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
-        // if this ID is already marked as exported to the process then we don't need to send it again
-        // But, if it's marked for export and we need a local copy, we must add it to our keep list
-        if (/*pE<loadBalanceData.numExport && */loadBalanceData.exportGlobalGids[pE]==gID && loadBalanceData.exportProcs[pE]==proc) {
-          pE++;
-          continue;
+    if (!pts) {
+        // if debug macro is synchonized, make sure we don't lockup
+        for (int proc=0; proc<this->UpdateNumPieces; proc++) {
+            vtkDebugMacro(" exporting NULL ghost particles to rank " << proc);
         }
-        double *pt = pts->GetPoint(i);
-        if (b.ContainsPoint(pt)) {
-          // if the bounding box is actually our local box
-          if (proc==this->UpdatePiece) {
-            if (localId_to_process_map[i]==this->UpdatePiece) {
-              // this point is due to stay on this process anyway
-            }
-            else {
-              // this point has already been flagged for export but we need it as a ghost locally
-              point_partitioninfo.LocalIdsToKeep.push_back(i);
-//              ghost_flag[i] = 1;
-            }
-          }
-          // the bounding box is a remote one
-          else {
-            if (localId_to_process_map[i]==proc) {
-              // this point is already marked for export to the process so it is not a ghost cell
-//              ghost_flag[i] = 0;
-//              point_partitioninfo.LocalIdsToSend.push_back(i);
-            }
-            else {
-              // this point is due to be exported to one process as a non ghost 
-              // but another copy must be sent to a different process as a ghost
-              ghost_info.GlobalIds.push_back(gID);
-              ghost_info.Procs.push_back(proc);
-//              point_partitioninfo.LocalIdsToKeep.push_back(i);
-//              point_partitioninfo.LocalIdsToSend.push_back(i);
-//              ghost_flag[i] = 1;
-//              GhostProcessMap[proc][i] = 1;
-
-            }
-            pc++;
-          }
-        }
-      }
-      vtkDebugMacro(" exporting " << pc << " ghost particles to rank " << proc);
+        vtkDebugMacro(" LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size());
+        vtkDebugMacro("FindPointsInHaloRegions "  <<
+            " numImport : " << this->LoadBalanceData.numImport <<
+            " numExport : " << point_partitioninfo.GlobalIds .size()
+        );
+        return;
     }
-  }
 
-  for (int i=0; i<this->UpdateNumPieces; i++) {
-//    vtkDebugMacro(" exporting " << GhostProcessMap[i].size() << " ghost particles to rank " << i);
-  }
-  vtkDebugMacro(" LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size());
-  
-  //
-  // Set the send list to the points from original zoltan load balance 
-  //
-  point_partitioninfo.nIDs         = loadBalanceData.numExport;
-  point_partitioninfo.GlobalIdsPtr = loadBalanceData.exportGlobalGids;
-  point_partitioninfo.ProcsPtr     = loadBalanceData.exportProcs;
-  
-  vtkDebugMacro("FindPointsInHaloRegions "  <<
-    " numImport : " << this->LoadBalanceData.numImport <<
-    " numExport : " << point_partitioninfo.GlobalIds .size()
-  );
+    // create N maps to store ghost assignments
+    std::vector< std::map<int, vtkIdType> > GhostProcessMap(this->UpdateNumPieces);
 
+    // we know that some points on this process will be exported to remote processes
+    // so build a point to process map to quickly lookup the process Id from the point Id
+    // 1) initially set all points as local to this process
+    vtkIdType numPts = pts->GetNumberOfPoints();
+    std::vector<int> localId_to_process_map(numPts, this->UpdatePiece);
+    std::vector<int> ghost_flag(numPts, 0);
+    // 2) loop over all to be exported and note the destination
+    int offset = this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
+    for (vtkIdType i=0; i<loadBalanceData.numExport; i++) {
+        vtkIdType id               = loadBalanceData.exportGlobalGids[i] - offset;
+        // cout<<"i: "<<i<<" \tlocal_id:"<<id<<"\tproc:"<<loadBalanceData.exportProcs[i]<<">>"<<this->UpdatePiece<<endl;
+        localId_to_process_map[id] = loadBalanceData.exportProcs[i];
+        // points marked for export by load balance are not ghost points
+        ghost_flag[i] = 0;
+    }
+
+    //
+    // What is the bounding box of points we have been given to start with
+    //
+    double bounds[6];
+    pts->GetBounds(bounds);
+    vtkBoundingBox localPointsbox(bounds);
+
+    // Since we already have a list of points to export, we don't want to
+    // duplicate them, so traverse the points list once per process
+    // skipping those already flagged for export
+    vtkIdType N = pts->GetNumberOfPoints(), pE=0;
+    for (int proc=0; proc<this->UpdateNumPieces; proc++) {
+        vtkBoundingBox &b = this->BoxListWithHalo[proc];
+        int pc = 0;
+        //
+        // any remote process box (+halo) which does not overlap our local points does not need to be tested
+        //
+        if (localPointsbox.Intersects(b)) {
+            for (vtkIdType i=0; i<N; i++) {
+                vtkIdType gID = i + this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank];
+                // if this ID is already marked as exported to the process then we don't need to send it again
+                // But, if it's marked for export and we need a local copy, we must add it to our keep list
+                if (/*pE<loadBalanceData.numExport && */loadBalanceData.exportGlobalGids[pE]==gID && loadBalanceData.exportProcs[pE]==proc) {
+                    pE++;
+                    continue;
+                }
+                double *pt = pts->GetPoint(i);
+                if (b.ContainsPoint(pt)) {
+                    // if the bounding box is actually our local box
+                    if (proc==this->UpdatePiece) {
+                        if (localId_to_process_map[i]==this->UpdatePiece) {
+                            // this point is due to stay on this process anyway
+                        }
+                        else {
+                            // this point has already been flagged for export but we need it as a ghost locally
+                            point_partitioninfo.LocalIdsToKeep.push_back(i);
+                            //              ghost_flag[i] = 1;
+                        }
+                    }
+                    // the bounding box is a remote one
+                    else {
+                        if (localId_to_process_map[i]==proc) {
+                            // this point is already marked for export to the process so it is not a ghost cell
+                            //              ghost_flag[i] = 0;
+                            //              point_partitioninfo.LocalIdsToSend.push_back(i);
+                        }
+                        else {
+                            // this point is due to be exported to one process as a non ghost
+                            // but another copy must be sent to a different process as a ghost
+                            ghost_info.GlobalIds.push_back(gID);
+                            ghost_info.Procs.push_back(proc);
+                            //              point_partitioninfo.LocalIdsToKeep.push_back(i);
+                            //              point_partitioninfo.LocalIdsToSend.push_back(i);
+                            //              ghost_flag[i] = 1;
+                            //              GhostProcessMap[proc][i] = 1;
+
+                        }
+                        pc++;
+                    }
+                }
+            }
+            //vtkDebugMacro(" exporting " << pc << " ghost particles to rank " << proc);
+        }
+    }
+
+    for (int i=0; i<this->UpdateNumPieces; i++) {
+        vtkDebugMacro(" exporting " << GhostProcessMap[i].size() << " ghost particles to rank " << i);
+    }
+    vtkDebugMacro(" LocalIdsToKeep " << point_partitioninfo.LocalIdsToKeep.size());
+
+    //
+    // Set the send list to the points from original zoltan load balance
+    //
+    point_partitioninfo.nIDs         = loadBalanceData.numExport;
+    point_partitioninfo.GlobalIdsPtr = loadBalanceData.exportGlobalGids;
+    point_partitioninfo.ProcsPtr     = loadBalanceData.exportProcs;
+
+    vtkDebugMacro("FindPointsInHaloRegions "  <<
+        " numImport : " << this->LoadBalanceData.numImport <<
+        " numExport : " << point_partitioninfo.GlobalIds .size()
+    );
 }
 //----------------------------------------------------------------------------
