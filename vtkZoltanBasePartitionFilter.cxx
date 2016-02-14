@@ -283,7 +283,7 @@ bool vtkZoltanBasePartitionFilter::GatherDataArrayInfo(
     if (dummy==data) {
         info.attributes = attribs->IsArrayAnAttribute(index);
         if (info.attributes>=0) {
-            debug_no_sync(data->GetName() << " is attribute " << info.attributes);
+            debug_no_sync(<< data->GetName() << " is attribute " << info.attributes);
         }
     }
 
@@ -398,7 +398,7 @@ void vtkZoltanBasePartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fie
           fields->SetActiveAttribute(correctName.c_str(), attrib);
       }
       else {
-          vtkDebugMacro(correctName.c_str() << " no attrib ");
+          vtkDebugMacro(<< correctName.c_str() << " no attrib ");
       }
     }
     else {

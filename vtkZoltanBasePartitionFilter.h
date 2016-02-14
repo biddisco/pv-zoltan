@@ -37,14 +37,14 @@
 #include "zoltan.h"              // required for definitions
 
 //BTX
-//#undef ZOLTAN_DEBUG_OUTPUT
-#define ZOLTAN_DEBUG_OUTPUT 1
+#undef ZOLTAN_DEBUG_OUTPUT
+//#define ZOLTAN_DEBUG_OUTPUT 1
 
 #define DebugSynchronized(piece, numpieces, comm, msg) \
 { \
   for (int i=0; i<numpieces; ++i) { \
     if (piece==i) { \
-      std::cout << "P(" << piece << "): " << msg << "\n" << std::flush; \
+      std::cout << "P(" << piece << "): " msg << "\n" << std::flush; \
     } \
     comm->Barrier(); \
   } \
@@ -54,7 +54,7 @@
 { \
   for (int i=0; i<numpieces; ++i) { \
     if (piece==i) { \
-      std::cout << "P(" << piece << "): " << msg << "\n" << std::flush; \
+      std::cout << "P(" << piece << "): " msg << "\n" << std::flush; \
     } \
   } \
 }
@@ -67,6 +67,7 @@
   DebugSynchronized(callbackdata->self->UpdatePiece, \
     callbackdata->self->UpdateNumPieces, callbackdata->self->GetController(), msg);
 #else
+# define debug_no_sync(msg)
 # define debug_2(msg)
 #endif
 //ETX
