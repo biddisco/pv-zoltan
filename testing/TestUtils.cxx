@@ -407,7 +407,10 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
     vtkSmartPointer<vtkRenderWindow>      renWindow = vtkSmartPointer<vtkRenderWindow>::New();
     vtkSmartPointer<vtkRenderWindowInteractor> iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
     vtkSmartPointer<vtkInteractorStyleSwitch> style = vtkSmartPointer<vtkInteractorStyleSwitch>::New();
-    iren->SetRenderWindow(renWindow);
+    renWindow->LineSmoothingOn();
+    renWindow->PolygonSmoothingOn();
+    renWindow->PointSmoothingOn();
+    renWindow->SetMultiSamples(0);     iren->SetRenderWindow(renWindow);
     iren->SetInteractorStyle(style);
     style->SetCurrentStyleToTrackballCamera();
     ren->SetBackground(0.1, 0.1, 0.1);
