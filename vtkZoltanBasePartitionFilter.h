@@ -401,11 +401,6 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
       return -1;
   }
 
-//BTX
-  template<typename U>
-  friend struct vtkZoltan2Helper;
-//ETX
-
     int                                         UpdatePiece;
     int                                         UpdateNumPieces;
 
