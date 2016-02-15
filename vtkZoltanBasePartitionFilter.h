@@ -192,10 +192,11 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     // and from zoltan during points/cell migration callbacks
     //----------------------------------------------------------------------------
     typedef struct CallbackData {
-      vtkZoltanBasePartitionFilter   *self;
-      int                           ProcessRank;
-      vtkSmartPointer<vtkPointSet>  Input;
-      vtkSmartPointer<vtkPointSet>  Output;
+      vtkZoltanBasePartitionFilter         *self;
+      int                                   ProcessRank;
+      vtkSmartPointer<vtkPointSet>          Input;
+      vtkSmartPointer<vtkPointSet>          Output;
+      vtkSmartPointer<vtkDataSetAttributes> InputPointData;
       std::vector<int>              ProcessOffsetsPointId; // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
       std::vector<int>              ProcessOffsetsCellId;  // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
       int                           PointType;             // float/double flag
@@ -371,7 +372,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
   // initial partitioning takes place.
   bool MigratePointData(vtkDataSetAttributes *inPointData, vtkDataSetAttributes *outPointData);
 
-  void AllocateFieldArrays(vtkDataSetAttributes *fields);
+  void AllocateFieldArrays(vtkDataSetAttributes *fields, vtkDataSetAttributes *fieldcopy);
 
   // utility function to find average of point list
   template <typename T>
@@ -452,7 +453,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     vtkSmartPointer<vtkPKdTree> CreatePkdTree();
 
     void AddHaloToBoundingBoxes(double GhostCellOverlap);
-    void SetupPointWeights(vtkDataSet *input);
+    void SetupPointWeights(vtkDataSetAttributes *fields);
 
     //
     vtkBoundingBox                             *LocalBox;

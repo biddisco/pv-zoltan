@@ -373,7 +373,7 @@ vtkBoundingBox vtkZoltanBasePartitionFilter::GetGlobalBounds(vtkDataSet *input)
 }
 
 //-------------------------------------------------------------------------
-void vtkZoltanBasePartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fields)
+void vtkZoltanBasePartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fields, vtkDataSetAttributes *fieldcopy)
 {
   int NumberOfFieldArrays = fields->GetNumberOfArrays();
   this->Controller->AllReduce(&NumberOfFieldArrays, &this->ZoltanCallbackData.NumberOfFields, 1, vtkCommunicator::MAX_OP);
@@ -392,10 +392,10 @@ void vtkZoltanBasePartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fie
       darray.TakeReference(vtkDataArray::CreateDataArray(correctType));
       darray->SetNumberOfComponents(numComponents);
       darray->SetName(correctName.c_str());
-      fields->AddArray(darray);
+      fieldcopy->AddArray(darray);
       if (attrib!=-1) {
           vtkDebugMacro("setting " << correctName.c_str() << " attrib " << attrib);
-          fields->SetActiveAttribute(correctName.c_str(), attrib);
+          fieldcopy->SetActiveAttribute(correctName.c_str(), attrib);
       }
       else {
           vtkDebugMacro(<< correctName.c_str() << " no attrib ");
@@ -411,12 +411,12 @@ void vtkZoltanBasePartitionFilter::AllocateFieldArrays(vtkDataSetAttributes *fie
 }
 
 //-------------------------------------------------------------------------
-void vtkZoltanBasePartitionFilter::SetupPointWeights(vtkDataSet *input) {
+void vtkZoltanBasePartitionFilter::SetupPointWeights(vtkDataSetAttributes *fields) {
     // get the array that is used for weights, check it the same as coords because
     // @TODO, zoltan only allows one template param for coords and weights
     // so we can't use different types yet
     vtkDataArray *weightsArray = this->PointWeightsArrayName ?
-        input->GetPointData()->GetArray(this->PointWeightsArrayName) : NULL;
+        fields->GetArray(this->PointWeightsArrayName) : NULL;
     this->weights_data_ptr = NULL;
     //
     if (weightsArray && (VTK_FLOAT != weightsArray->GetDataType())) {
@@ -673,9 +673,12 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
   // if a process has zero points, we need to make dummy data arrays to allow
   // space for when data gets sent in from other processes in the zoltan unpack function
   // This also stops hangs during collective operations by ensuring all ranks participate
+  // we must not modfiy the input, so make a copy
   //
-  vtkSmartPointer<vtkPointData> PointDataCopy = input->GetPointData();
-  this->AllocateFieldArrays(PointDataCopy);
+  vtkPointData *inputPointData = input->GetPointData();
+  this->ZoltanCallbackData.InputPointData = inputPointData->NewInstance();
+  this->ZoltanCallbackData.InputPointData->ShallowCopy(inputPointData);
+  this->AllocateFieldArrays(inputPointData, this->ZoltanCallbackData.InputPointData);
   vtkDebugMacro("FieldArrayPointers (point) Initialized");
 
   //
@@ -688,7 +691,7 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
   // if weights are supplied, configure them
   //
   vtkDebugMacro("Setting up weights array");
-  this->SetupPointWeights(input);
+  this->SetupPointWeights(inputPointData);
 
   //
   // Set all the callbacks and user config parameters that will be used during the loadbalance

@@ -486,7 +486,7 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   outCD->CopyAllOn();
   outCD->CopyAllocate(inCD);
   // Now make sure that all ranks have the same/correct arrays
-  this->AllocateFieldArrays(outCD);
+  this->AllocateFieldArrays(outCD, outCD);
 
   // if we are generating ghost cells for the mesh, then we must allocate a new array
   // on the output to store the ghost cell information (level 0,1,2...N ) etc

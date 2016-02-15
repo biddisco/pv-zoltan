@@ -147,7 +147,7 @@ void vtkZoltanBasePartitionFilter::zoltan_pre_migrate_function_points(
   vtkIdType N2 = N + num_import - num_export;
   callbackdata->Output->GetPoints()->SetNumberOfPoints(N2);
   callbackdata->OutputPointsData = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
-  vtkPointData    *inPD  = callbackdata->Input->GetPointData();
+  vtkPointData    *inPD  = vtkPointData::SafeDownCast(callbackdata->InputPointData);
   vtkPointData    *outPD = callbackdata->Output->GetPointData();
   outPD->CopyAllocate(inPD, N2);
   //
@@ -221,7 +221,7 @@ void vtkZoltanBasePartitionFilter::CopyPointsToSelf(
 
   callbackdata->Output->GetPoints()->SetNumberOfPoints(N2);
   callbackdata->OutputPointsData = callbackdata->Output->GetPoints()->GetData()->GetVoidPointer(0);
-  vtkPointData    *inPD  = callbackdata->Input->GetPointData();
+  vtkPointData    *inPD  = vtkPointData::SafeDownCast(callbackdata->InputPointData);
   vtkPointData    *outPD = callbackdata->Output->GetPointData();
   outPD->CopyAllOn();
   outPD->CopyAllocate(inPD, N2);
