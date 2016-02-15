@@ -122,7 +122,6 @@ int main (int argc, char* argv[])
   //--------------------------------------------------------------
   double radius  = 500.0;
   const double a = 0.9;
-  known_seed();
   if (test.particleGenerator==0) {
       SpherePoints(test.generateN, radius*(1.5+test.myRank)/(test.numProcs+0.5), vtkFloatArray::SafeDownCast(points->GetData())->GetPointer(0));
   }

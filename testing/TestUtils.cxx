@@ -54,15 +54,7 @@
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
-#ifdef _WIN32
-void known_seed() {
-  srand(1);
-}
-#else
-void known_seed() {
-  srandom(12345);
-}
-#endif
+
 //----------------------------------------------------------------------------
 // Template specialization for string types to handle spaces in names
 //
@@ -88,10 +80,11 @@ std::string GetParameter(const char *argstr, const char *message, int argc, char
   delete []tempChar;
   return newValue;
 }
+
 //----------------------------------------------------------------------------
 void SpherePoints(int n, float radius, float X[]) {
   double x, y, z, w, t;
-  std::default_random_engine generator(12345);
+  std::mt19937 generator(12345);
   std::uniform_real_distribution<double> uniform_dist(0.0, 1.0);
   for (int i=0; i<n; i++ ) {
     double r1 = uniform_dist(generator);
@@ -110,7 +103,7 @@ void SpherePoints(int n, float radius, float X[]) {
 //----------------------------------------------------------------------------
 void CubePoints(int n, float radius, float X[], float W[]) {
   // generate uniformly distributed data to evenly fill a cube
-  std::default_random_engine generator(12345);
+  std::mt19937 generator(12345);
   std::uniform_real_distribution<double> uniform_dist(0.0, radius);
 
   for (int i=0; i<n; i++ ) {
