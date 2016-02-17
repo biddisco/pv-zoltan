@@ -120,9 +120,9 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/GitExternal.cmake)
 Git_External(
   ${CMAKE_CURRENT_SOURCE_DIR}/trilinos
   https://github.com/biddisco/trilinos
-  zoltan_subset
-  NO_UPDATE
+  zoltan_subset_feb16
   VERBOSE
+  SHALLOW
 )
 
 #--------------------------------------------------
@@ -196,7 +196,7 @@ ENDIF(USE_SYSTEM_TRILINOS)
 
 IF(NOT Trilinos_FOUND)
   message(FATAL_ERROR "pv-zoltan cannot be built unless Trilinos is correctly found")
-ENDIF(Trilinos_FOUND)
+ENDIF()
 
 # --------------------------------------------------
 # Include dirs for plugin
@@ -330,7 +330,7 @@ if(WIN32)
 endif()
 
 
-return()
+#return()
 
 include(CMakeInstallation)
 
