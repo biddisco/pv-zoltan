@@ -452,7 +452,9 @@ vtkMeshPartitionFilter::~vtkMeshPartitionFilter()
 {
   if (this->ZoltanData) {
     Zoltan_Destroy(&this->ZoltanData);
+    this->ZoltanData = NULL;
   }
+  // free up SmartPointers
   this->ghost_cell_rank     = NULL;
   this->ghost_cell_flags    = NULL;
   this->ghost_cell_out_rank = NULL;
@@ -592,6 +594,7 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
   if (!this->KeepInversePointLists) {
     vtkDebugMacro("Zoltan_Destroy");
     Zoltan_Destroy(&this->ZoltanData);
+    this->ZoltanData = NULL;
   }
   
   this->Timer->StopTimer();

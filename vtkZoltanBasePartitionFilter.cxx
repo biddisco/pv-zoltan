@@ -172,10 +172,9 @@ vtkZoltanBasePartitionFilter::vtkZoltanBasePartitionFilter()
 //----------------------------------------------------------------------------
 vtkZoltanBasePartitionFilter::~vtkZoltanBasePartitionFilter()
 {
-  this->SetPointWeightsArrayName(NULL);
   // make sure we do not leave any memory unfreed
   if (this->MigrateLists.num_found!=-1) {
-    vtkDebugMacro("Deleting InverseMigrationLists");
+    //vtkDebugMacro("Deleting InverseMigrationLists");
     Zoltan_LB_Free_Part(
       &this->MigrateLists.found_global_ids, 
       &this->MigrateLists.found_local_ids, 
@@ -184,6 +183,8 @@ vtkZoltanBasePartitionFilter::~vtkZoltanBasePartitionFilter()
     // set to zero so we know data has been deleted
     this->MigrateLists.num_found = -1;
   }
+  //
+  this->SetPointWeightsArrayName(NULL);
   //
   this->SetController(NULL);
 }
@@ -438,12 +439,15 @@ int vtkZoltanBasePartitionFilter::RequestUpdateExtent(
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
   vtkInformation *outInfo = outputVector->GetInformationObject(0);
 
-  int piece, numPieces;
+  // We require preceding filters to refrain from creating ghost cells.
+  int piece, numPieces, ghostLevels = 0;
+
   piece = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER());
   numPieces = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES());
 
   inInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(), piece);
   inInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(), numPieces);
+  inInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), ghostLevels);
   inInfo->Set(vtkStreamingDemandDrivenPipeline::EXACT_EXTENT(), 1);
 
   return 1;
@@ -471,10 +475,10 @@ int vtkZoltanBasePartitionFilter::RequestInformation(
 
   outInfo->Set(vtkBoundsExtentTranslator::META_DATA(), this->ExtentTranslator);
   //
-//  outInfo->Set(vtkBoundsExtentTranslator::META_DATA(),
-//               inInfo->Get(vtkBoundsExtentTranslator::META_DATA()));
+  outInfo->Set(vtkBoundsExtentTranslator::META_DATA(),
+               inInfo->Get(vtkBoundsExtentTranslator::META_DATA()));
   //
-  outInfo->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
+//  outInfo->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
   //
   outInfo->Set(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT(),
                inInfo->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT()),
