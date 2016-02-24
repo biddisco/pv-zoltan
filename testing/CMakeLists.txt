@@ -173,7 +173,7 @@ IF (processors)
           set(camera_) 
           if ("${dmode}" STREQUAL "sphere" )
             if (PV_ZOLTAN_USE_ZOLTAN_1)
-              set(camera_ -cameraPosition "0 4 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
+              set(camera_ -cameraPosition "0 3 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
             endif()  
           endif()
           ADD_TEST(
@@ -188,6 +188,7 @@ IF (processors)
               -D ${PROJECT_SOURCE_DIR}/testing/data
               -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-${BMODE}-${dmode}-${_test_version}.png
               -doRender 1
+              -edges 1
               ${camera_}
               -ghostMode 0
               -boundaryMode ${mode}
@@ -208,7 +209,7 @@ IF (processors)
     set(camera_) 
     if ("${dmode}" STREQUAL "sphere" )
       if (PV_ZOLTAN_USE_ZOLTAN_1)
-        set(camera_ -cameraPosition "0 4 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
+        set(camera_ -cameraPosition "0 3 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
       endif()  
     endif()
     ADD_TEST(
@@ -223,7 +224,7 @@ IF (processors)
         -D ${PROJECT_SOURCE_DIR}/testing/data
         -V ${PROJECT_SOURCE_DIR}/testing/baseline/MeshPartition-celldata-${dmode}-${_test_version}.png
         -doRender 1
-        ${camera}
+        ${camera_}
         -ghostMode 0
         -scalarMode 1
         -scalarName ${SCALAR}
@@ -246,7 +247,7 @@ IF (processors)
           if ("${dmode}" STREQUAL "sphere" )
             set(actorshift_ -actorShift 0.25)
             if (PV_ZOLTAN_USE_ZOLTAN_1)
-              set(camera_ -cameraPosition "0 4 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
+              set(camera_ -cameraPosition "0 3.5 0" -cameraFocus    "0 0 0" -cameraViewUp   "0 0 1")
             endif()  
           else()
             set(actorshift_ -actorShift 0.25)
