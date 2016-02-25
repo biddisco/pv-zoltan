@@ -96,6 +96,7 @@ int vtkZoltanBasePartitionFilter::size_count = 0;
 #endif
 //----------------------------------------------------------------------------
 
+
 //----------------------------------------------------------------------------
 // Zoltan callback which returns number of objects participating in exchange
 //----------------------------------------------------------------------------
@@ -425,8 +426,9 @@ void vtkZoltanBasePartitionFilter::SetupPointWeights(vtkDataSetAttributes *field
         weightsArray = NULL;
     }
     if (weightsArray) {
-        // get the pointer to the actual data
-        this->weights_data_ptr = weightsArray->GetVoidPointer(0);
+        // get the pointer to the actual data, if the array is empty, set the pointer
+        // to some non NULL value so that later checks for weights present don't fail
+        this->weights_data_ptr = weightsArray->GetVoidPointer(0) ? weightsArray->GetVoidPointer(0) : (void*)0xFFFFFFFF;
     }
 }
 //-------------------------------------------------------------------------
@@ -695,7 +697,7 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
   // if weights are supplied, configure them
   //
   vtkDebugMacro("Setting up weights array");
-  this->SetupPointWeights(inputPointData);
+  this->SetupPointWeights(this->ZoltanCallbackData.InputPointData);
 
   //
   // Set all the callbacks and user config parameters that will be used during the loadbalance
