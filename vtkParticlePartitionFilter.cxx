@@ -195,14 +195,16 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // If polydata create Vertices for each final point
   //
   vtkSmartPointer<vtkCellArray> cells = vtkSmartPointer<vtkCellArray>::New();
+  vtkIdType *arraydata = cells->WritePointer(N, 2*N);
+  for (int i=0; i<this->ZoltanCallbackData.Output->GetNumberOfPoints(); i++) {
+    arraydata[i*2]   = 1;
+    arraydata[i*2+1] = i;
+  }
   if (vtkPolyData::SafeDownCast(this->ZoltanCallbackData.Output)) {
-    vtkIdType N = this->ZoltanCallbackData.Output->GetNumberOfPoints();
-    vtkIdType *arraydata = cells->WritePointer(N, 2*N);
-    for (int i=0; i<this->ZoltanCallbackData.Output->GetNumberOfPoints(); i++) {
-      arraydata[i*2]   = 1;
-      arraydata[i*2+1] = i;
-    }
     vtkPolyData::SafeDownCast(this->ZoltanCallbackData.Output)->SetVerts(cells);
+  }
+  else if (vtkUnstructuredGrid::SafeDownCast(this->ZoltanCallbackData.Output)) {
+    vtkUnstructuredGrid::SafeDownCast(this->ZoltanCallbackData.Output)->SetCells(VTK_VERTEX, cells);
   }
 
   //
