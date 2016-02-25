@@ -22,7 +22,16 @@
         <DataTypeDomain name="input_type">
           <DataType value="vtkPointSet"/>
         </DataTypeDomain>
-        <InputArrayDomain name="input_array" optional="1"/>
+        <InputArrayDomain
+          name="input_array1"
+          attribute_type="point"
+          number_of_components="1"
+          optional="1"/>
+        <InputArrayDomain
+					name="input_array2"
+					attribute_type="cell"
+					number_of_components="1"
+          optional="1"/>
       </InputProperty>
 
       <StringVectorProperty
@@ -38,7 +47,7 @@
           name="array_list"
           attribute_type="Scalars"
           none_string="Not available"
-          input_domain_name="input_array">
+          input_domain_name="input_array1">
           <RequiredProperties>
             <Property name="Input" function="Input"/>
           </RequiredProperties>
