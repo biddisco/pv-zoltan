@@ -25,6 +25,29 @@
         <InputArrayDomain name="input_array" optional="1"/>
       </InputProperty>
 
+      <StringVectorProperty
+        name="PointWeightsArrayName"
+        command="SetPointWeightsArrayName"
+        number_of_elements="1"
+        animateable="0"
+        default_values="Volume"
+        default_regex_delimiter=","
+        default_regex="^[Mm][Aa][Ss][Ss]$"
+        label="Weights Scalar Array">
+        <ArrayListDomain
+          name="array_list"
+          attribute_type="Scalars"
+          none_string="Not available"
+          input_domain_name="input_array">
+          <RequiredProperties>
+            <Property name="Input" function="Input"/>
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>
+          This property indicates the name of the array to be used for weighting particles when load-balancing
+        </Documentation>
+      </StringVectorProperty>
+
       <DoubleVectorProperty
         name="MaxAspectRatio"
         command="SetMaxAspectRatio"
