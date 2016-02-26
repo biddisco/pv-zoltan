@@ -11,10 +11,9 @@
     <SourceProxy
       name="ZoltanPartitionFilter"
       class="vtkZoltanV1PartitionFilter"
-      label="Particle Partition Filter"
+      label="Abstract V1 Partition Filter"
       base_proxygroup="filters"
       base_proxyname="ZoltanBasePartitionFilter">
-
     </SourceProxy>
 
   </ProxyGroup>

@@ -481,7 +481,7 @@ int vtkMeshPartitionFilter::RequestData(vtkInformation* info,
     return 1;
   }
 
-  // Make sure output cell arays are setup before ghost ranks are added
+  // Make sure output cell arrays are setup before ghost ranks are added
   // otherwise array ordering is incorrect when ranks with empty data are present
   vtkCellData *inCD  = this->ZoltanCallbackData.Input->GetCellData();
   vtkCellData *outCD = this->ZoltanCallbackData.Output->GetCellData();
