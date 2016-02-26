@@ -221,6 +221,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   //
   Zoltan_Destroy(&this->ZoltanData);
   this->ZoltanData = NULL;
+  this->MigrateLists.known.LocalIdsToKeep.clear();
 
   this->ZoltanCallbackData.Output->GetPointData()->AddArray(GhostArray);
 
