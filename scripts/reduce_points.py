@@ -2,7 +2,6 @@
 from paraview.simple import *
 import paraview.benchmark
 import socket, os, sys, re
-import psutil
 
 # ------------------------------
 # setup machine dependent things
@@ -11,6 +10,7 @@ hostname = socket.gethostname()
 if "carona" in hostname:
   print(hostname + " contains Carona, laptop usage")
   plugin_name = '/Users/biddisco/build/egpgv/bin/libpv_zoltan.dylib'
+  plugin_name = '/Users/biddisco/build/egpgv/bin/libpv_meshless.dylib'
 #  data_path = '/Users/biddisco/data/sphflow/0100millions'
   data_path = '/Users/biddisco/data/sphflow/0001millions/hdf5'
 else:
@@ -70,48 +70,22 @@ for f in filelist:
   dambreak1h5part.Yarray = 'Y'
   dambreak1h5part.Zarray = 'Z'
   dambreak1h5part.PointArrays = ['P']
-#  dambreak1h5part.UpdatePipeline()
 
-  # show data in view
-#  damBreak_Display = Show(dambreak1h5part, renderView1)
+  # create a new 'Mask Points'
+  maskPoints1 = MaskPoints(Input=dambreak1h5part)
 
-  # reset view to fit data
-#  renderView1.ResetCamera()
-#  RenderAllViews()
+  # Properties modified on maskPoints1
+  maskPoints1.MaximumNumberofPoints = 2147483647
+  maskPoints1.GenerateVertices = 1
+  maskPoints1.SingleVertexPerCell = 1
+  maskPoints1.ProportionallyDistributeMaximumNumberOfPoints = 1
+  maskPoints1.UpdatePipeline()
 
-#  Hide(damBreak_Display, renderView1)
-  # show data in view
-  #dambreak1h5partDisplay = Show(dambreak1h5part, renderView1)
-
-  # create a new 'Particle Partition Filter'
-  particlePartitionFilter1 = ParticlePartitionFilter(Input=dambreak1h5part)
-   # Properties modified on particlePartitionFilter1
-  particlePartitionFilter1.WeightsScalarArray = ''
-  particlePartitionFilter1.KeepInversePointLists = 0
-  particlePartitionFilter1.Maxaspectratiobetweenboundingboxaxes = 0.005
-
-  # show data in view
-  particlePartitionFilter1Display = Show(particlePartitionFilter1, renderView1)
-  particlePartitionFilter1Display.ColorArrayName = ('POINT_DATA', 'vtkGhostLevels')
-
-  if (do_render):
-    # reset view to fit data
-    renderView1.ResetCamera()
-    
-    #### saving camera placements for all active views
-
-    # current camera placement for renderView1
-    renderView1.CameraPosition = [2.605978786945343, 0.0, 3.511761331785175]
-    renderView1.CameraFocalPoint = [2.605978786945343, 0.0, 0.2749998830695404]
-    renderView1.CameraParallelScale = 0.8377355073812321
-
-    #### uncomment the following to render all views
-    RenderAllViews()
-
-    # alternatively, if you want to write images, you can use SaveScreenshot(...).
-    SaveScreenshot('image' + f + '.png')
-  else:
-    particlePartitionFilter1.UpdatePipeline()
+  print("Setting output to " + data_path + '/' + 'resampled_' + f)
+  # create a new 'H5PartWriter'
+  h5PartWriter1 = H5PartWriter(Input=maskPoints1)
+  h5PartWriter1.FileName = data_path + '/' + 'resampled_' + f;
+  h5PartWriter1.UpdatePipeline()
 
   memory = []
   print("\nMemory use ")
@@ -126,5 +100,3 @@ for f in filelist:
   print(memory, average_mem)
   print("\nMemory parse_logs "),
   paraview.benchmark.parse_logs(show_parse=True, tabular=True)
-#  print("\nMemory print_logs "),
-#  paraview.benchmark.print_logs()
