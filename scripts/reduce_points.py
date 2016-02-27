@@ -2,23 +2,9 @@
 from paraview.simple import *
 import paraview.benchmark
 import socket, os, sys, re
+import setup_plugins
 
-# ------------------------------
-# setup machine dependent things
-# ------------------------------
-hostname = socket.gethostname()
-if "carona" in hostname:
-  print(hostname + " contains Carona, laptop usage")
-  plugin_name = '/Users/biddisco/build/egpgv/bin/libpv_zoltan.dylib'
-  plugin_name = '/Users/biddisco/build/egpgv/bin/libpv_meshless.dylib'
-#  data_path = '/Users/biddisco/data/sphflow/0100millions'
-  data_path = '/Users/biddisco/data/sphflow/0001millions/hdf5'
-else:
-  print("Running on some other machine")
-  plugin_name = '/Users/biddisco/build/egpgv/bin/libpv_zoltan.dylib'
-
-### Load pv-zoltan plugin
-paraview.servermanager.LoadPlugin(plugin_name)
+data_path = setup_plugins.load_plugins()
 
 # help(servermanager.vtkProcessModule.GetProcessModule())
 nranks = servermanager.vtkProcessModule.GetProcessModule().GetNumberOfLocalPartitions()
@@ -31,13 +17,6 @@ paraview.simple._DisableFirstRenderCameraReset()
 # set active view
 SetActiveView(None)
 
-# Create a new 'Render View'
-renderView1 = CreateView('RenderView')
-renderView1.ViewSize = [640, 480]
-renderView1.AxesGrid = 'GridAxes3DActor'
-renderView1.StereoType = 0
-renderView1.Background = [0.0, 0.0, 0.0]
-
 # create a new 'H5Part'
 filelist = []
 
@@ -48,8 +27,8 @@ for filename in os.listdir(data_path):
 
 filelist = sorted(filelist)
 filelist = ["dambreak"+str(x)+".h5part" for x in filelist]
-del filelist[1:]
-# print(filelist)
+filelist = filelist[-5:]
+print("List of files to work with is :", filelist)
 
 do_render = False
 
@@ -60,7 +39,7 @@ paraview.benchmark.maximize_logs()
 dambreak1h5part = H5Part(FileName=data_path + '/' + filelist[0])
 
 for f in filelist:
-#  raw_input("Press Enter to continue...")
+  #raw_input("Press Enter to continue...")
 
   print("Setting filename to " + data_path + '/' + f)
   dambreak1h5part.FileName = data_path + '/' + f
@@ -69,7 +48,7 @@ for f in filelist:
   dambreak1h5part.Xarray = 'X'
   dambreak1h5part.Yarray = 'Y'
   dambreak1h5part.Zarray = 'Z'
-  dambreak1h5part.PointArrays = ['P']
+  dambreak1h5part.PointArrays = ['DeltaX', 'ID', 'Kind', 'P', 'VX', 'VY', 'VZ', 'Volume']
 
   # create a new 'Mask Points'
   maskPoints1 = MaskPoints(Input=dambreak1h5part)
@@ -96,7 +75,7 @@ for f in filelist:
     memory.append(int(localmem))
 
   average_mem = sum(memory) / (float(len(memory))*1024.0*1024.0)
+  print(memory, " Average memory ", average_mem)
 
-  print(memory, average_mem)
   print("\nMemory parse_logs "),
   paraview.benchmark.parse_logs(show_parse=True, tabular=True)

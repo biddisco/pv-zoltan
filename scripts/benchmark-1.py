@@ -2,23 +2,9 @@
 from paraview.simple import *
 import paraview.benchmark
 import socket, os, sys, re
-import psutil
+import setup_plugins
 
-# ------------------------------
-# setup machine dependent things
-# ------------------------------
-hostname = socket.gethostname()
-if "carona" in hostname:
-  print(hostname + " contains Carona, laptop usage")
-  plugin_name = '/Users/biddisco/build/egpgv/bin/libpv_zoltan.dylib'
-#  data_path = '/Users/biddisco/data/sphflow/0100millions'
-  data_path = '/Users/biddisco/data/sphflow/0001millions/hdf5'
-else:
-  print("Running on some other machine")
-  plugin_name = '/Users/biddisco/build/egpgv/bin/libpv_zoltan.dylib'
-
-### Load pv-zoltan plugin
-paraview.servermanager.LoadPlugin(plugin_name)
+data_path = setup_plugins.load_plugins()
 
 # help(servermanager.vtkProcessModule.GetProcessModule())
 nranks = servermanager.vtkProcessModule.GetProcessModule().GetNumberOfLocalPartitions()
