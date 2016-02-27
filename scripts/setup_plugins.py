@@ -14,9 +14,11 @@ def load_plugins():
     plugins.append('/Users/biddisco/build/egpgv/bin/libpv_meshless.dylib')
   #  data_path = '/Users/biddisco/data/sphflow/0100millions'
     data_path = '/Users/biddisco/data/sphflow/0001millions/hdf5'
+    output_path = '/Users/biddisco/data/sphflow/resampled'
   elif "daint" in hostname:
     print("Running on some other machine")
     data_path = '/scratch/daint/biddisco/data/sphflow/medium'
+    output_path = '/scratch/daint/biddisco/data/sphflow/resampled'
     plugins.append('/scratch/daint/biddisco/egpgv/libpv_zoltan.so')
     plugins.append('/scratch/daint/biddisco/egpgv/libpv_meshless.so')
   else:
@@ -28,4 +30,4 @@ def load_plugins():
     print("Loading plugin " + p)
     paraview.servermanager.LoadPlugin(p)
 
-  return data_path
+  return [data_path,output_path]

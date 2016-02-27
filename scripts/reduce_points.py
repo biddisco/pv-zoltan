@@ -1,10 +1,26 @@
 #### import the simple module from the paraview
 from paraview.simple import *
 import paraview.benchmark
-import socket, os, sys, re
+import socket, os, sys, re, getopt
 import setup_plugins
 
-data_path = setup_plugins.load_plugins()
+try:
+  opts, args = getopt.getopt(sys.argv[1:],"r:",["resample="])
+except getopt.GetoptError:
+  print 'test.py -r <reduction factor>'
+  sys.exit(2)
+
+paths = setup_plugins.load_plugins()
+data_path = paths[0]
+output_path = paths[1]
+
+resample = 1
+for o, a in opts:
+    if o == "-r":
+        print("Resample factor " + str(a))
+        resample = int(a)
+    else:
+        assert False, "unhandled option" + str(o) + " " + str(a)
 
 # help(servermanager.vtkProcessModule.GetProcessModule())
 nranks = servermanager.vtkProcessModule.GetProcessModule().GetNumberOfLocalPartitions()
@@ -17,7 +33,6 @@ paraview.simple._DisableFirstRenderCameraReset()
 # set active view
 SetActiveView(None)
 
-# create a new 'H5Part'
 filelist = []
 
 for filename in os.listdir(data_path):
@@ -27,7 +42,7 @@ for filename in os.listdir(data_path):
 
 filelist = sorted(filelist)
 filelist = ["dambreak"+str(x)+".h5part" for x in filelist]
-filelist = filelist[-5:]
+filelist = filelist[-1:]
 print("List of files to work with is :", filelist)
 
 do_render = False
@@ -36,7 +51,7 @@ do_render = False
 paraview.benchmark.maximize_logs()
 
 # create an H5Part reader
-dambreak1h5part = H5Part(FileName=data_path + '/' + filelist[0])
+dambreak1h5part = H5Part(FileName=data_path + '/' + filelist[0], StepName="Fluid")
 
 for f in filelist:
   #raw_input("Press Enter to continue...")
@@ -52,18 +67,20 @@ for f in filelist:
 
   # create a new 'Mask Points'
   maskPoints1 = MaskPoints(Input=dambreak1h5part)
-
   # Properties modified on maskPoints1
   maskPoints1.MaximumNumberofPoints = 2147483647
+  maskPoints1.OnRatio = resample
+  maskPoints1.RandomSampling = 0
   maskPoints1.GenerateVertices = 1
   maskPoints1.SingleVertexPerCell = 1
   maskPoints1.ProportionallyDistributeMaximumNumberOfPoints = 1
   maskPoints1.UpdatePipeline()
 
-  print("Setting output to " + data_path + '/' + 'resampled_' + f)
+  print("Setting output to " + output_path + '/' + str(resample) + '_' + f)
   # create a new 'H5PartWriter'
   h5PartWriter1 = H5PartWriter(Input=maskPoints1)
-  h5PartWriter1.FileName = data_path + '/' + 'resampled_' + f;
+  h5PartWriter1.StepName = "Step"
+  h5PartWriter1.FileName = output_path + '/' + str(resample) + '_' + f;
   h5PartWriter1.UpdatePipeline()
 
   memory = []
