@@ -64,21 +64,29 @@ for f in filelist:
   dambreak1h5part.Yarray = 'Y'
   dambreak1h5part.Zarray = 'Z'
   dambreak1h5part.PointArrays = ['DeltaX', 'ID', 'Kind', 'P', 'VX', 'VY', 'VZ', 'Volume']
+  dambreak1h5part.UpdatePipeline()
+#  numPoints = dambreak1h5part.GetDataInformation().GetNumberOfPoints()
+#  resampled = numPoints / resample
+#  ratio = 
+#  print("Number of points is " + str(numPoints), "Resample ratio is ", resampled)
 
-  # create a new 'Mask Points'
-  maskPoints1 = MaskPoints(Input=dambreak1h5part)
-  # Properties modified on maskPoints1
-  maskPoints1.MaximumNumberofPoints = 2147483647
-  maskPoints1.OnRatio = resample
-  maskPoints1.RandomSampling = 0
-  maskPoints1.GenerateVertices = 1
-  maskPoints1.SingleVertexPerCell = 1
-  maskPoints1.ProportionallyDistributeMaximumNumberOfPoints = 1
-  maskPoints1.UpdatePipeline()
+  if resample>1:  
+    # create a new 'Mask Points'
+    maskPoints1 = MaskPoints(Input=dambreak1h5part)
+    maskPoints1.MaximumNumberofPoints = 2147483647
+    maskPoints1.OnRatio = resample
+    maskPoints1.RandomSampling = 0
+    maskPoints1.GenerateVertices = 1
+    maskPoints1.SingleVertexPerCell = 1
+    maskPoints1.ProportionallyDistributeMaximumNumberOfPoints = 1
+    maskPoints1.UpdatePipeline()
+    # create a new 'H5PartWriter'
+    h5PartWriter1 = H5PartWriter(Input=maskPoints1)
+  else:
+    # create a new 'H5PartWriter'
+    h5PartWriter1 = H5PartWriter(Input=dambreak1h5part)
 
   print("Setting output to " + output_path + '/' + str(resample) + '_' + f)
-  # create a new 'H5PartWriter'
-  h5PartWriter1 = H5PartWriter(Input=maskPoints1)
   h5PartWriter1.StepName = "Step"
   h5PartWriter1.FileName = output_path + '/' + str(resample) + '_' + f;
   h5PartWriter1.UpdatePipeline()
