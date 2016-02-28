@@ -100,7 +100,8 @@ for f in filelist:
     memory.append(int(localmem))
 
   average_mem = sum(memory) / (float(len(memory))*1024.0*1024.0)
-  print(memory, " Average memory ", average_mem)
+  print(memory)
+  print("Average memory ", average_mem, " ")
 
   print("\nMemory parse_logs "),
   paraview.benchmark.parse_logs(show_parse=True, tabular=True)
