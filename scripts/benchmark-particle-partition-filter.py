@@ -2,20 +2,22 @@
 from paraview.simple import *
 import paraview.benchmark
 import socket, os, sys, re, getopt
-import setup_plugins
+import setup_plugins, stats
 
 try:
-  opts, args = getopt.getopt(sys.argv[1:],"g:p:",["ghostoverlap=","filepath="])
+  opts, args = getopt.getopt(sys.argv[1:],"f:g:p:",["filter=","ghostoverlap=","filepath="])
 except getopt.GetoptError:
-  print 'test.py -g <ghost overlap>'
+  print 'test.py -g <ghost overlap>, -f <0=PPF, 1=D3>, -p inputfile'
   sys.exit(2)
 
 paths = setup_plugins.load_plugins()
 data_path = paths[0]
 output_path = paths[1]
+image_path = paths[2]
 
 filepath = ""
 ghostoverlap = 0
+filter = 0
 for o, a in opts:
     if o == "-g":
         print("ghostoverlap " + str(a))
@@ -23,6 +25,9 @@ for o, a in opts:
     elif o == "-p":
         print("filepath " + str(a))
         filepath = a
+    elif o == "-f":
+        filter = int(a)
+        print("filter ",  'PPF' if (filter==0) else 'D3')
     else:
         assert False, "unhandled option" + str(o) + " " + str(a)
 
@@ -33,6 +38,8 @@ print ('Number of processes ' + str(nranks) + ' this is rank ' + str(rank))
 
 #### disable automatic camera reset on 'Show'
 paraview.simple._DisableFirstRenderCameraReset()
+obj = servermanager.misc.GlobalMapperProperties()
+obj.GlobalImmediateModeRendering = 1
 
 # set active view
 SetActiveView(None)
@@ -40,7 +47,7 @@ SetActiveView(None)
 # create a new 'H5Part'
 filelist = []
 
-do_render = False
+do_render = True
 
 # Convenience method to ask paraview to produce logs with lots of space and highest resolution
 paraview.benchmark.maximize_logs()
@@ -55,15 +62,18 @@ dambreak1h5part.Xarray = 'Coords_0'
 dambreak1h5part.Yarray = 'Coords_1'
 dambreak1h5part.Zarray = 'Coords_2'
 dambreak1h5part.PointArrays = ['DeltaX', 'ID', 'Kind', 'P', 'VX', 'VY', 'VZ', 'Volume']
-dambreak1h5part.UpdatePipeline()
 
 # create a new 'Particle Partition Filter'
-particlePartitionFilter1 = ParticlePartitionFilter(Input=dambreak1h5part)
- # Properties modified on particlePartitionFilter1
-particlePartitionFilter1.WeightsScalarArray = ''
-particlePartitionFilter1.KeepInversePointLists = 0
-particlePartitionFilter1.Maxaspectratiobetweenboundingboxaxes = 5
-
+if (filter==0):
+  partitionFilter1 = ParticlePartitionFilter(Input=dambreak1h5part)
+  partitionFilter1.WeightsScalarArray = ''
+  partitionFilter1.KeepInversePointLists = 0
+  partitionFilter1.Maxaspectratiobetweenboundingboxaxes = 5
+else:
+  partitionFilter1 = D3(Input=dambreak1h5part)
+  partitionFilter1.MinimalMemory = 1
+  partitionFilter1.BoundaryMode = 'Assign cells uniquely'
+  
 if (do_render):
   # Create a new 'Render View'
   renderView1 = CreateView('RenderView')
@@ -72,49 +82,30 @@ if (do_render):
   renderView1.StereoType = 0
   renderView1.Background = [0.0, 0.0, 0.0]
 
-# show data in view
-#  damBreak_Display = Show(dambreak1h5part, renderView1)
-
-# reset view to fit data
-#  renderView1.ResetCamera()
-#  RenderAllViews()
-
-#  Hide(damBreak_Display, renderView1)
-# show data in view
+  # show data in view
+  partitionFilter1Display = Show(partitionFilter1, renderView1)
+  partitionFilter1Display.ColorArrayName = ('POINT_DATA', 'vtkGhostLevels')
 
   # reset view to fit data
-  renderView1.ResetCamera()
+  #renderView1.ResetCamera()
   
-# show data in view
-#particlePartitionFilter1Display = Show(particlePartitionFilter1, renderView1)
-#particlePartitionFilter1Display.ColorArrayName = ('POINT_DATA', 'vtkGhostLevels')
-
   # current camera placement for renderView1
-  renderView1.CameraPosition = [2.605978786945343, 0.0, 3.511761331785175]
-  renderView1.CameraFocalPoint = [2.605978786945343, 0.0, 0.2749998830695404]
-  renderView1.CameraParallelScale = 0.8377355073812321
+  renderView1.CameraPosition = [1.6058090848410411, -7.784277150391815, 1.031715159929654]
+  renderView1.CameraFocalPoint = [1.6058090848410411, 0.007768508687273745, 1.031715159929654]
+  renderView1.CameraViewUp = [0.0, 0.0, 1.0]
+  renderView1.CameraParallelScale = 2.0167298168780916
 
   #### uncomment the following to render all views
-  RenderAllViews()
+  #RenderAllViews()
 
   # alternatively, if you want to write images, you can use SaveScreenshot(...).
-  SaveScreenshot('image' + f + '.png')
+  imagename = image_path + '/' + os.path.basename(filepath) + '.png'
+  print('writing image ', imagename)
+  SaveScreenshot(imagename)
   
 else:
-  #particlePartitionFilter1.UpdatePipeline()
+  # Update
+  partitionFilter1.UpdatePipeline()
   pass
 
-memory = []
-print("\nMemory use (dropping client stats ")
-memuse = paraview.benchmark.get_memuse()[1:]
-for s in memuse:
-  localmem = s.split()[1]
-  print (s + ' ' + localmem)
-  memory.append(int(localmem))
-
-average_mem = sum(memory) / (float(len(memory))*1024.0*1024.0)
-print(memory)
-print("Average memory ", average_mem, " len ", len(memory))
-
-print("\nMemory parse_logs "),
-paraview.benchmark.parse_logs(show_parse=True, tabular=True)
+stats.dump_stats()
