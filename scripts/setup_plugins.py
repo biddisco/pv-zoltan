@@ -12,8 +12,8 @@ def load_plugins():
     print(hostname + " contains Carona, laptop usage")
     plugins.append('/Users/biddisco/build/egpgv/bin/libpv_zoltan.dylib')
     plugins.append('/Users/biddisco/build/egpgv/bin/libpv_meshless.dylib')
-  #  data_path = '/Users/biddisco/data/sphflow/0100millions'
-    data_path = '/Users/biddisco/data/sphflow/0001millions/hdf5'
+    data_path = '/Users/biddisco/data/sphflow/0100millions'
+  #  data_path = '/Users/biddisco/data/sphflow/0001millions/hdf5'
     output_path = '/Users/biddisco/data/sphflow/resampled'
   elif "daint" in hostname:
     print("Running on some other machine")

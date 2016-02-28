@@ -92,8 +92,8 @@ for f in filelist:
   h5PartWriter1.UpdatePipeline()
 
   memory = []
-  print("\nMemory use ")
-  memuse = paraview.benchmark.get_memuse()
+  print("\nMemory use (dropping client stats ")
+  memuse = paraview.benchmark.get_memuse()[1:]
   for s in memuse:
     localmem = s.split()[1]
     print (s + ' ' + localmem)
