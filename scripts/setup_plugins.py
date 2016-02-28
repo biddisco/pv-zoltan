@@ -17,13 +17,16 @@ def load_plugins():
     output_path = '/Users/biddisco/data/sphflow/resampled'
   elif "daint" in hostname:
     print("Running on some other machine")
-    data_path = '/scratch/daint/biddisco/data/sphflow/medium'
+    data_path = '/scratch/daint/biddisco/data/sphflow/big'
     output_path = '/scratch/daint/biddisco/data/sphflow/resampled'
     plugins.append('/scratch/daint/biddisco/egpgv/libpv_zoltan.so')
     plugins.append('/scratch/daint/biddisco/egpgv/libpv_meshless.so')
   else:
-    # error, we must put some paths in here
-    pass
+    print("Running on some other machine - using daint settings ", hostname)
+    data_path = '/scratch/daint/biddisco/data/sphflow/big'
+    output_path = '/scratch/daint/biddisco/data/sphflow/resampled'
+    plugins.append('/scratch/daint/biddisco/egpgv/libpv_zoltan.so')
+    plugins.append('/scratch/daint/biddisco/egpgv/libpv_meshless.so')
 
   ### Load pv-zoltan plugin
   for p in plugins:
