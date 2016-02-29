@@ -8,7 +8,7 @@ function write_script
 {
 TASKS=$[$NPERNODE * $NODES]
 FILE_PREFIX=$(printf '%d' ${REDUCTION})
-JOB_NAME=$(printf 'partition-%04d-%d-%06d-%d' ${NODES} ${NPERNODE} ${REDUCTION} ${FILTER})
+JOB_NAME=$(printf 'pghosts-%04d-%06d-%s' ${NODES} ${REDUCTION} ${GHOST})
 DIR_NAME=$(printf '%s' ${JOB_NAME})
 
 if [ -f $DIR_NAME/timing-log.txt ] ; then
@@ -55,7 +55,7 @@ export PV_PLUGIN_PATH=/scratch/daint/biddisco/egpgv
 
 export OMP_NUM_THREADS=1
 
-aprun -n ${TASKS} -N ${NPERNODE} /scratch/daint/biddisco/egpgv/pvbatch --use-offscreen-rendering --disable-xdisplay-test /scratch/daint/biddisco/egpgv/scripts/benchmark-particle-partition-filter.py -g 0 -f $FILTER -p /scratch/daint/biddisco/data/sphflow/resampled/${FILE_PREFIX}_dambreak21.h5part > timing-log.txt
+aprun -n ${TASKS} -N ${NPERNODE} /scratch/daint/biddisco/egpgv/pvbatch --use-offscreen-rendering --disable-xdisplay-test /scratch/daint/biddisco/egpgv/scripts/benchmark-particle-partition-filter.py -g $GHOST -f 0 -p /scratch/daint/biddisco/data/sphflow/resampled/${FILE_PREFIX}_dambreak21.h5part > timing-log.txt
 
 _EOF_
 
@@ -83,17 +83,14 @@ NPERNODE=1
 
 # Loop through all the parameter combinations generating jobs for each
 #for NODES in 32 64 128 256 512 1024
-for NODES in 2048 4096
+for NODES in 128 256 512 1024 2048 4096
 do
-  for NPERNODE in 1
-  do
-    for REDUCTION in 1 2 4 8 16 32 64 128 256 512 1024 
+    for REDUCTION in 1 
     do
-      for FILTER in 0 1
+      for GHOST in 0 0.01
       do 
         write_script
       done
     done
-  done
 done
 

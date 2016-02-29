@@ -108,4 +108,8 @@ else:
   partitionFilter1.UpdatePipeline()
   pass
 
+numPoints_1 = dambreak1h5part.GetDataInformation().GetNumberOfPoints()
+numPoints_2 = partitionFilter1.GetDataInformation().GetNumberOfPoints()
+print("Num Ghost Points ", numPoints_2-numPoints_1, " ")
+
 stats.dump_stats()
