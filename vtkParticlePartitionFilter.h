@@ -17,7 +17,7 @@
 //
 // .NAME vtkParticlePartitionFilter Efficiently distribute particle datasets in parallel
 // .SECTION Description
-// vtkParticlePartitionFilter is a parallel load balancing/partitioning 
+// vtkParticlePartitionFilter is a parallel load balancing/partitioning
 // filter for particle datasets. Halo regions may also be requested and particles
 // will be duplicated on bordering processes of these regions.
 // It uses the Zoltan library from the Trilinos package to perform the redistribution.
@@ -44,21 +44,13 @@ class VTK_EXPORT vtkParticlePartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     vtkTypeMacro(vtkParticlePartitionFilter,VTK_ZOLTAN_PARTITION_FILTER);
 
     // Description:
-    // The thickness of the region between each partition that is used for 
-    // ghost cell exchanges. Any particles within this overlap region of another
-    // processor will be duplicated on neighbouring processors (possibly multiple times
-    // at corner region overlaps)
-    vtkSetMacro(GhostCellOverlap, double);
-    vtkGetMacro(GhostCellOverlap, double);
-  
-    // Description:
     // Specify the point spacing on the X/Y/Z axis
     vtkSetMacro(GridSpacing, double);
     vtkGetMacro(GridSpacing, double);
 
     // Description
     // If Resolution[X/Y/Z]are all Non-zero, then
-    // the spacing is ignored and the box defined by the points is 
+    // the spacing is ignored and the box defined by the points is
     // sampled using the specified resolutions
     vtkSetVector3Macro(GridOrigin, double);
     vtkGetVector3Macro(GridOrigin, double);
@@ -72,11 +64,8 @@ class VTK_EXPORT vtkParticlePartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
                             vtkInformationVector**,
                             vtkInformationVector*);
 
-    void AddHaloToBoundingBoxes();
-
     void FindPointsInHaloRegions(vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData, PartitionInfo &ghost_info);
 
-    double                      GhostCellOverlap;
     double                      GridSpacing;
     double                      GridOrigin[3];
 

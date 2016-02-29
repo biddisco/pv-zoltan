@@ -102,7 +102,7 @@ int vtkZoltanBasePartitionFilter::size_count = 0;
 //----------------------------------------------------------------------------
 int vtkZoltanBasePartitionFilter::get_number_of_objects_points(void *data, int *ierr)
 {
-  int res = static_cast<CallbackData*>(data)->Input->GetNumberOfPoints(); 
+  int res = static_cast<CallbackData*>(data)->Input->GetNumberOfPoints();
   *ierr = (res < 0) ? ZOLTAN_FATAL : ZOLTAN_OK;
   return res;
 }
@@ -149,13 +149,14 @@ void vtkZoltanBasePartitionFilter::zoltan_pre_migrate_function_null(
 }
 
 //----------------------------------------------------------------------------
-// vtkZoltanBasePartitionFilter :: implementation 
+// vtkZoltanBasePartitionFilter :: implementation
 //----------------------------------------------------------------------------
 vtkZoltanBasePartitionFilter::vtkZoltanBasePartitionFilter()
 {
   this->UpdatePiece                    = 0;
   this->UpdateNumPieces                = 1;
   this->MaxAspectRatio                 = 5.0;
+  this->GhostHaloSize                  = 0.0;
   this->ExtentTranslator               = vtkSmartPointer<vtkBoundsExtentTranslator>::New();
   this->InputExtentTranslator          = NULL;
   this->ZoltanData                     = NULL;
@@ -177,9 +178,9 @@ vtkZoltanBasePartitionFilter::~vtkZoltanBasePartitionFilter()
   if (this->MigrateLists.num_found!=-1) {
     //vtkDebugMacro("Deleting InverseMigrationLists");
     Zoltan_LB_Free_Part(
-      &this->MigrateLists.found_global_ids, 
-      &this->MigrateLists.found_local_ids, 
-      &this->MigrateLists.found_procs, 
+      &this->MigrateLists.found_global_ids,
+      &this->MigrateLists.found_local_ids,
+      &this->MigrateLists.found_procs,
       &this->MigrateLists.found_to_part);
     // set to zero so we know data has been deleted
     this->MigrateLists.num_found = -1;
@@ -291,7 +292,7 @@ bool vtkZoltanBasePartitionFilter::GatherDataArrayInfo(
 
   }
   vtkMPICommunicator* com = vtkMPICommunicator::SafeDownCast(
-    this->Controller->GetCommunicator()); 
+    this->Controller->GetCommunicator());
   int result = com->AllGather((char*)MPI_IN_PLACE, (char*)&datatypes[0], sizeof(vtkZPF_datainfo));
   for (int i=0; i<this->UpdateNumPieces; i++) {
     vtkZPF_datainfo &newdata = datatypes[i];
@@ -328,7 +329,7 @@ int vtkZoltanBasePartitionFilter::GatherDataTypeInfo(vtkDataSet *input, vtkPoint
       int s = pdata->GetNumberOfStrips()>0 ? 8 : 0;
       datatypes[this->UpdatePiece].polydata_types = v + l + p + s;
   }
-  vtkMPICommunicator* com = vtkMPICommunicator::SafeDownCast(this->Controller->GetCommunicator()); 
+  vtkMPICommunicator* com = vtkMPICommunicator::SafeDownCast(this->Controller->GetCommunicator());
   int result = com->AllGather((const char *)MPI_IN_PLACE, (char *)&datatypes[0], sizeof(vtkZPF_datasetinfo));
   this->polydata_types = 0;
   for (int i=0; i<this->UpdateNumPieces; i++) {
@@ -348,7 +349,7 @@ int vtkZoltanBasePartitionFilter::GatherDataTypeInfo(vtkDataSet *input, vtkPoint
 }
 
 //-------------------------------------------------------------------------
-vtkBoundingBox vtkZoltanBasePartitionFilter::GetGlobalBounds(vtkDataSet *input) 
+vtkBoundingBox vtkZoltanBasePartitionFilter::GetGlobalBounds(vtkDataSet *input)
 {
   double bounds[6];
   input->GetBounds(bounds);
@@ -462,7 +463,7 @@ int vtkZoltanBasePartitionFilter::RequestInformation(
   vtkInformationVector* outputVector)
 {
 #ifdef VTK_USE_MPI
-  vtkMPICommunicator *communicator = 
+  vtkMPICommunicator *communicator =
     vtkMPICommunicator::SafeDownCast(this->Controller->GetCommunicator());
   int maxpieces = communicator ? communicator->GetNumberOfProcesses() : 1;
   //
@@ -817,10 +818,10 @@ MPI_Comm vtkZoltanBasePartitionFilter::GetMPIComm() {
 
 //----------------------------------------------------------------------------
 void vtkZoltanBasePartitionFilter::InitializeFieldDataArrayPointers(
-  CallbackData *callbackdata, 
-  vtkFieldData *infielddata, 
+  CallbackData *callbackdata,
+  vtkFieldData *infielddata,
   vtkFieldData *outfielddata,
-  vtkIdType Nfinal) 
+  vtkIdType Nfinal)
 {
   // make sure pointers for copying field data are set to each data array start
   // and the size of each data tuple is recorded so we can quickly do a memcpy
@@ -868,7 +869,7 @@ void vtkZoltanBasePartitionFilter::ComputeInvertLists(MigrationLists &migrationL
   migrationLists.found_procs      = NULL;
   migrationLists.found_to_part    = NULL;
   //
-  int zoltan_error = Zoltan_Invert_Lists(this->ZoltanData, 
+  int zoltan_error = Zoltan_Invert_Lists(this->ZoltanData,
     num_known,
     num_known>0 ? GlobalIdsPtr : NULL,
     NULL,
@@ -878,8 +879,8 @@ void vtkZoltanBasePartitionFilter::ComputeInvertLists(MigrationLists &migrationL
     &migrationLists.found_global_ids,
     &migrationLists.found_local_ids,
     &migrationLists.found_procs,
-    &migrationLists.found_to_part); 
-    
+    &migrationLists.found_to_part);
+
   if ( (zoltan_error != ZOLTAN_OK) )
   {
     printf("Zoltan_LB_Partition NOT OK\n");
@@ -917,7 +918,7 @@ int vtkZoltanBasePartitionFilter::ManualPointMigrate(MigrationLists &migrationLi
   int            *ProcsPtr     = migrationLists.known.ProcsPtr     ? migrationLists.known.ProcsPtr     : (migrationLists.known.Procs.size()>0     ? &migrationLists.known.Procs[0]     : NULL);
 
   //
-  // After invert lists is called, we now know 
+  // After invert lists is called, we now know
   // 1) how many points we are sending
   // 2) how many points we are receiving
   // 3) how many points we are sending - but also keeping locally (computed locally earlier)
@@ -931,11 +932,11 @@ int vtkZoltanBasePartitionFilter::ManualPointMigrate(MigrationLists &migrationLi
       migrationLists.known.LocalIdsToKeep, migrationLists.num_reserved,
       &this->ZoltanCallbackData, 0, 0,
       migrationLists.num_found, migrationLists.found_global_ids, migrationLists.found_local_ids,
-      migrationLists.found_procs, migrationLists.found_to_part, 
-      num_known, 
+      migrationLists.found_procs, migrationLists.found_to_part,
+      num_known,
       (num_known>0 ? GlobalIdsPtr : NULL),
       NULL,
-      (num_known>0 ? ProcsPtr : NULL), 
+      (num_known>0 ? ProcsPtr : NULL),
       NULL,
       &err
     );
@@ -945,11 +946,11 @@ int vtkZoltanBasePartitionFilter::ManualPointMigrate(MigrationLists &migrationLi
       migrationLists.known.LocalIdsToKeep, migrationLists.num_reserved,
       &this->ZoltanCallbackData, 0, 0,
       migrationLists.num_found, migrationLists.found_global_ids, migrationLists.found_local_ids,
-      migrationLists.found_procs, migrationLists.found_to_part, 
-      num_known, 
+      migrationLists.found_procs, migrationLists.found_to_part,
+      num_known,
       (num_known>0 ? GlobalIdsPtr : NULL),
-      NULL, 
-      (num_known>0 ? ProcsPtr : NULL), 
+      NULL,
+      (num_known>0 ? ProcsPtr : NULL),
       NULL,
       &err
     );
@@ -967,17 +968,17 @@ int vtkZoltanBasePartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLi
   int            *ProcsPtr     = migrationLists.known.ProcsPtr     ? migrationLists.known.ProcsPtr     : (migrationLists.known.Procs.size()>0     ? &migrationLists.known.Procs[0]     : NULL);
 
   //
-  // Register functions for packing and unpacking data by migration tools.  
+  // Register functions for packing and unpacking data by migration tools.
   //
   if (this->ZoltanCallbackData.PointType==VTK_FLOAT) {
     zsize_fn  f1 = zoltan_obj_size_function_pointdata<float>;
     zpack_fn  f2 = zoltan_pack_obj_function_pointdata<float>;
     zupack_fn f3 = zoltan_unpack_obj_function_pointdata<float>;
     zprem_fn  f4 = zoltan_pre_migrate_function_null;
-    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_OBJ_SIZE_FN_TYPE,       (void (*)()) f1, &this->ZoltanCallbackData); 
-    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PACK_OBJ_FN_TYPE,       (void (*)()) f2, &this->ZoltanCallbackData); 
-    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_UNPACK_OBJ_FN_TYPE,     (void (*)()) f3, &this->ZoltanCallbackData); 
-    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &this->ZoltanCallbackData); 
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_OBJ_SIZE_FN_TYPE,       (void (*)()) f1, &this->ZoltanCallbackData);
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PACK_OBJ_FN_TYPE,       (void (*)()) f2, &this->ZoltanCallbackData);
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_UNPACK_OBJ_FN_TYPE,     (void (*)()) f3, &this->ZoltanCallbackData);
+    Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &this->ZoltanCallbackData);
   }
   else if (this->ZoltanCallbackData.PointType==VTK_DOUBLE) {
     zsize_fn  f1 = zoltan_obj_size_function_pointdata<double>;
@@ -1002,10 +1003,10 @@ int vtkZoltanBasePartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLi
     migrationLists.found_local_ids,
     migrationLists.found_procs,
     migrationLists.found_to_part,
-    num_known, 
+    num_known,
     (num_known>0 ? GlobalIdsPtr : NULL),
-    NULL, 
-    (num_known>0 ? ProcsPtr : NULL), 
+    NULL,
+    (num_known>0 ? ProcsPtr : NULL),
     NULL
     );
 
@@ -1014,7 +1015,7 @@ int vtkZoltanBasePartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLi
     vtkDebugMacro("Partitioning complete " <<
       " pack_count : " << pack_count <<
       " size_count : " << size_count <<
-      " unpack_count : " << unpack_count 
+      " unpack_count : " << unpack_count
      );
 #endif
 
@@ -1025,9 +1026,9 @@ int vtkZoltanBasePartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLi
   //
   if (!keepinformation) {
     Zoltan_LB_Free_Part(
-      &migrationLists.found_global_ids, 
-      &migrationLists.found_local_ids, 
-      &migrationLists.found_procs, 
+      &migrationLists.found_global_ids,
+      &migrationLists.found_local_ids,
+      &migrationLists.found_procs,
       &migrationLists.found_to_part);
     // set to zero so we know data has been deleted
     migrationLists.num_found = -1;
@@ -1085,7 +1086,7 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanBasePartitionFilter::CreatePkdTree()
   typedef std::pair<struct rcb_tree*, int> cutpair;
   std::stack<cutpair> tree_stack;
   struct rcb_tree *nodept = &treept[0];
-  
+
   // push the root onto the stack
   if (nodept->right_leaf) {
     tree_stack.push(cutpair(&treept[nodept->right_leaf],-1));
@@ -1103,8 +1104,8 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanBasePartitionFilter::CreatePkdTree()
     cut_axis.push_back(nodept->dim);
 
     // we don't know where child nodes will be in the list yet
-    cut_lower.push_back(-1); 
-    cut_upper.push_back(-1); 
+    cut_lower.push_back(-1);
+    cut_upper.push_back(-1);
 
     // the new node we've just added to the list has this index
     int new_node_index = cut_position.size()-1;
@@ -1124,7 +1125,7 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanBasePartitionFilter::CreatePkdTree()
 
     // if this is a new 'normal' parent node with 2 children
     if (nodept->right_leaf > 0) {
-      // push two new nodes onto the stack : always push right(upper) then left(lower) 
+      // push two new nodes onto the stack : always push right(upper) then left(lower)
       // to make sure the left is processed/popped first and the array offset/indexes are correct
       // (since we don't know the child locations when we create them, save the parent ID
       // so that we can fill in the missing info when the children are created)
@@ -1138,30 +1139,30 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanBasePartitionFilter::CreatePkdTree()
       // create one leaf node, set the (region) Id for BSPCuts to use
       cut_position.push_back(0.0);
       cut_axis.push_back(0);
-      cut_lower.push_back(-remapping[RegionId]); 
-      cut_upper.push_back(-1); 
+      cut_lower.push_back(-remapping[RegionId]);
+      cut_upper.push_back(-1);
       // point the parent node to this leaf
-      cut_upper[new_node_index] = new_node_index+1; 
+      cut_upper[new_node_index] = new_node_index+1;
       RegionId++;
     }
     else {
       // create two leaf nodes, set the (region) Id for BSPCuts to use
       cut_position.push_back(0.0);
       cut_axis.push_back(0);
-      cut_lower.push_back(-remapping[RegionId]); 
-      cut_upper.push_back(-1); 
+      cut_lower.push_back(-remapping[RegionId]);
+      cut_upper.push_back(-1);
       RegionId++;
       cut_position.push_back(0.0);
       cut_axis.push_back(0);
-      cut_lower.push_back(-remapping[RegionId]); 
-      cut_upper.push_back(-1); 
+      cut_lower.push_back(-remapping[RegionId]);
+      cut_upper.push_back(-1);
       RegionId++;
       // the children are created now, so we know what the indices are
-      cut_lower[new_node_index] = new_node_index+1; 
-      cut_upper[new_node_index] = new_node_index+2; 
+      cut_lower[new_node_index] = new_node_index+1;
+      cut_upper[new_node_index] = new_node_index+2;
     }
   };
- 
+
   cuts->CreateCuts(
     this->ExtentTranslator->GetWholeBounds(),
     cut_axis.size(),
@@ -1184,8 +1185,8 @@ vtkSmartPointer<vtkPKdTree> vtkZoltanBasePartitionFilter::CreatePkdTree()
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
-int vtkZoltanBasePartitionFilter::zoltan_obj_size_function_pointdata(void *data, 
-  int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id, 
+int vtkZoltanBasePartitionFilter::zoltan_obj_size_function_pointdata(void *data,
+  int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id,
   ZOLTAN_ID_PTR local_id, int *ierr)
 {
   INC_SIZE_COUNT
@@ -1264,11 +1265,11 @@ bool vtkZoltanBasePartitionFilter::MigratePointData(vtkDataSetAttributes *inPoin
   zsize_fn  f1 = zoltan_obj_size_function_pointdata;
   zpack_fn  f2 = zoltan_pack_obj_function_pointdata;
   zupack_fn f3 = zoltan_unpack_obj_function_pointdata;
-  zprem_fn  f4 = zoltan_pre_migrate_function_pointdata; 
-  Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_OBJ_SIZE_FN_TYPE,       (void (*)()) f1, &this->ZoltanCallbackData); 
-  Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PACK_OBJ_FN_TYPE,       (void (*)()) f2, &this->ZoltanCallbackData); 
-  Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_UNPACK_OBJ_FN_TYPE,     (void (*)()) f3, &this->ZoltanCallbackData); 
-  Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &this->ZoltanCallbackData); 
+  zprem_fn  f4 = zoltan_pre_migrate_function_pointdata;
+  Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_OBJ_SIZE_FN_TYPE,       (void (*)()) f1, &this->ZoltanCallbackData);
+  Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PACK_OBJ_FN_TYPE,       (void (*)()) f2, &this->ZoltanCallbackData);
+  Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_UNPACK_OBJ_FN_TYPE,     (void (*)()) f3, &this->ZoltanCallbackData);
+  Zoltan_Set_Fn(this->ZoltanData, ZOLTAN_PRE_MIGRATE_PP_FN_TYPE, (void (*)()) f4, &this->ZoltanCallbackData);
 
   int N1 = this->ZoltanCallbackData.OutPointCount;
   // this sets internal flags used by CopyData to ensure arrays are marked for copying
@@ -1286,7 +1287,7 @@ bool vtkZoltanBasePartitionFilter::MigratePointData(vtkDataSetAttributes *inPoin
   vtkIdType maxID = 0, points_ok = 0;
   for (vtkIdType i=0; i<N2; i++) {
     // for each point that is staying on this process
-    if (this->ZoltanCallbackData.LocalToLocalIdMap[i]>=0) { 
+    if (this->ZoltanCallbackData.LocalToLocalIdMap[i]>=0) {
       vtkIdType newID = this->ZoltanCallbackData.LocalToLocalIdMap[i];
       outPointData->CopyData(inPointData, i, newID);
       this->ZoltanCallbackData.MigrationPointCount++;
@@ -1323,7 +1324,7 @@ bool vtkZoltanBasePartitionFilter::MigratePointData(vtkDataSetAttributes *inPoin
     vtkDebugMacro("MigratePointData complete on " << this->UpdatePiece <<
       " pack_count : " << pack_count <<
       " size_count : " << size_count <<
-      " unpack_count : " << unpack_count 
+      " unpack_count : " << unpack_count
      );
 #endif
 

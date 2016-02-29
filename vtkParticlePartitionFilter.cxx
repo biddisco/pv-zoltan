@@ -66,11 +66,10 @@
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkParticlePartitionFilter);
 //----------------------------------------------------------------------------
-// vtkParticlePartitionFilter :: implementation 
+// vtkParticlePartitionFilter :: implementation
 //----------------------------------------------------------------------------
 vtkParticlePartitionFilter::vtkParticlePartitionFilter()
 {
-  this->GhostCellOverlap = 0.0;
   this->GridSpacing      = 0.0;
   this->GridOrigin[0]    = this->GridOrigin[1] = this->GridOrigin[2] = 0.0;
 }
@@ -85,7 +84,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
 {
   //
   // Calculate even distribution of points across processes
-  // This step only performs the load balance analysis, 
+  // This step only performs the load balance analysis,
   // no actual sending of data takes place yet.
   //
     this->PartitionPoints(info, inputVector, outputVector);
@@ -98,13 +97,13 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   //
   // Initialize the halo regions around the computed bounding boxes of the distribution
   //
-  this->AddHaloToBoundingBoxes();
+  this->AddHaloToBoundingBoxes(this->GhostHaloSize);
 
   //
   // based on the point partition, decide which particles are ghost particles
   // and need to be sent/kept in addition to the default load balance
   //
-  // Concept: One algorithm would be to 
+  // Concept: One algorithm would be to
   // a) compute load balance (done in PartitionPoints above)
   // b) ascertain ghost particles based on the expected load balance
   // c) perform a particle exchange of all a+b) together in one go
@@ -112,7 +111,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // non-ghost particles to one process and ghost particles others - this means that the c) exchange must
   // send different ghost flags to different processes -  we can't just send/receive a normal list
   // but instead have to maintain a map of process/ghost/ID flags. This makes the send/receive
-  // more expensive as the maps must be checked for every particle sent (to each process). 
+  // more expensive as the maps must be checked for every particle sent (to each process).
   //
   // A second algorithm is to
   // a) compute load balance (done in PartitionPoints above)
@@ -142,13 +141,13 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
 
   // we want to reserve some extra space for the ghost particles when they are sent in
   this->MigrateLists.num_reserved = ghost_info.num_found;
-  
+
   //
   // Based on the original load balance step perform the point exchange for core particles
-  // pass in ghost info so that space can be allocated for the final 
+  // pass in ghost info so that space can be allocated for the final
   //
   // NB : not yet supporting retaining of migration lists for later point data exchange
-  this->ManualPointMigrate(this->MigrateLists, false); 
+  this->ManualPointMigrate(this->MigrateLists, false);
 
   // we have now allocated the output and filled the point data for non ghost Ids
   vtkIdType N = this->ZoltanCallbackData.Output->GetNumberOfPoints();
@@ -164,21 +163,21 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   for (; i<(N-ghost_info.num_found); i++) {
     ghost[i] = 0;
   }
-  
+
   for (; i<N; i++) {
     ghost[i] = 1;
   }
-  
+
 //  for (i=0; i<ghost_info.known.GlobalIds.size(); i++) {
 //    ghost[ghost_info.known.GlobalIds[i] - this->ZoltanCallbackData.ProcessOffsetsPointId[this->ZoltanCallbackData.ProcessRank]] = 1;
 //  }
-  
+
   // some local points were kept as they were inside the local ghost region, we need to mark them
   for (std::vector<vtkIdType>::iterator it = this->MigrateLists.known.LocalIdsToKeep.begin(); it!=this->MigrateLists.known.LocalIdsToKeep.end(); ++it) {
     vtkIdType Id = this->ZoltanCallbackData.LocalToLocalIdMap[*it];
     ghost[Id] = 2;
   }
-  
+
   // now exchange ghost cells too
   this->ZoltanPointMigrate(ghost_info, false);
 
@@ -190,7 +189,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
 //    Zoltan_LB_Free_Part(&this->LoadBalanceData.importGlobalGids, &this->LoadBalanceData.importLocalGids, &this->LoadBalanceData.importProcs, &this->LoadBalanceData.importToPart);
 //    Zoltan_LB_Free_Part(&this->LoadBalanceData.exportGlobalGids, &this->LoadBalanceData.exportLocalGids, &this->LoadBalanceData.exportProcs, &this->LoadBalanceData.exportToPart);
   }
-  
+
   //
   // If polydata create Vertices for each final point
   //
@@ -231,34 +230,6 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   return 1;
 }
 
-//----------------------------------------------------------------------------
-void vtkParticlePartitionFilter::AddHaloToBoundingBoxes()
-{
-  //
-  // Set the halo/ghost regions we need around each process bounding box
-  //  
-  this->BoxListWithHalo.clear();
-  if (this->InputExtentTranslator && this->InputExtentTranslator->GetBoundsHalosEnabled()) {
-    this->ExtentTranslator->SetBoundsHalosEnabled(1);
-    for (int p=0; p<this->UpdateNumPieces; p++) {
-      vtkBoundingBox box;  
-      box.SetBounds(this->InputExtentTranslator->GetBoundsHaloForPiece(p));
-      this->BoxListWithHalo.push_back(box);
-      this->ExtentTranslator->SetBoundsHaloForPiece(p,this->InputExtentTranslator->GetBoundsHaloForPiece(p));
-    }
-  }
-  else {
-    this->ExtentTranslator->SetBoundsHalosEnabled(1);
-    // @todo : extend this to handle AMR ghost regions etc.
-    std::vector<double> ghostOverlaps(this->UpdateNumPieces, this->GhostCellOverlap);
-    for (int p=0; p<this->UpdateNumPieces; p++) {
-      vtkBoundingBox box = this->BoxList[p];
-      box.Inflate(ghostOverlaps[p]);
-      this->BoxListWithHalo.push_back(box);
-      this->ExtentTranslator->SetBoundsHaloForPiece(p, box);
-    }
-  }
-}
 //-------------------------------------------------------------------------
 void vtkParticlePartitionFilter::FindPointsInHaloRegions(
   vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData, PartitionInfo &ghost_info)

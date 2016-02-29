@@ -60,13 +60,25 @@
       <DoubleVectorProperty
         name="MaxAspectRatio"
         command="SetMaxAspectRatio"
-        label="Max aspect ratio between bounding box axes"
+        label="Max Aspect Ratio of Boxes"
         number_of_elements="1"
         animateable="1"
         default_values="5.0" >
         <DoubleRangeDomain name="range" min="1" max="20.0"/>
         <Documentation>
           Max aspect ratio allowed between any bounding box axis
+        </Documentation>
+      </DoubleVectorProperty>
+
+      <DoubleVectorProperty
+        name="GhostHaloSize"
+        command="SetGhostHaloSize"
+        label="Ghost Halo Size"
+        number_of_elements="1"
+        animateable="1"
+        default_values="0.0">
+        <Documentation
+           short_help="Size needed for ghost cells">
         </Documentation>
       </DoubleVectorProperty>
 

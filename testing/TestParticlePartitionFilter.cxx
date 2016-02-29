@@ -151,7 +151,7 @@ int main (int argc, char* argv[])
       test.partitioner->SetPointWeightsArrayName("Weights");
   }
 //  test.partitioner->SetIdChannelArray("PointIds");
-  static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostCellOverlap(test.ghostOverlap);
+  static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostHaloSize(test.ghostOverlap);
   partition_elapsed = test.UpdatePartitioner();
 
   //--------------------------------------------------------------

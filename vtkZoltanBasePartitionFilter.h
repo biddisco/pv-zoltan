@@ -17,7 +17,7 @@
 //
 // .NAME vtkZoltanBasePartitionFilter Efficiently distribute datasets in parallel
 // .SECTION Description
-// vtkZoltanBasePartitionFilter is the abstract base class used for parallel 
+// vtkZoltanBasePartitionFilter is the abstract base class used for parallel
 // load balancing/partitioning using the Zoltan library from Trilinos.
 //
 // .SECTION See Also
@@ -99,16 +99,16 @@ class vtkInformationIntegerKey;
   #define INC_SIZE_COUNT size_count++;
   #define CLEAR_ZOLTAN_DEBUG pack_count = 0; size_count = 0; unpack_count = 0;
 #else
-  #define INC_PACK_COUNT 
-  #define INC_UNPACK_COUNT 
-  #define INC_SIZE_COUNT 
-  #define CLEAR_ZOLTAN_DEBUG 
+  #define INC_PACK_COUNT
+  #define INC_UNPACK_COUNT
+  #define INC_SIZE_COUNT
+  #define CLEAR_ZOLTAN_DEBUG
 #endif
 //----------------------------------------------------------------------------
 //
-// GCC has trouble resolving some templated function pointers, 
+// GCC has trouble resolving some templated function pointers,
 // we explicitly declare the types and then cast them as args where needed
-//    
+//
 typedef int  (*zsize_fn) (void *, int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int *);
 typedef void (*zpack_fn) (void *, int , int , ZOLTAN_ID_PTR , ZOLTAN_ID_PTR , int , int , char *, int *);
 typedef void (*zupack_fn)(void *, int , ZOLTAN_ID_PTR , int , char *, int *);
@@ -153,8 +153,8 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     // steps may be performed after the initial partition
     vtkSetMacro(KeepInversePointLists, int);
     vtkGetMacro(KeepInversePointLists, int);
-    vtkBooleanMacro(KeepInversePointLists, int);   
-  
+    vtkBooleanMacro(KeepInversePointLists, int);
+
     // Description:
     // If the input can be free during operation to make space for repartitioned data
     // use with extreme care. Modifying the input is not normal practice in VTK
@@ -186,6 +186,15 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     // Return the Imbalance value returned from Zoltan
     // only valid after the filter has executed
     float GetImbalanceValue() { return this->ImbalanceValue; }
+
+    // Description:
+    // The thickness of the region between each partition that is used for
+    // ghost cell exchanges. Any cells within this overlap region of another
+    // processor will be duplicated on neighbouring processors (possibly multiple times
+    // at corner region overlaps)
+    vtkSetMacro(GhostHaloSize, double);
+    vtkGetMacro(GhostHaloSize, double);
+
 
     //----------------------------------------------------------------------------
     // Structure to hold all the dataset/mesh/points related data we pass to
@@ -230,7 +239,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     typedef struct ZoltanLoadBalanceData {
       int changes, numGidEntries, numLidEntries, numImport, numExport;
       ZOLTAN_ID_PTR importGlobalGids;
-      ZOLTAN_ID_PTR importLocalGids; 
+      ZOLTAN_ID_PTR importLocalGids;
       ZOLTAN_ID_PTR exportGlobalGids;
       ZOLTAN_ID_PTR exportLocalGids;
       int *importProcs;
@@ -240,14 +249,14 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     } ZoltanLoadBalanceData;
 
     //----------------------------------------------------------------------------
-    // Structure we use as a temp storage for info about sending points to remote processors. 
+    // Structure we use as a temp storage for info about sending points to remote processors.
     // GlobalIds is the list of local Ids we are sending away, converted to Global Ids.
     // Procs is the list of destination ranks, must be same size as GlobalIds
-    // LocalIdsToKeep is a (usually) small subset of Ids which need to be copied 
+    // LocalIdsToKeep is a (usually) small subset of Ids which need to be copied
     // locally as well as sent remotely.
     //----------------------------------------------------------------------------
     typedef struct PartitionInfo {
-      // use either the vector 
+      // use either the vector
       std::vector<ZOLTAN_ID_TYPE> GlobalIds;
       std::vector<int>            Procs;
       // or the Ptr interface, if the Ptr vars are set, they will be used in preference to the vectors
@@ -290,17 +299,17 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     // templated here to alow float/double instances in our implementation
     template<typename T>
     static void get_geometry_list(
-      void *data, int sizeGID, int sizeLID, int num_obj, 
+      void *data, int sizeGID, int sizeLID, int num_obj,
       ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
       int num_dim, double *geom_vec, int *ierr);
 
     // Description:
-    // A ZOLTAN_OBJ_SIZE_FN query function returns the size (in bytes) of the data buffer 
+    // A ZOLTAN_OBJ_SIZE_FN query function returns the size (in bytes) of the data buffer
     // that is needed to pack all of a single object's data.
     // Here we add up the size of all the field arrays for points + the geometry itself
     template<typename T>
-    static int zoltan_obj_size_function_pointdata(void *data, 
-      int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id, 
+    static int zoltan_obj_size_function_pointdata(void *data,
+      int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id,
       ZOLTAN_ID_PTR local_id, int *ierr);
 
     // Description:
@@ -332,15 +341,15 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
       ZOLTAN_ID_PTR export_local_ids, int *export_procs, int *export_to_part, int *ierr);
 
     void InitializeFieldDataArrayPointers(
-      CallbackData *callbackdata, 
-      vtkFieldData *infielddata, 
+      CallbackData *callbackdata,
+      vtkFieldData *infielddata,
       vtkFieldData *outfielddata,
       vtkIdType Nfinal);
 
     virtual void InitializeZoltanLoadBalance();
     static void add_Id_to_interval_map(CallbackData *data, vtkIdType GID, vtkIdType LID);
     vtkIdType   global_to_local_Id(vtkIdType GID);
-  
+
     template<typename T>
     void CopyPointsToSelf(
       std::vector<vtkIdType> &LocalPointsToKeep, vtkIdType num_reserved,
@@ -352,8 +361,8 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     //
     // for migration of point data without geometry etc
     //
-    static int zoltan_obj_size_function_pointdata(void *data, 
-      int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id, 
+    static int zoltan_obj_size_function_pointdata(void *data,
+      int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id,
       ZOLTAN_ID_PTR local_id, int *ierr);
     static void zoltan_pack_obj_function_pointdata(void *data, int num_gid_entries, int num_lid_entries,
       ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr);
@@ -430,10 +439,10 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
                                    vtkInformationVector**,
                                    vtkInformationVector*);
     // Description:
-    virtual int RequestUpdateExtent(vtkInformation*, 
-                                    vtkInformationVector**, 
+    virtual int RequestUpdateExtent(vtkInformation*,
+                                    vtkInformationVector**,
                                     vtkInformationVector*);
-    
+
     // Description:
     virtual int RequestData(vtkInformation*,
                             vtkInformationVector**,
@@ -445,7 +454,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     virtual void GetZoltanBoundingBoxes(vtkBoundingBox &globalBounds) = 0;
 
     int PartitionPoints(vtkInformation* info, vtkInformationVector** inputVector, vtkInformationVector* outputVector);
-  
+
     void ComputeInvertLists(MigrationLists &migrationLists);
     int ManualPointMigrate(MigrationLists &migrationLists, bool keepinformation);
     int ZoltanPointMigrate(MigrationLists &migrationLists, bool keepinformation);
@@ -459,6 +468,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
     vtkBoundingBox                             *LocalBox;
     std::vector<vtkBoundingBox>                 BoxList;
     std::vector<vtkBoundingBox>                 BoxListWithHalo;
+    double                                      GhostHaloSize;
     //
     vtkMultiProcessController                  *Controller;
      //
