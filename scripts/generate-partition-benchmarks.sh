@@ -83,13 +83,13 @@ NPERNODE=1
 
 # Loop through all the parameter combinations generating jobs for each
 #for NODES in 32 64 128 256 512 1024
-for NODES in 2048 4096
+for NODES in 64 128 256 512 1024 2048 4096
 do
   for NPERNODE in 1
   do
     for REDUCTION in 1 2 4 8 16 32 64 128 256 512 1024 
     do
-      for FILTER in 0 1
+      for FILTER in 0 
       do 
         write_script
       done

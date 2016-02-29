@@ -69,6 +69,7 @@ if (filter==0):
   partitionFilter1.WeightsScalarArray = ''
   partitionFilter1.KeepInversePointLists = 0
   partitionFilter1.Maxaspectratiobetweenboundingboxaxes = 5
+  partitionFilter1.Maximumdistancerequiredforghostregionslargestkernelradius = ghostoverlap
 else:
   partitionFilter1 = D3(Input=dambreak1h5part)
   partitionFilter1.MinimalMemory = 1
@@ -110,6 +111,7 @@ else:
 
 numPoints_1 = dambreak1h5part.GetDataInformation().GetNumberOfPoints()
 numPoints_2 = partitionFilter1.GetDataInformation().GetNumberOfPoints()
+print("Num Dambreak Points ", numPoints_1, "Num PPF Points ", numPoints_2)
 print("Num Ghost Points ", numPoints_2-numPoints_1, " ")
 
 stats.dump_stats()
