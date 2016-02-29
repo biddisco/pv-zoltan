@@ -32,6 +32,6 @@ def dump_stats():
   #
   # grep "Execute vtkParticlePartitionFilter" slurm.out.log | awk '{print $(NF-1)}' | sort -nr | head -n1
   #
-  print("grep \"Execute vtkParticlePartitionFilter\" slurm.out | awk '{print $(NF-1)}' | sort -nr | head -n1")
-  print("grep \"Execute vtkDistributedDataFilter\" slurm.out | awk '{print $(NF-1)}' | sort -nr | head -n1")
+  print("grep \"Execute vtkParticlePartitionFilter\" timing-log.txt | awk '{print $(NF-1)}' | sort -nr | head -n1")
+  print("grep \"Execute vtkDistributedDataFilter\" timing-log.txt | awk '{print $(NF-1)}' | sort -nr | head -n1")
   
