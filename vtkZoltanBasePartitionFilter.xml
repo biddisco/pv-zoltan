@@ -60,7 +60,6 @@
       <DoubleVectorProperty
         name="MaxAspectRatio"
         command="SetMaxAspectRatio"
-        label="Max Aspect Ratio of Boxes"
         number_of_elements="1"
         animateable="1"
         default_values="5.0" >
@@ -73,7 +72,6 @@
       <DoubleVectorProperty
         name="GhostHaloSize"
         command="SetGhostHaloSize"
-        label="Ghost Halo Size"
         number_of_elements="1"
         animateable="1"
         default_values="0.0">

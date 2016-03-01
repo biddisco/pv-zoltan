@@ -65,13 +65,13 @@ dambreak1h5part.PointArrays = ['DeltaX', 'ID', 'Kind', 'P', 'VX', 'VY', 'VZ', 'V
 
 # create a new 'Particle Partition Filter'
 if (filter==0):
-  partitionFilter1 = ParticlePartitionFilter(Input=dambreak1h5part)
+  partitionFilter1 = ParticlePartitionFilter(Input=tetrahedralize1)
   partitionFilter1.WeightsScalarArray = ''
   partitionFilter1.KeepInversePointLists = 0
-  partitionFilter1.Maxaspectratiobetweenboundingboxaxes = 5
-  partitionFilter1.Maximumdistancerequiredforghostregionslargestkernelradius = ghostoverlap
+  partitionFilter1.MaxAspectRatio = 5
+  partitionFilter1.GhostHaloSize = ghostoverlap
 else:
-  partitionFilter1 = D3(Input=dambreak1h5part)
+  partitionFilter1 = D3(Input=tetrahedralize1)
   partitionFilter1.MinimalMemory = 1
   partitionFilter1.BoundaryMode = 'Assign cells uniquely'
   
