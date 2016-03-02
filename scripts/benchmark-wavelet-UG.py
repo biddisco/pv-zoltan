@@ -5,9 +5,9 @@ import socket, os, sys, re, getopt, math
 import setup_plugins, stats
 
 try:
-  opts, args = getopt.getopt(sys.argv[1:],"f:g:p:",["filter=","ghostoverlap=","filepath="])
+  opts, args = getopt.getopt(sys.argv[1:],"f:g:r:",["filter=","ghostoverlap=","res"])
 except getopt.GetoptError:
-  print 'test.py -g <ghost overlap>, -f <0=PPF, 1=D3>, -p inputfile'
+  print 'test.py -f <0=PPF, 1=D3>, -g <ghost>, -r <resolution>'
   sys.exit(2)
 
 paths = setup_plugins.load_plugins()
@@ -15,19 +15,19 @@ data_path = paths[0]
 output_path = paths[1]
 image_path = paths[2]
 
-filepath = ""
+resolution = 100
 ghostoverlap = 0
 filter = 0
 for o, a in opts:
-    if o == "-g":
-        print("ghostoverlap " + str(a))
-        ghostoverlap = float(a)
-    elif o == "-p":
-        print("filepath " + str(a))
-        filepath = a
-    elif o == "-f":
+    if o == "-f":
         filter = int(a)
         print("filter ",  'PPF' if (filter==0) else 'D3')
+    elif o == "-g":
+        print("ghostoverlap " + str(a))
+        ghostoverlap = float(a)
+    elif o == "-r":
+        print("resolution " + str(a))
+        resolution = int(a)
     else:
         assert False, "unhandled option" + str(o) + " " + str(a)
 
@@ -42,7 +42,7 @@ paraview.simple._DisableFirstRenderCameraReset()
 # Pipeline
 ##############
 
-numcells = 100*100*100*nranks
+numcells = resolution*resolution*resolution*nranks
 sidelength = 1 + int(math.pow(numcells, 1.0/3.0)/2)
 print("Wavelet size {-" + str(sidelength) + "," + str(sidelength) + "}") 
 print("Wavelet numcells " + str(8*sidelength*sidelength*sidelength)) 
@@ -61,7 +61,7 @@ filter2 = tetrahedralize1
 # create a new 'Particle Partition Filter'
 if (filter==0):
   partitionFilter1 = MeshPartitionFilter(Input=filter2)
-  partitionFilter1.PointWeightsArrayName
+  partitionFilter1.PointWeightsArrayName = ''
   partitionFilter1.KeepInversePointLists = 0
   partitionFilter1.MaxAspectRatio = 5
   partitionFilter1.GhostHaloSize = ghostoverlap
