@@ -8,7 +8,7 @@ import socket, os, sys, re
 def load_plugins():
   hostname = socket.gethostname()
   plugins = []
-  if "carona" in hostname:
+  if "carona" in hostname or "public" in hostname:
     print(hostname + " contains Carona, laptop usage")
     data_path = '/Users/biddisco/data/sphflow/0100millions'
   #  data_path = '/Users/biddisco/data/sphflow/0001millions/hdf5'
