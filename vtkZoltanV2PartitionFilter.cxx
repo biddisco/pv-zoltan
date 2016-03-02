@@ -71,7 +71,13 @@
 #include "zz_const.h"
 #include "rcb.h"
 //
-#include "vtkZoltanBasePartitionFilter.txx"
+//#include "vtkZoltanBasePartitionFilter.txx"
+
+#include <Zoltan2_PartitioningSolution.hpp>
+#include <Zoltan2_PartitioningProblem.hpp>
+#include <Zoltan2_BasicVectorAdapter.hpp>
+#include <Zoltan2_InputTraits.hpp>
+
 
 //----------------------------------------------------------------------------
 #if defined ZOLTAN_DEBUG_OUTPUT && !defined VTK_WRAPPING_CXX
@@ -94,10 +100,12 @@ vtkStandardNewMacro(vtkZoltanV2PartitionFilter);
 //----------------------------------------------------------------------------
 vtkZoltanV2PartitionFilter::vtkZoltanV2PartitionFilter()
 {
+  this->ZoltanParams = new Teuchos::ParameterList;
 }
 //----------------------------------------------------------------------------
 vtkZoltanV2PartitionFilter::~vtkZoltanV2PartitionFilter()
 {
+  if (this->ZoltanParams) delete this->ZoltanParams;
 }
 
 //----------------------------------------------------------------------------
@@ -114,16 +122,17 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
 
     // Zoltan 2 parameters
     double tolerance = 1.1;
-    this->ZoltanParams = Teuchos::ParameterList("test params");
-    this->ZoltanParams.set("debug_level", "basic_status");
-    this->ZoltanParams.set("debug_procs", "0");
-    this->ZoltanParams.set("error_check_level", "debug_mode_assertions");
-    this->ZoltanParams.set("compute_metrics", "true");
-    this->ZoltanParams.set("algorithm", "multijagged");
-    this->ZoltanParams.set("imbalance_tolerance", tolerance);
-    this->ZoltanParams.set("num_global_parts", nprocs);
-    this->ZoltanParams.set("bisection_num_test_cuts", 1);
-    this->ZoltanParams.set("mj_keep_part_boxes", 1);
+    if (this->ZoltanParams) delete this->ZoltanParams;
+    this->ZoltanParams = new Teuchos::ParameterList("test params");
+    this->ZoltanParams->set("debug_level", "basic_status");
+    this->ZoltanParams->set("debug_procs", "0");
+    this->ZoltanParams->set("error_check_level", "debug_mode_assertions");
+    this->ZoltanParams->set("compute_metrics", "true");
+    this->ZoltanParams->set("algorithm", "multijagged");
+    this->ZoltanParams->set("imbalance_tolerance", tolerance);
+    this->ZoltanParams->set("num_global_parts", nprocs);
+    this->ZoltanParams->set("bisection_num_test_cuts", 1);
+    this->ZoltanParams->set("mj_keep_part_boxes", 1);
 
     /*
     Zoltan2 all parameters
@@ -219,7 +228,7 @@ struct vtkZoltan2Helper
 
         if (weightarray==NULL) {
             InputAdapter = new inputAdapter_t(localCount, globalIds, x, y, z, stride, stride, stride);
-            problem1     = new result_type(InputAdapter, &self->ZoltanParams);
+            problem1     = new result_type(InputAdapter, self->ZoltanParams);
         }
         else {
             // coordinates
@@ -233,7 +242,7 @@ struct vtkZoltan2Helper
                 localCount, globalIds,
                 coordVec, coordStrides,
                 weightVec, weightStrides);
-            problem1    = new Zoltan2::PartitioningProblem<inputAdapter_t>(InputAdapter, &self->ZoltanParams);
+            problem1    = new Zoltan2::PartitioningProblem<inputAdapter_t>(InputAdapter, self->ZoltanParams);
         }
         // Solve the problem
         problem1->solve();

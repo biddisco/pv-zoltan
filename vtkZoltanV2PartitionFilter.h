@@ -37,12 +37,6 @@
 #include "vtkZoltanBasePartitionFilter.h"
 #include "zoltan.h"
 
-#include <Zoltan2_PartitioningSolution.hpp>
-#include <Zoltan2_PartitioningProblem.hpp>
-#include <Zoltan2_BasicVectorAdapter.hpp>
-#include <Zoltan2_InputTraits.hpp>
-
-
 // standard vtk classes
 class  vtkMultiProcessController;
 class  vtkPoints;
@@ -59,7 +53,9 @@ class  vtkBoundsExtentTranslator;
 class vtkInformationDataObjectMetaDataKey;
 class vtkInformationIntegerRequestKey;
 class vtkInformationIntegerKey;
-
+namespace Teuchos {
+  class ParameterList;
+}
 //----------------------------------------------------------------------------
 //
 // GCC has trouble resolving some templated function pointers, 
@@ -100,7 +96,7 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkZoltanBasePartitionFilte
     template<typename U>
     friend struct vtkZoltan2Helper;
 //ETX
-    Teuchos::ParameterList ZoltanParams;
+    Teuchos::ParameterList *ZoltanParams;
 
   private:
     vtkZoltanV2PartitionFilter(const vtkZoltanV2PartitionFilter&);  // Not implemented.
