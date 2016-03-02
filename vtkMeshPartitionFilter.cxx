@@ -294,7 +294,7 @@ int vtkMeshPartitionFilter::zoltan_obj_size_function_cell(void *data, int num_gi
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int *ierr)
 {
   INC_SIZE_COUNT
-  VTK_ZOLTAN_PARTITION_FILTER::CallbackData *callbackdata = (VTK_ZOLTAN_PARTITION_FILTER::CallbackData*)data;
+  vtkZoltanBasePartitionFilter::CallbackData *callbackdata = (vtkZoltanBasePartitionFilter::CallbackData*)data;
   *ierr = ZOLTAN_OK;
   // return the size of the cell data + number of points in cell + point Ids
   vtkIdType GID = *global_id;
@@ -320,7 +320,7 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
   ZOLTAN_ID_PTR global_id, ZOLTAN_ID_PTR local_id, int dest, int size, char *buf, int *ierr)
 {
   INC_PACK_COUNT
-  VTK_ZOLTAN_PARTITION_FILTER::CallbackData *callbackdata = (VTK_ZOLTAN_PARTITION_FILTER::CallbackData*)data;
+  vtkZoltanBasePartitionFilter::CallbackData *callbackdata = (vtkZoltanBasePartitionFilter::CallbackData*)data;
   vtkIdType GID = *global_id;
   vtkIdType LID = GID - callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank];
   //
@@ -390,7 +390,7 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
   ZOLTAN_ID_PTR global_id, int size, char *buf, int *ierr)
 {
   INC_UNPACK_COUNT
-  VTK_ZOLTAN_PARTITION_FILTER::CallbackData *callbackdata = (VTK_ZOLTAN_PARTITION_FILTER::CallbackData*)data;
+  vtkZoltanBasePartitionFilter::CallbackData *callbackdata = (vtkZoltanBasePartitionFilter::CallbackData*)data;
   //
   vtkIdType GID = *global_id;
 //  vtkIdType LID = GID - callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank];

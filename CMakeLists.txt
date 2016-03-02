@@ -128,11 +128,13 @@ Git_External(
 #--------------------------------------------------
 # option to use old zoltan 1 version
 #--------------------------------------------------
-option(PV_ZOLTAN_USE_ZOLTAN_1 "Use version 1 of zoltan (legacy)" OFF)
+option(PV_ZOLTAN_USE_ZOLTAN_1 "Use version 1 of zoltan (legacy)" ON)
 if(PV_ZOLTAN_USE_ZOLTAN_1)
   add_definitions(-DVTK_ZOLTAN1_PARTITION_FILTER)
+  set(VTK_ZOLTAN_PARTITION_FILTER vtkZoltanV1PartitionFilter)
 else()
   add_definitions(-DVTK_ZOLTAN2_PARTITION_FILTER)
+  set(VTK_ZOLTAN_PARTITION_FILTER vtkZoltanV2PartitionFilter)
 endif()
 
 #--------------------------------------------------
@@ -235,6 +237,18 @@ else()
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV2PartitionFilter.xml
   )
 endif()
+
+#--------------------------------------------------------
+# Create headers with correct base class
+# this is needed to keep the Client/Server wrapping happy
+#--------------------------------------------------------
+include_directories(${PROJECT_BINARY_DIR})
+CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/vtkParticlePartitionFilter.hxx
+               ${PROJECT_BINARY_DIR}/vtkParticlePartitionFilter.h
+               @ONLY IMMEDIATE)
+CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/vtkMeshPartitionFilter.hxx
+               ${PROJECT_BINARY_DIR}/vtkMeshPartitionFilter.h
+               @ONLY IMMEDIATE)
 
 # --------------------------------------------------
 # Plugin config

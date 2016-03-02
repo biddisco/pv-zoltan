@@ -17,8 +17,8 @@
 //
 // .NAME vtkMeshPartitionFilter Efficiently distribute PolyData or UnstructuredGrid datasets in parallel
 // .SECTION Description
-// vtkMeshPartitionFilter is a parallel load balancing/partitioning 
-// filter for PolyData or UnstructuredGrid datasets. 
+// vtkMeshPartitionFilter is a parallel load balancing/partitioning
+// filter for PolyData or UnstructuredGrid datasets.
 // It uses the Zoltan library from the Trilinos package to perform the redistribution.
 
 #ifndef __vtkMeshPartitionFilter_h
@@ -40,11 +40,11 @@ class vtkUnsignedCharArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
-class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
+class VTK_EXPORT vtkMeshPartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
 {
   public:
     static vtkMeshPartitionFilter *New();
-    vtkTypeMacro(vtkMeshPartitionFilter, VTK_ZOLTAN_PARTITION_FILTER);
+    vtkTypeMacro(vtkMeshPartitionFilter, @VTK_ZOLTAN_PARTITION_FILTER@);
     void PrintSelf(ostream& os, vtkIndent indent);
 
     template <typename T>
@@ -67,10 +67,10 @@ class VTK_EXPORT vtkMeshPartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
     template <typename T>
     void BuildCellToProcessList(
       vtkPointSet *data,
-      PartitionInfo &cell_partitioninfo, 
-      PartitionInfo &point_partitioninfo, 
+      PartitionInfo &cell_partitioninfo,
+      PartitionInfo &point_partitioninfo,
       ZoltanLoadBalanceData &loadBalanceData);
-  
+
     enum GhostAlgorithm {
         None        = 0,
         Boundary    = 1,

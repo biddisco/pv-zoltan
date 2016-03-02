@@ -37,11 +37,11 @@ class vtkIntArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
-class VTK_EXPORT vtkParticlePartitionFilter : public VTK_ZOLTAN_PARTITION_FILTER
+class VTK_EXPORT vtkParticlePartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
 {
   public:
     static vtkParticlePartitionFilter *New();
-    vtkTypeMacro(vtkParticlePartitionFilter,VTK_ZOLTAN_PARTITION_FILTER);
+    vtkTypeMacro(vtkParticlePartitionFilter, @VTK_ZOLTAN_PARTITION_FILTER@);
 
     // Description:
     // Specify the point spacing on the X/Y/Z axis

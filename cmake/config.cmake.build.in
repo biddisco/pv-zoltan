@@ -8,6 +8,16 @@ GET_FILENAME_COMPONENT (SELF_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 #-----------------------------------------------------------------------------
 set (pv_zoltan_BUILD_SHARED_LIBS    @BUILD_SHARED_LIBS@)
 
+set(PV_ZOLTAN_USE_ZOLTAN_1 @PV_ZOLTAN_USE_ZOLTAN_1@)
+
+if(PV_ZOLTAN_USE_ZOLTAN_1)
+  add_definitions(-DVTK_ZOLTAN1_PARTITION_FILTER)
+  set(VTK_ZOLTAN_PARTITION_FILTER VTK_ZOLTAN1_PARTITION_FILTER)
+else()
+  add_definitions(-DVTK_ZOLTAN2_PARTITION_FILTER)
+  set(VTK_ZOLTAN_PARTITION_FILTER VTK_ZOLTAN2_PARTITION_FILTER)
+endif()
+
 #-----------------------------------------------------------------------------
 # Dependencies
 #-----------------------------------------------------------------------------
