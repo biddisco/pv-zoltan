@@ -41,8 +41,7 @@
         animateable="0"
         default_values="Volume"
         default_regex_delimiter=","
-        default_regex="^[Mm][Aa][Ss][Ss]$"
-        label="Weights Scalar Array">
+        default_regex="^[Mm][Aa][Ss][Ss]$">
         <ArrayListDomain
           name="array_list"
           attribute_type="Scalars"

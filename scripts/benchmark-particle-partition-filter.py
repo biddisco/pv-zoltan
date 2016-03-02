@@ -65,8 +65,8 @@ dambreak1h5part.PointArrays = ['DeltaX', 'ID', 'Kind', 'P', 'VX', 'VY', 'VZ', 'V
 
 # create a new 'Particle Partition Filter'
 if (filter==0):
-  partitionFilter1 = ParticlePartitionFilter(Input=tetrahedralize1)
-  partitionFilter1.WeightsScalarArray = ''
+  partitionFilter1 = ParticlePartitionFilter(Input=dambreak1h5part)
+  partitionFilter1.PointWeightsArrayName = ''
   partitionFilter1.KeepInversePointLists = 0
   partitionFilter1.MaxAspectRatio = 5
   partitionFilter1.GhostHaloSize = ghostoverlap
