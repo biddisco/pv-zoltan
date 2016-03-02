@@ -478,11 +478,8 @@ int vtkZoltanBasePartitionFilter::RequestInformation(
 
   outInfo->Set(vtkBoundsExtentTranslator::META_DATA(), this->ExtentTranslator);
   //
-  outInfo->Set(vtkBoundsExtentTranslator::META_DATA(),
-               inInfo->Get(vtkBoundsExtentTranslator::META_DATA()));
-  //
-//  outInfo->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
-  //
+  //outInfo->Set(vtkBoundsExtentTranslator::META_DATA(),
+  //             inInfo->Get(vtkBoundsExtentTranslator::META_DATA()));
   outInfo->Set(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT(),
                inInfo->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT()),
                6);
