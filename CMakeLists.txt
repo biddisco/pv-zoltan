@@ -220,11 +220,18 @@ endif()
 # Zoltan libs for plugin
 # --------------------------------------------------
 
-if(NOT PV_ZOLTAN_USE_ZOLTAN_1)
-  SET(ZOLTAN_V2_FILTER
+if(PV_ZOLTAN_USE_ZOLTAN_1)
+  SET(ZOLTAN_FILTER
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.cxx
+  )
+  SET(ZOLTAN_XML
+    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.xml
+  )
+else()
+  SET(ZOLTAN_FILTER
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV2PartitionFilter.cxx
   )
-  SET(ZOLTAN_V2_XML
+  SET(ZOLTAN_XML
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV2PartitionFilter.xml
   )
 endif()
@@ -245,8 +252,7 @@ ADD_PARAVIEW_PLUGIN(
 
   SERVER_MANAGER_XML     
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanBasePartitionFilter.xml
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.xml
-    ${ZOLTAN_V2_XML}
+    ${ZOLTAN_XML}
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.xml
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.xml
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkPartitionOutline.xml
@@ -258,8 +264,7 @@ ADD_PARAVIEW_PLUGIN(
 
   SERVER_MANAGER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanBasePartitionFilter.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkZoltanV1PartitionFilter.cxx
-    ${ZOLTAN_V2_FILTER}
+    ${ZOLTAN_FILTER}
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkBoundsExtentTranslator.cxx
