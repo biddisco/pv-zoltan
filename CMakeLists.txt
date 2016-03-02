@@ -281,7 +281,7 @@ ADD_PARAVIEW_PLUGIN(
     ${ZOLTAN_FILTER}
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkParticlePartitionFilter.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkMeshPartitionFilter.cxx
-    ${CMAKE_CURRENT_SOURCE_DIR}/vtkBoundsExtentTranslator.cxx
+#    ${CMAKE_CURRENT_SOURCE_DIR}/vtkBoundsExtentTranslator.cxx
     ${CMAKE_CURRENT_SOURCE_DIR}/vtkPartitionOutline.cxx
 
   GUI_INTERFACES 
