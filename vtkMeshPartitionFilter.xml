@@ -18,6 +18,17 @@
          short_help="Partitioning of PolyData or UnstructuredGrid Meshes in parallel">
       </Documentation>
 
+      <IntVectorProperty
+        name="KeepGhostRankArray"
+        command="SetKeepGhostRankArray"
+        number_of_elements="1"
+        default_values="0" >
+        <BooleanDomain name="bool"/>
+        <Documentation>
+          When set, internal debugging arrays are exported
+        </Documentation>
+      </IntVectorProperty>
+
       <Hints>
         <ShowInMenu category="Zoltan" />
       </Hints>
