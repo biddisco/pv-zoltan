@@ -120,7 +120,7 @@ IF (processors)
       -generateParticles 1000
       -particleGenerator 0
       -ghostOverlap 100
-      -scalarName vtkGhostLevels
+      -scalarName vtkGhostType
       -scalarMode 0
       -scalarRange "0 1"
       -actorShift 0.5

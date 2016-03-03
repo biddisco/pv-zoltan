@@ -154,7 +154,7 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
 
   // create a ghost array
   vtkSmartPointer<vtkUnsignedCharArray> GhostArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
-  GhostArray->SetName("vtkGhostLevels");
+  GhostArray->SetName("vtkGhostType");
   GhostArray->SetNumberOfComponents(1);
   GhostArray->SetNumberOfTuples(N);
   unsigned char *ghost = GhostArray->GetPointer(0);

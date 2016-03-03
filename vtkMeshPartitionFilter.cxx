@@ -1045,7 +1045,7 @@ void vtkMeshPartitionFilter::UnmarkInvalidGhostCells(vtkPointSet *outdata)
     vtkIdType numCells = outdata->GetNumberOfCells();
     // ghost_cell_flags is passed downstream and holds the real ghost type flags
     this->ghost_cell_flags = vtkUnsignedCharArray::New();
-    this->ghost_cell_flags->SetName("vtkG");
+    this->ghost_cell_flags->SetName("vtkGhostType");
     this->ghost_cell_flags->SetNumberOfTuples(numCells);
     //
 

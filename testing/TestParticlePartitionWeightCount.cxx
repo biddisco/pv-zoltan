@@ -1,10 +1,10 @@
 // mpishim : C:\Program Files (x86)\Microsoft Visual Studio 10.0\Common7\IDE\Remote Debugger\x64\mpishim100.exe
-// mpiexec : C:\Program Files\MPICH2\bin\mpiexec.exe 
+// mpiexec : C:\Program Files\MPICH2\bin\mpiexec.exe
 // mpiargs : -localonly -n 2 -env PATH C:\cmakebuild\pv-meshless\bin\debug;c:\bin
 
 #ifdef _WIN32
 #include <windows.h>
-#else 
+#else
 #include <sys/time.h>
 #endif
 
@@ -214,7 +214,7 @@ int main (int argc, char* argv[])
             }
             //        pd->PrintSelf(std::cout, vtkIndent(0));
             vtkFloatArray *weights = vtkFloatArray::SafeDownCast(pd->GetPointData()->GetArray("Weights"));
-            vtkUnsignedCharArray *ghosts = vtkUnsignedCharArray::SafeDownCast(pd->GetPointData()->GetArray("vtkGhostLevels"));
+            vtkUnsignedCharArray *ghosts = vtkUnsignedCharArray::SafeDownCast(pd->GetPointData()->GetArray("vtkGhostType"));
 
             for (int n = 0; n < weights->GetNumberOfTuples(); ++n)
             {
