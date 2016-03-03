@@ -29,7 +29,7 @@ cat << _EOF_ > ${DIR_NAME}/slurm-exp.bash
 #SBATCH --nodes=${NODES}
 #SBATCH --ntasks-per-node=${NPERNODE}
 #SBATCH --distribution=cyclic
-#SBATCH --time=00:25:00
+#SBATCH --time=01:25:00
 #SBATCH --exclusive
 #SBATCH --constraint=startx
 

@@ -42,6 +42,8 @@ paraview.simple._DisableFirstRenderCameraReset()
 # Pipeline
 ##############
 
+
+
 numcells = resolution*resolution*resolution*nranks
 sidelength = 1 + int(math.pow(numcells, 1.0/3.0)/2)
 print("Wavelet size {-" + str(sidelength) + "," + str(sidelength) + "}") 
@@ -111,6 +113,8 @@ shrink1Display = Show(filter4, renderView1)
 # trace defaults for the display properties.
 shrink1Display.ColorArrayName = ['POINTS', 'RTData']
 shrink1Display.LookupTable = rTDataLUT
+shrink1Display.SetRepresentationType('Surface')
+shrink1Display.ScalarOpacityUnitDistance = 1.7
 
 # reset view to fit data
 #renderView1.ResetCamera()
