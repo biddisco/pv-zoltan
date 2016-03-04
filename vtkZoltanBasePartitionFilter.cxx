@@ -71,7 +71,6 @@
 #include "zz_const.h"
 #include "rcb.h"
 //
-#include "vtkZoltanBasePartitionFilter.txx"
 //----------------------------------------------------------------------------
 vtkCxxSetObjectMacro(vtkZoltanBasePartitionFilter, Controller, vtkMultiProcessController);
 vtkInformationKeyMacro(vtkZoltanBasePartitionFilter, ZOLTAN_SAMPLE_RESOLUTION, DoubleVector);
@@ -94,6 +93,10 @@ int vtkZoltanBasePartitionFilter::size_count = 0;
 # undef  vtkErrorMacro
 # define vtkErrorMacro(a) vtkDebugMacro(a)
 #endif
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+#include "vtkZoltanBasePartitionFilter.txx"
+//----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
 
@@ -679,6 +682,7 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
   // This also stops hangs during collective operations by ensuring all ranks participate
   // we must not modfiy the input, so make a copy
   //
+  vtkDebugMacro("Creating copy of input PointData")
   vtkPointData *inputPointData = input->GetPointData();
   this->ZoltanCallbackData.InputPointData = inputPointData->NewInstance();
   this->ZoltanCallbackData.InputPointData->ShallowCopy(inputPointData);
@@ -829,7 +833,6 @@ void vtkZoltanBasePartitionFilter::InitializeFieldDataArrayPointers(
   callbackdata->OutputArrayPointers.clear();
   callbackdata->NumberOfFields = outfielddata->GetNumberOfArrays();
   vtkDebugMacro("InitializeFieldDataArrayPointers "
-                << outfielddata->GetNumberOfArrays()
                 << ", in " <<infielddata->GetNumberOfArrays()
                 << " out " << outfielddata->GetNumberOfArrays());
   for (int i=0; i<outfielddata->GetNumberOfArrays(); i++) {
@@ -1270,6 +1273,9 @@ bool vtkZoltanBasePartitionFilter::MigratePointData(vtkDataSetAttributes *inPoin
 
   int N1 = this->ZoltanCallbackData.OutPointCount;
   // this sets internal flags used by CopyData to ensure arrays are marked for copying
+  vtkDebugMacro("Setting up point data with "
+      << inPointData->GetNumberOfArrays() << " "
+      << outPointData->GetNumberOfArrays());
   outPointData->CopyAllocate(outPointData, N1);
   this->InitializeFieldDataArrayPointers(&this->ZoltanCallbackData, inPointData, outPointData, N1);
 

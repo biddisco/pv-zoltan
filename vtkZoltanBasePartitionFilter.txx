@@ -15,7 +15,7 @@
 
 =========================================================================*/
 
-// templated functions that need to be instantiated 
+// templated functions that need to be instantiated
 
 //----------------------------------------------------------------------------
 // Zoltan callback which returns coordinate geometry data (points)
@@ -23,7 +23,7 @@
 //----------------------------------------------------------------------------
 template<typename T>
 void vtkZoltanBasePartitionFilter::get_geometry_list(
-  void *data, int sizeGID, int sizeLID, int num_obj, 
+  void *data, int sizeGID, int sizeLID, int num_obj,
   ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
   int num_dim, double *geom_vec, int *ierr)
 {
@@ -38,25 +38,25 @@ void vtkZoltanBasePartitionFilter::get_geometry_list(
 }
 
 //----------------------------------------------------------------------------
-// A ZOLTAN_OBJ_SIZE_FN query function returns the size (in bytes) of the data buffer 
+// A ZOLTAN_OBJ_SIZE_FN query function returns the size (in bytes) of the data buffer
 // that is needed to pack all of a single object's data.
 //
 // Here we add up the size of all the field arrays for points + the geometry itself
-//  
+//
 // Function Type:   ZOLTAN_OBJ_SIZE_FN_TYPE
-// Arguments:   
+// Arguments:
 //  data             Pointer to user-defined data.
-//  num_gid_entries  The number of array entries used to describe a single global ID.  
-//  num_lid_entries  The number of array entries used to describe a single local ID.  
+//  num_gid_entries  The number of array entries used to describe a single global ID.
+//  num_lid_entries  The number of array entries used to describe a single local ID.
 //  global_id        Pointer to the global ID of the object.
 //  local_id         Pointer to the local ID of the object.
 //  ierr             Error code to be set by function.
-// Returned Value:   
+// Returned Value:
 //  int              The size (in bytes) of the required data buffer (per object).
 //----------------------------------------------------------------------------
 template<typename T>
-int vtkZoltanBasePartitionFilter::zoltan_obj_size_function_pointdata(void *data, 
-  int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id, 
+int vtkZoltanBasePartitionFilter::zoltan_obj_size_function_pointdata(void *data,
+  int num_gid_entries, int num_lid_entries, ZOLTAN_ID_PTR global_id,
   ZOLTAN_ID_PTR local_id, int *ierr)
 {
   INC_SIZE_COUNT
@@ -83,7 +83,7 @@ void vtkZoltanBasePartitionFilter::zoltan_pack_obj_function_pointdata(void *data
     memcpy(buf, dataptr, asize);
     buf += asize;
   }
-  memcpy(buf, &((T*)(callbackdata->InputPointsData))[LID*3], sizeof(T)*3);  
+  memcpy(buf, &((T*)(callbackdata->InputPointsData))[LID*3], sizeof(T)*3);
   *ierr = ZOLTAN_OK;
   return;
 }
@@ -107,7 +107,7 @@ void vtkZoltanBasePartitionFilter::zoltan_unpack_obj_function_pointdata(void *da
   }
 //  if (callbackdata->self->UpdatePiece==2 && GID <100) { std::cout <<"Received " << GID << std::endl; }
   add_Id_to_interval_map(callbackdata, GID, callbackdata->OutPointCount);
-  memcpy(&((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3], buf, sizeof(T)*3);  
+  memcpy(&((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3], buf, sizeof(T)*3);
   callbackdata->OutPointCount++;
   *ierr = ZOLTAN_OK;
   return;
@@ -115,18 +115,18 @@ void vtkZoltanBasePartitionFilter::zoltan_unpack_obj_function_pointdata(void *da
 
 //----------------------------------------------------------------------------
 // Function Type: Pre migration callback
-// Arguments:   
+// Arguments:
 //  data              Pointer to user-defined data.
-//  num_gid_entries   The number of array entries used to describe a single global ID.  
-//  num_lid_entries   The number of array entries used to describe a single local ID.  
+//  num_gid_entries   The number of array entries used to describe a single global ID.
+//  num_lid_entries   The number of array entries used to describe a single local ID.
 //  num_import        The number of objects that will be received by this processor.
-//  import_global_ids An array of num_import global IDs of objects to be received by this processor. 
+//  import_global_ids An array of num_import global IDs of objects to be received by this processor.
 //                    may be NULL, as the processor does not necessarily need to know which objects it will receive.
-//  import_local_ids  An array of num_import local IDs of objects to be received by this processor. 
+//  import_local_ids  An array of num_import local IDs of objects to be received by this processor.
 //                    may be NULL, as the processor does not necessarily need to know which objects it will receive.
-//  import_procs      An array of size num_import listing the processor IDs of the source processors. 
+//  import_procs      An array of size num_import listing the processor IDs of the source processors.
 //                    may be NULL, as the processor does not necessarily need to know which objects is will receive.
-//  import_to_part    An array of size num_import listing the parts to which objects will be imported. 
+//  import_to_part    An array of size num_import listing the parts to which objects will be imported.
 //                    may be NULL, as the processor does not necessarily need to know which objects it will receive.
 //  num_export        The number of objects that will be sent from this processor to other processors.
 //  export_global_ids An array of num_export global IDs of objects to be sent from this processor.
@@ -151,6 +151,9 @@ void vtkZoltanBasePartitionFilter::zoltan_pre_migrate_function_points(
   vtkPointData    *outPD = callbackdata->Output->GetPointData();
   outPD->CopyAllocate(inPD, N2);
   //
+  debug_2("Setting up point data with "
+      << inPD->GetNumberOfArrays() << " "
+      << outPD->GetNumberOfArrays());
   callbackdata->self->InitializeFieldDataArrayPointers(callbackdata, inPD, outPD, N2);
 
   // some points are being sent away, some will be received, we must copy
@@ -159,8 +162,8 @@ void vtkZoltanBasePartitionFilter::zoltan_pre_migrate_function_points(
   callbackdata->LocalToLocalIdMap.assign(N, 0);
   for (vtkIdType i=0; i<num_export; i++) {
     vtkIdType GID = export_global_ids[i];
-    vtkIdType LID = GID - callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];    
-    callbackdata->LocalToLocalIdMap[LID] = -1;    
+    vtkIdType LID = GID - callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
+    callbackdata->LocalToLocalIdMap[LID] = -1;
   }
 
   // Loop over each local point and copy it to the output.
@@ -228,6 +231,9 @@ void vtkZoltanBasePartitionFilter::CopyPointsToSelf(
   //
   // prepare for copying data by setting up pointers to field arrays
   //
+  vtkDebugMacro("Setting up point data with "
+      << inPD->GetNumberOfArrays() << " "
+      << outPD->GetNumberOfArrays());
   callbackdata->self->InitializeFieldDataArrayPointers(callbackdata, inPD, outPD, N2);
 
   // Loop over each local point and copy it to the output.
@@ -236,7 +242,7 @@ void vtkZoltanBasePartitionFilter::CopyPointsToSelf(
   callbackdata->OutPointCount = 0;
   for (vtkIdType i=0; i<N; i++) {
     // for each point that is staying on this process
-    if (callbackdata->LocalToLocalIdMap[i]==0) { 
+    if (callbackdata->LocalToLocalIdMap[i]==0) {
       outPD->CopyData(inPD, i, callbackdata->OutPointCount);
       memcpy(
         &((T*)(callbackdata->OutputPointsData))[callbackdata->OutPointCount*3],
@@ -247,7 +253,7 @@ void vtkZoltanBasePartitionFilter::CopyPointsToSelf(
     }
   }
   vtkIdType maxInitialId = callbackdata->OutPointCount;
-  // ...and the points marked for sending which we also need a local copy of 
+  // ...and the points marked for sending which we also need a local copy of
   for (vtkIdType i=0; i<LocalPointsToKeep.size(); i++) {
     vtkIdType LID = LocalPointsToKeep[i];
     if (callbackdata->LocalToLocalIdMap[LID]==-1) { // the point was marked as moving, but we need it here too

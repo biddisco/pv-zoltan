@@ -206,6 +206,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
       vtkSmartPointer<vtkPointSet>          Input;
       vtkSmartPointer<vtkPointSet>          Output;
       vtkSmartPointer<vtkDataSetAttributes> InputPointData;
+      vtkSmartPointer<vtkDataSetAttributes> InputCellData;
       std::vector<int>              ProcessOffsetsPointId; // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
       std::vector<int>              ProcessOffsetsCellId;  // offsets into Ids for each process {0, N1, N1+N2, N1+N2+N3...}
       int                           PointType;             // float/double flag
