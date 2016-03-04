@@ -892,9 +892,9 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
             else if (this->GhostMode==vtkMeshPartitionFilter::BoundingBox) {
                 for (int p=0; p<this->UpdateNumPieces; p++) {
                     if (cellDestProcess!=p && localBoundingBox.Intersects(BoxListWithHalo[p])) {
-                        for (int j=0; j<npts; ++j) {
+                        for (int j=0; process_ghost[p]==0 && j<npts; ++j) {
                             double *pt = data->GetPoint(pts[j]);
-                            if (process_ghost[p]==0 && BoxListWithHalo[p].ContainsPoint(pt)) {
+                            if (BoxListWithHalo[p].ContainsPoint(pt)) {
                                 ghost_cell = true;
                                 process_ghost[p] = 1;
                                 this->ghost_cell_rank->SetValue(cellId, cellDestProcess+1);
