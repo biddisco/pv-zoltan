@@ -88,9 +88,14 @@ else:
   ghostCellsGenerator1 = GhostCellsGenerator(Input=partitionFilter1)
   # Properties modified on ghostCellsGenerator1
   ghostCellsGenerator1.BuildIfRequired = 0
+  ghostCellsGenerator1.UseGlobalIds = 0
   filter3 = ghostCellsGenerator1
 
 filter3.UpdatePipeline()
+
+numPoints_1 = tetrahedralize1.GetDataInformation().GetNumberOfCells()
+numPoints_2 = filter3.GetDataInformation().GetNumberOfCells()
+print ("Number of tetra, final, ghost ", numPoints_1, numPoints_2, numPoints_2-numPoints_1)
 
 ##################
 # colour table
