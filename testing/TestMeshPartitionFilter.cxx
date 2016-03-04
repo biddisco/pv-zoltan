@@ -103,7 +103,7 @@ int main (int argc, char* argv[])
         ->SetNumberOfGhostLevels(1);
   } else if (test.ghostMode == vtkMeshPartitionFilter::BoundingBox) {
     static_cast<vtkMeshPartitionFilter *>(test.partitioner.GetPointer())
-        ->SetGhostCellOverlap(test.ghostOverlap);
+        ->SetGhostHaloSize(test.ghostOverlap);
   }
 
   static_cast<vtkMeshPartitionFilter *>(test.partitioner.GetPointer())

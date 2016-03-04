@@ -125,10 +125,6 @@ class VTK_EXPORT vtkMeshPartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
     vtkSetMacro(NumberOfGhostLevels, int);
     vtkGetMacro(NumberOfGhostLevels, int);
 
-    // The distance beyond a process region for which we require ghost cells
-    vtkSetMacro(GhostCellOverlap, double);
-    vtkGetMacro(GhostCellOverlap, double);
-
     // Stop the filter from deleting its internal ghost rank assignment array
     // this is only useful for debugging/testing and should always be off otherwise
     vtkSetMacro(KeepGhostRankArray, int);
@@ -160,7 +156,6 @@ class VTK_EXPORT vtkMeshPartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
 
     int                     GhostMode;
     int                     BoundaryMode;
-    double                  GhostCellOverlap;
     int                     NumberOfGhostLevels;
     int                     KeepGhostRankArray;
     vtkSmartPointer<vtkIntArray>          ghost_cell_rank;

@@ -439,7 +439,6 @@ vtkMeshPartitionFilter::vtkMeshPartitionFilter()
 {
   this->GhostMode           = vtkMeshPartitionFilter::None;
   this->BoundaryMode        = vtkMeshPartitionFilter::First;
-  this->GhostCellOverlap    = 0.0;
   this->NumberOfGhostLevels = 0;
   this->ghost_cell_rank     = NULL;
   this->ghost_cell_flags    = NULL;
