@@ -778,30 +778,78 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     data->GetBounds(bounds);
     vtkBoundingBox localBoundingBox(bounds);
     vtkSmartPointer<vtkCellTreeLocator> cell_tree;
+    vtkSmartPointer<vtkCellTreeLocator> rank_tree;
+    vtkSmartPointer<vtkPolyData>        rank_data;
     vtkSmartPointer<vtkUnsignedCharArray> ghost_possible;
+    vtkSmartPointer<vtkIdList> Ids;
+    //
     if (this->GhostMode==vtkMeshPartitionFilter::BoundingBox) {
-        this->AddHaloToBoundingBoxes(this->GhostCellOverlap);
-        //
-        cell_tree = vtkSmartPointer<vtkCellTreeLocator>::New();
-        cell_tree->SetCacheCellBounds(1);
-        cell_tree->SetNumberOfCellsPerNode(32);
-        cell_tree->SetMaxLevel(20);
-        cell_tree->SetLazyEvaluation(0);
-        cell_tree->SetAutomatic(0);
-        cell_tree->SetDataSet(data);
-        cell_tree->BuildLocator();
-        ghost_possible = vtkSmartPointer<vtkUnsignedCharArray>::New();
-        ghost_possible->SetNumberOfTuples(numCells);
-        for (vtkIdType cellId=0; cellId<numCells; ++cellId) {
-            ghost_possible->SetValue(cellId,0);
+        this->AddHaloToBoundingBoxes(this->GhostHaloSize);
+
+        rank_data = vtkSmartPointer<vtkPolyData>::New();
+        vtkSmartPointer<vtkPoints>         pts = vtkSmartPointer<vtkPoints>::New();
+        vtkSmartPointer<vtkCellArray> vertices = vtkSmartPointer<vtkCellArray>::New();
+        vtkIdType *cells = vertices->WritePointer(this->UpdateNumPieces, 9*this->UpdateNumPieces);
+        double x[3];
+        double bounds[6];
+        for (int p=0; p<this->UpdateNumPieces; p++) {
+            this->BoxListWithHalo[p].GetBounds(bounds);
+            vtkIdType index = p*9;
+            cells[index++] = 8;
+            x[0] = bounds[0]; x[1] = bounds[2]; x[2] = bounds[4];
+            cells[index+0] = pts->InsertNextPoint(x);
+            x[0] = bounds[1]; x[1] = bounds[2]; x[2] = bounds[4];
+            cells[index+1] = pts->InsertNextPoint(x);
+            x[0] = bounds[0]; x[1] = bounds[3]; x[2] = bounds[4];
+            cells[index+2] = pts->InsertNextPoint(x);
+            x[0] = bounds[1]; x[1] = bounds[3]; x[2] = bounds[4];
+            cells[index+3] = pts->InsertNextPoint(x);
+            x[0] = bounds[0]; x[1] = bounds[2]; x[2] = bounds[5];
+            cells[index+4] = pts->InsertNextPoint(x);
+            x[0] = bounds[1]; x[1] = bounds[2]; x[2] = bounds[5];
+            cells[index+5] = pts->InsertNextPoint(x);
+            x[0] = bounds[0]; x[1] = bounds[3]; x[2] = bounds[5];
+            cells[index+6] = pts->InsertNextPoint(x);
+            x[0] = bounds[1]; x[1] = bounds[3]; x[2] = bounds[5];
+            cells[index+7] = pts->InsertNextPoint(x);
         }
-        vtkSmartPointer<vtkIdList> Ids = vtkSmartPointer<vtkIdList>::New();
-        for (vtkIdType p=0; p<this->UpdateNumPieces; ++p) {
-            cell_tree->FindCellsWithinBounds(this->BoxListWithHalo[p], Ids);
-            for (vtkIdType i=0; i<Ids->GetNumberOfIds(); ++i) {
-                ghost_possible->SetValue(Ids->GetId(i),1);
+        rank_data->SetPoints(pts);
+        rank_data->SetVerts(vertices);
+
+        //
+        rank_tree = vtkSmartPointer<vtkCellTreeLocator>::New();
+        rank_tree->SetDataSet(rank_data);
+        rank_tree->SetCacheCellBounds(1);
+        rank_tree->SetNumberOfCellsPerNode(4);
+        rank_tree->SetMaxLevel(20);
+        rank_tree->SetLazyEvaluation(0);
+        rank_tree->SetAutomatic(0);
+        rank_tree->BuildLocator();
+        Ids = vtkSmartPointer<vtkIdList>::New();
+
+        //
+        if (0 && numCells>0) {
+            cell_tree = vtkSmartPointer<vtkCellTreeLocator>::New();
+            cell_tree->SetCacheCellBounds(1);
+            cell_tree->SetNumberOfCellsPerNode(32);
+            cell_tree->SetMaxLevel(20);
+            cell_tree->SetLazyEvaluation(0);
+            cell_tree->SetAutomatic(0);
+            cell_tree->SetDataSet(data);
+            cell_tree->BuildLocator();
+            ghost_possible = vtkSmartPointer<vtkUnsignedCharArray>::New();
+            ghost_possible->SetNumberOfTuples(numCells);
+            for (vtkIdType cellId=0; cellId<numCells; ++cellId) {
+                ghost_possible->SetValue(cellId,0);
             }
-            Ids->Reset();
+            vtkSmartPointer<vtkIdList> Ids = vtkSmartPointer<vtkIdList>::New();
+            for (vtkIdType p=0; p<this->UpdateNumPieces; ++p) {
+                cell_tree->FindCellsWithinBounds(this->BoxListWithHalo[p], Ids);
+                for (vtkIdType i=0; i<Ids->GetNumberOfIds(); ++i) {
+                    ghost_possible->SetValue(Ids->GetId(i),1);
+                }
+                Ids->Reset();
+            }
         }
     }
 
@@ -914,6 +962,25 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
                 this->ghost_cell_rank->SetValue(cellId, cellDestProcess+1);
             }
             else if (this->GhostMode==vtkMeshPartitionFilter::BoundingBox) {
+                double bounds[6];
+                data->GetCellBounds(cellId,bounds);
+                rank_tree->FindCellsWithinBounds(bounds, Ids);
+                for (vtkIdType i=0; i<Ids->GetNumberOfIds(); ++i) {
+                    vtkIdType p = Ids->GetId(i);
+                    if (cellDestProcess!=p) {
+//                        for (int j=0; process_ghost[p]==0 && j<npts; ++j) {
+//                            double *pt = data->GetPoint(pts[j]);
+//                            if (BoxListWithHalo[p].ContainsPoint(pt)) {
+                                ghost_cell = true;
+                                process_ghost[p] = 1;
+                                this->ghost_cell_rank->SetValue(cellId, cellDestProcess+1);
+//                            }
+//                        }
+                    }
+                }
+                Ids->Reset();
+/*
+                cell_tree->FindCellsWithinBounds(this->BoxListWithHalo[p], Ids);
                 if (ghost_possible->GetValue(cellId)!=0) {
                     for (int p=0; p<this->UpdateNumPieces; p++) {
                         if (cellDestProcess!=p) {
@@ -928,6 +995,7 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
                         }
                     }
                 }
+*/
             }
 
             // should we keep a copy of this cell
