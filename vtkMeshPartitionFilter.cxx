@@ -777,10 +777,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     double bounds[6];
     data->GetBounds(bounds);
     vtkBoundingBox localBoundingBox(bounds);
-    vtkSmartPointer<vtkCellTreeLocator> cell_tree;
     vtkSmartPointer<vtkCellTreeLocator> rank_tree;
     vtkSmartPointer<vtkPolyData>        rank_data;
-    vtkSmartPointer<vtkUnsignedCharArray> ghost_possible;
     vtkSmartPointer<vtkIdList> Ids;
     //
     if (this->GhostMode==vtkMeshPartitionFilter::BoundingBox) {
@@ -826,31 +824,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         rank_tree->SetAutomatic(0);
         rank_tree->BuildLocator();
         Ids = vtkSmartPointer<vtkIdList>::New();
-
-        //
-        if (0 && numCells>0) {
-            cell_tree = vtkSmartPointer<vtkCellTreeLocator>::New();
-            cell_tree->SetCacheCellBounds(1);
-            cell_tree->SetNumberOfCellsPerNode(32);
-            cell_tree->SetMaxLevel(20);
-            cell_tree->SetLazyEvaluation(0);
-            cell_tree->SetAutomatic(0);
-            cell_tree->SetDataSet(data);
-            cell_tree->BuildLocator();
-            ghost_possible = vtkSmartPointer<vtkUnsignedCharArray>::New();
-            ghost_possible->SetNumberOfTuples(numCells);
-            for (vtkIdType cellId=0; cellId<numCells; ++cellId) {
-                ghost_possible->SetValue(cellId,0);
-            }
-            vtkSmartPointer<vtkIdList> Ids = vtkSmartPointer<vtkIdList>::New();
-            for (vtkIdType p=0; p<this->UpdateNumPieces; ++p) {
-                cell_tree->FindCellsWithinBounds(this->BoxListWithHalo[p], Ids);
-                for (vtkIdType i=0; i<Ids->GetNumberOfIds(); ++i) {
-                    ghost_possible->SetValue(Ids->GetId(i),1);
-                }
-                Ids->Reset();
-            }
-        }
     }
 
     //
@@ -979,23 +952,6 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
                     }
                 }
                 Ids->Reset();
-/*
-                cell_tree->FindCellsWithinBounds(this->BoxListWithHalo[p], Ids);
-                if (ghost_possible->GetValue(cellId)!=0) {
-                    for (int p=0; p<this->UpdateNumPieces; p++) {
-                        if (cellDestProcess!=p) {
-                            for (int j=0; process_ghost[p]==0 && j<npts; ++j) {
-                                double *pt = data->GetPoint(pts[j]);
-                                if (BoxListWithHalo[p].ContainsPoint(pt)) {
-                                    ghost_cell = true;
-                                    process_ghost[p] = 1;
-                                    this->ghost_cell_rank->SetValue(cellId, cellDestProcess+1);
-                                }
-                            }
-                        }
-                    }
-                }
-*/
             }
 
             // should we keep a copy of this cell
