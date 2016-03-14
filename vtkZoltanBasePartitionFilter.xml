@@ -88,36 +88,6 @@
         <BooleanDomain name="bool" />
       </IntVectorProperty>
 
-     <IntVectorProperty command="SetGhostMode"
-                        default_values="0"
-                        name="GhostMode"
-                        number_of_elements="1">
-       <EnumerationDomain name="enum">
-         <Entry text="None"
-                value="0" />
-         <Entry text="Boundary"
-                value="1" />
-         <Entry text="BoundingBox"
-                value="2" />
-         <Entry text="Neighbour"
-                value="3" />
-       </EnumerationDomain>
-     </IntVectorProperty>
-
-     <IntVectorProperty command="SetBoundaryMode"
-                        default_values="0"
-                        name="BoundaryMode"
-                        number_of_elements="1">
-       <EnumerationDomain name="enum">
-         <Entry text="First"
-                value="0" />
-         <Entry text="Most"
-                value="1" />
-         <Entry text="Centroid"
-                value="2" />
-       </EnumerationDomain>
-     </IntVectorProperty>
-
     </SourceProxy>
 
   </ProxyGroup>
