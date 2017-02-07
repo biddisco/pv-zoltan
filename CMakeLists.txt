@@ -349,7 +349,7 @@ if(WIN32)
 endif()
 
 
-#return()
+return()
 
 include(CMakeInstallation)
 
