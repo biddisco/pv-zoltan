@@ -6,10 +6,17 @@
 ##   ENABLE_TESTING()
 ##   INCLUDE(CTest)
 
-set(CTEST_PROJECT_NAME "pv-zoltan")
-set(CTEST_NIGHTLY_START_TIME "00:00:00 CET")
+set(CTEST_PROJECT_NAME pv-zoltan)
+set(CTEST_NIGHTLY_START_TIME 00:00:00)
 
-set(CTEST_DROP_METHOD "http")
-set(CTEST_DROP_SITE "cdash.cscs.ch")
-set(CTEST_DROP_LOCATION "/submit.php?project=pv-meshless")
+if(CMAKE_VERSION VERSION_GREATER 3.14)
+  set(CTEST_SUBMIT_URL http://localhost:8080/submit.php?project=pv-zoltan)
+else()
+  set(CTEST_DROP_METHOD "http")
+  set(CTEST_DROP_SITE "localhost:8080")
+  set(CTEST_DROP_LOCATION "/submit.php?project=pv-zoltan")
+endif()
+
 set(CTEST_DROP_SITE_CDASH TRUE)
+
+

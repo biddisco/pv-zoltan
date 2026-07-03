@@ -255,7 +255,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.imageScalars = GetParameter<std::string>("-imageScalars", "Image Scalar Array", argc, argv, "", test.myRank, unused);
   GetArrayParameter<double>("-value_range", "Expected Value Range", test.vminmax, 2, argc, argv, test.myRank);
   GetArrayParameter<double>("-peak_position", "Expected Peak Position", test.vpos, 3, argc, argv, test.myRank);
-  test.imageThreshold = GetParameter<int>("-imageThreshold", "Image Threshold Pass/Fail", argc, argv, 1, test.myRank, unused);
+  test.imageThreshold = GetParameter<int>("-imageThreshold", "Image Threshold Pass/Fail", argc, argv, 5000, test.myRank, unused);
   test.benchmarkPartition = GetParameter<bool>("-benchmarkPartition", "benchmarkPartition", argc, argv, 0, test.myRank, unused);
 
   //
@@ -450,25 +450,38 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         }
 //        pd->PrintSelf(std::cout, vtkIndent(0));
         //
-        // Create a plain integer scalar array for this piece.  This replaces
-        // the vtkConstantArray produced by vtkGenerateProcessIds, which does
-        // not colour reliably with vtkPolyDataMapper.
+        // Use the requested scalar array if it already exists on the input.
+        // Only create a plain integer process-id array when the array is
+        // missing (e.g. "ProcessId" after we stopped using vtkGenerateProcessIds).
         //
         std::string colorArrayName = scalarName.empty() ? "ProcessId" : scalarName;
-        vtkSmartPointer<vtkIntArray> pidArray = vtkSmartPointer<vtkIntArray>::New();
-        pidArray->SetName(colorArrayName.c_str());
-        vtkIdType nTuples = scalarMode==0 ? pd->GetNumberOfPoints() : pd->GetNumberOfCells();
-        pidArray->SetNumberOfTuples(nTuples);
-        for (vtkIdType t=0; t<nTuples; ++t)
-        {
-            pidArray->SetValue(t, i);
+        vtkDataArray* existingArray = nullptr;
+        if (scalarMode==0) {
+            existingArray = pd->GetPointData()->GetArray(colorArrayName.c_str());
+        }
+        else {
+            existingArray = pd->GetCellData()->GetArray(colorArrayName.c_str());
+        }
+        if (!existingArray) {
+            vtkSmartPointer<vtkIntArray> pidArray = vtkSmartPointer<vtkIntArray>::New();
+            pidArray->SetName(colorArrayName.c_str());
+            vtkIdType nTuples = scalarMode==0 ? pd->GetNumberOfPoints() : pd->GetNumberOfCells();
+            pidArray->SetNumberOfTuples(nTuples);
+            for (vtkIdType t=0; t<nTuples; ++t)
+            {
+                pidArray->SetValue(t, i);
+            }
+            if (scalarMode==0) {
+                pd->GetPointData()->AddArray(pidArray);
+            }
+            else {
+                pd->GetCellData()->AddArray(pidArray);
+            }
         }
         if (scalarMode==0) {
-            pd->GetPointData()->AddArray(pidArray);
             pd->GetPointData()->SetActiveScalars(colorArrayName.c_str());
         }
         else {
-            pd->GetCellData()->AddArray(pidArray);
             pd->GetCellData()->SetActiveScalars(colorArrayName.c_str());
         }
 
@@ -491,10 +504,10 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         mapper->SetInterpolateScalarsBeforeMapping(0);
         //
         actor->SetMapper(mapper);
-        actor->GetProperty()->SetPointSize(2);
-        actor->GetProperty()->SetLineWidth(2);
+        actor->GetProperty()->SetPointSize(1);
+        actor->GetProperty()->SetLineWidth(1);
         if (doEdges) {
-          actor->GetProperty()->SetLineWidth(2);
+          actor->GetProperty()->SetLineWidth(1);
           actor->GetProperty()->SetEdgeVisibility(1);
           actor->GetProperty()->SetEdgeColor(1.0, 1.0, 1.0);
         }
@@ -573,7 +586,7 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
     testDebugMacro( "Process Id : " << myRank << " About to Render" );
     renWindow->Render();
 
-    int retVal = vtkRegressionTester::Test(argc, argv, renWindow, 5000);
+    int retVal = vtkRegressionTester::Test(argc, argv, renWindow, this->imageThreshold);
 
     if ( retVal == vtkRegressionTester::DO_INTERACTOR) {
         iren->Start();
