@@ -36,7 +36,7 @@
 #include "vtkCellTreeLocator.h"
 //
 // For PARAVIEW_USE_MPI
-#include "vtkPVConfig.h"
+#include "vtkPVVersion.h"
 #ifdef PARAVIEW_USE_MPI
   #include "vtkMPI.h"
   #include "vtkMPIController.h"
@@ -48,6 +48,7 @@
 #include "vtkMeshPartitionFilter.h"
 //
 #include <sstream>
+#include <iostream>
 //
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -78,7 +79,7 @@ namespace debug {
     }
 
     template <class T>
-    struct PrintPair : public std::unary_function<T, void>
+    struct PrintPair
     {
         std::ostream &os;
         PrintPair(std::ostream &strm) : os(strm) {}
@@ -248,7 +249,8 @@ void vtkMeshPartitionFilter::zoltan_pre_migrate_function_cell(
   }
 
   //
-  vtkIdType npts, *pts, newPts[32];
+  vtkIdType npts, newPts[32];
+  const vtkIdType *pts = nullptr;
   //
   callbackdata->OutCellCount = 0;
   for (vtkIdType cellId=0; cellId<OutputNumberOfLocalCells; cellId++) {
@@ -300,7 +302,8 @@ int vtkMeshPartitionFilter::zoltan_obj_size_function_cell(void *data, int num_gi
   vtkIdType GID = *global_id;
   vtkIdType LID = GID - callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank];
   //
-  vtkIdType npts, *pts;
+  vtkIdType npts;
+  const vtkIdType *pts = nullptr;
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
   vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
   //
@@ -324,7 +327,8 @@ void vtkMeshPartitionFilter::zoltan_pack_obj_function_cell(void *data, int num_g
   vtkIdType GID = *global_id;
   vtkIdType LID = GID - callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank];
   //
-  vtkIdType npts, *pts, newPts[32];
+  vtkIdType npts, newPts[32];
+  const vtkIdType *pts = nullptr;
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
   vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
 
@@ -395,7 +399,8 @@ void vtkMeshPartitionFilter::zoltan_unpack_obj_function_cell(void *data, int num
   vtkIdType GID = *global_id;
 //  vtkIdType LID = GID - callbackdata->ProcessOffsetsCellId[callbackdata->ProcessRank];
   //
-  vtkIdType npts, *pts, ctype, newPts[32];
+  vtkIdType npts, ctype, newPts[32];
+  const vtkIdType *pts = nullptr;
   vtkPolyData         *pdata = vtkPolyData::SafeDownCast(callbackdata->Input);
   vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(callbackdata->Input);
   vtkPolyData         *pdata2 = vtkPolyData::SafeDownCast(callbackdata->Output);
@@ -755,7 +760,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
     point_partitioninfo.LocalIdsToKeep.reserve(loadBalanceData.numExport/100);
 
     // we must handle PolyData and UnstructuredGrid slightly differently
-    vtkIdType npts, *pts;
+    vtkIdType npts;
+    const vtkIdType *pts = nullptr;
     vtkPolyData         *pdata = vtkPolyData::SafeDownCast(data);
     vtkUnstructuredGrid *udata = vtkUnstructuredGrid::SafeDownCast(data);
     if (!pdata && !udata) {
@@ -787,29 +793,28 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         rank_data = vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkPoints>         pts = vtkSmartPointer<vtkPoints>::New();
         vtkSmartPointer<vtkCellArray> vertices = vtkSmartPointer<vtkCellArray>::New();
-        vtkIdType *cells = vertices->WritePointer(this->UpdateNumPieces, 9*this->UpdateNumPieces);
         double x[3];
-        double bounds[6];
+        double cellBounds[6];
         for (int p=0; p<this->UpdateNumPieces; p++) {
-            this->BoxListWithHalo[p].GetBounds(bounds);
-            vtkIdType index = p*9;
-            cells[index++] = 8;
-            x[0] = bounds[0]; x[1] = bounds[2]; x[2] = bounds[4];
-            cells[index+0] = pts->InsertNextPoint(x);
-            x[0] = bounds[1]; x[1] = bounds[2]; x[2] = bounds[4];
-            cells[index+1] = pts->InsertNextPoint(x);
-            x[0] = bounds[0]; x[1] = bounds[3]; x[2] = bounds[4];
-            cells[index+2] = pts->InsertNextPoint(x);
-            x[0] = bounds[1]; x[1] = bounds[3]; x[2] = bounds[4];
-            cells[index+3] = pts->InsertNextPoint(x);
-            x[0] = bounds[0]; x[1] = bounds[2]; x[2] = bounds[5];
-            cells[index+4] = pts->InsertNextPoint(x);
-            x[0] = bounds[1]; x[1] = bounds[2]; x[2] = bounds[5];
-            cells[index+5] = pts->InsertNextPoint(x);
-            x[0] = bounds[0]; x[1] = bounds[3]; x[2] = bounds[5];
-            cells[index+6] = pts->InsertNextPoint(x);
-            x[0] = bounds[1]; x[1] = bounds[3]; x[2] = bounds[5];
-            cells[index+7] = pts->InsertNextPoint(x);
+            this->BoxListWithHalo[p].GetBounds(cellBounds);
+            vtkIdType ids[8];
+            x[0] = cellBounds[0]; x[1] = cellBounds[2]; x[2] = cellBounds[4];
+            ids[0] = pts->InsertNextPoint(x);
+            x[0] = cellBounds[1]; x[1] = cellBounds[2]; x[2] = cellBounds[4];
+            ids[1] = pts->InsertNextPoint(x);
+            x[0] = cellBounds[0]; x[1] = cellBounds[3]; x[2] = cellBounds[4];
+            ids[2] = pts->InsertNextPoint(x);
+            x[0] = cellBounds[1]; x[1] = cellBounds[3]; x[2] = cellBounds[4];
+            ids[3] = pts->InsertNextPoint(x);
+            x[0] = cellBounds[0]; x[1] = cellBounds[2]; x[2] = cellBounds[5];
+            ids[4] = pts->InsertNextPoint(x);
+            x[0] = cellBounds[1]; x[1] = cellBounds[2]; x[2] = cellBounds[5];
+            ids[5] = pts->InsertNextPoint(x);
+            x[0] = cellBounds[0]; x[1] = cellBounds[3]; x[2] = cellBounds[5];
+            ids[6] = pts->InsertNextPoint(x);
+            x[0] = cellBounds[1]; x[1] = cellBounds[3]; x[2] = cellBounds[5];
+            ids[7] = pts->InsertNextPoint(x);
+            vertices->InsertNextCell(8, ids);
         }
         rank_data->SetPoints(pts);
         rank_data->SetVerts(vertices);
@@ -820,7 +825,8 @@ void vtkMeshPartitionFilter::BuildCellToProcessList(
         rank_tree->SetCacheCellBounds(1);
         rank_tree->SetNumberOfCellsPerNode(4);
         rank_tree->SetMaxLevel(20);
-        rank_tree->SetLazyEvaluation(0);
+        // Lazy evaluation flag was removed from vtkCellTreeLocator; BuildLocator
+        // will be triggered on first query.
         rank_tree->SetAutomatic(0);
         rank_tree->BuildLocator();
         Ids = vtkSmartPointer<vtkIdList>::New();

@@ -39,7 +39,7 @@
 #include "vtkDoubleArray.h"
 //
 // For PARAVIEW_USE_MPI
-#include "vtkPVConfig.h"
+#include "vtkPVVersion.h"
 #ifdef PARAVIEW_USE_MPI
 #include "vtkMPI.h"
 #include "vtkMPIController.h"
@@ -51,10 +51,10 @@
 #include "vtkHexahedron.h"
 #include "vtkPKdTree.h"
 #include "vtkBSPCuts.h"
-#include "vtkKdTreeGenerator.h"
 //
 #include "vtkPKdTree2.h"
 #include "vtkBoundsExtentTranslator.h"
+#include "vtkInformationObjectMetaDataKey.h"
 #include "vtkZoltanV2PartitionFilter.h"
 //
 #define _USE_MATH_DEFINES
@@ -68,8 +68,7 @@
 #include <sstream>
 #include <iterator>
 //
-#include "zz_const.h"
-#include "rcb.h"
+
 //
 //#include "vtkZoltanBasePartitionFilter.txx"
 
@@ -77,6 +76,8 @@
 #include <Zoltan2_PartitioningProblem.hpp>
 #include <Zoltan2_BasicVectorAdapter.hpp>
 #include <Zoltan2_InputTraits.hpp>
+#include <Zoltan2_EvaluatePartition.hpp>
+#include <Tpetra_KokkosCompat_DefaultNode.hpp>
 
 
 //----------------------------------------------------------------------------
@@ -131,8 +132,10 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
     this->ZoltanParams->set("algorithm", "multijagged");
     this->ZoltanParams->set("imbalance_tolerance", tolerance);
     this->ZoltanParams->set("num_global_parts", nprocs);
-    this->ZoltanParams->set("bisection_num_test_cuts", 1);
-    this->ZoltanParams->set("mj_keep_part_boxes", 1);
+    // "bisection_num_test_cuts" is not a valid Zoltan2 parameter in
+    // system Trilinos 17.1.1 (it was valid for the RCB algorithm in
+    // older releases).  Keep it out of the validated list.
+    this->ZoltanParams->set("mj_keep_part_boxes", true);
 
     /*
     Zoltan2 all parameters
@@ -187,46 +190,38 @@ void vtkZoltanV2PartitionFilter::InitializeZoltanLoadBalance()
 }
 
 //----------------------------------------------------------------------------
-template <typename scalar_t>
 struct vtkZoltan2Helper
 {
-    typedef Zoltan2::BasicUserTypes<scalar_t, globalId_t, localId_t> myTypes;
+    typedef double scalar_t;
+    typedef Tpetra::KokkosCompat::KokkosDeviceWrapperNode<Kokkos::Serial, Kokkos::HostSpace> node_t;
+    typedef Zoltan2::BasicUserTypes<scalar_t, localId_t, globalId_t, node_t> myTypes;
     typedef Zoltan2::BasicVectorAdapter<myTypes> inputAdapter_t;
-    typedef typename inputAdapter_t::part_t part_t;
+    typedef inputAdapter_t::part_t part_t;
     typedef Zoltan2::PartitioningProblem<inputAdapter_t> result_type;
 
     static result_type *SolveZoltan2Partition(
         vtkDataArray *datarray, vtkIdType localCount,
-        globalId_t *globalIds, const scalar_t *weightarray,
+        globalId_t *globalIds, const void *weightarray_void,
         vtkZoltanV2PartitionFilter *self, vtkPointSet *input)
     {
-//#define ZERO_COPY_DATA
-#ifdef ZERO_COPY_DATA
-        // points are {x,y,z} in a single array
-        const scalar_t *x = static_cast<const scalar_t *>(datarray->GetVoidPointer(0));
-        const scalar_t *y = static_cast<const scalar_t *>(datarray->GetVoidPointer(1));
-        const scalar_t *z = static_cast<const scalar_t *>(datarray->GetVoidPointer(2));
-        const int stride = 3;
-        debug_2("USING ZERO COPY ");
-#else
         scalar_t *coords = new scalar_t[3*localCount];
         scalar_t *x = coords;
         scalar_t *y = x + localCount;
         scalar_t *z = y + localCount;
         const int stride = 1;
-        const scalar_t *p = static_cast<const scalar_t *>(datarray->GetVoidPointer(0));
+        double tuple[3];
         for (int i = 0; i < localCount; ++i)
         {
-            x[i] = p[i*3 + 0];
-            y[i] = p[i*3 + 1];
-            z[i] = p[i*3 + 2];
+            datarray->GetTuple(i, tuple);
+            x[i] = tuple[0];
+            y[i] = tuple[1];
+            z[i] = tuple[2];
         }
-#endif
         // create an adapter that will point to the correct coordinates
         inputAdapter_t *InputAdapter = nullptr;
         result_type *problem1 = nullptr;
 
-        if (weightarray==NULL) {
+        if (weightarray_void==NULL) {
             InputAdapter = new inputAdapter_t(localCount, globalIds, x, y, z, stride, stride, stride);
             problem1     = new result_type(InputAdapter, self->ZoltanParams);
         }
@@ -234,8 +229,14 @@ struct vtkZoltan2Helper
             // coordinates
             std::vector<const scalar_t *> coordVec = {x, y, z};
             std::vector<int> coordStrides = {stride, stride, stride};
-            // weights
-            std::vector<const scalar_t*> weightVec = {weightarray};
+            // weights are stored as float in the base class
+            std::vector<scalar_t> weights(localCount);
+            const float *weightarray = static_cast<const float *>(weightarray_void);
+            for (int i = 0; i < localCount; ++i)
+            {
+                weights[i] = static_cast<scalar_t>(weightarray[i]);
+            }
+            std::vector<const scalar_t*> weightVec = {weights.data()};
             std::vector<int> weightStrides = {1};
 
             InputAdapter = new inputAdapter_t(
@@ -247,11 +248,15 @@ struct vtkZoltan2Helper
         // Solve the problem
         problem1->solve();
 
-        // we may query this from outside the filter
-        self->ImbalanceValue = problem1->getWeightImbalance();
-
         // get the solution object
         const Zoltan2::PartitioningSolution<inputAdapter_t> &solution1 = problem1->getSolution();
+
+        // we may query this from outside the filter
+        // System Trilinos is built with a CUDA default node, but EvaluatePartition
+        // internally instantiates Tpetra::Vector with that default node.  Since we
+        // drive the adapter with a Serial host node, the imbalance computation is
+        // omitted to avoid linking against unavailable CUDA-node instantiations.
+        self->ImbalanceValue = 0.0;
 
         int numExport = 0;
         const part_t *partd = solution1.getPartListView();
@@ -285,11 +290,11 @@ struct vtkZoltan2Helper
 
         // Zoltan 2 bounding box code
         self->BoxList.clear();
-        std::vector<Zoltan2::coordinateModelPartBox<scalar_t, part_t> > &boxView = solution1.getPartBoxesView();
+        std::vector<Zoltan2::coordinateModelPartBox> &boxView = solution1.getPartBoxesView();
         for (int i=0; i<boxView.size(); i++) {
             double bounds[6];
-            scalar_t *minss = boxView[i].getlmins();
-            scalar_t *maxss = boxView[i].getlmaxs();
+            auto *minss = boxView[i].getlmins();
+            auto *maxss = boxView[i].getlmaxs();
             bounds[0] = minss[0];
             bounds[1] = maxss[0];
             bounds[2] = minss[1];
@@ -306,14 +311,6 @@ struct vtkZoltan2Helper
         return problem1;
     }
 };
-
-//----------------------------------------------------------------------------
-#undef vtkTemplateMacroCase
-#define vtkTemplateMacroCase(typeN, type, call)     \
-  case typeN: { typedef type VTK_TT; call; }; break
-#define vtkZoltanTemplateMacro(call)                \
-  vtkTemplateMacroCase(VTK_DOUBLE, double, call);   \
-  vtkTemplateMacroCase(VTK_FLOAT, float, call);
 
 //----------------------------------------------------------------------------
 void vtkZoltanV2PartitionFilter::ExecuteZoltanPartition(
@@ -341,12 +338,10 @@ void vtkZoltanV2PartitionFilter::ExecuteZoltanPartition(
     for (size_t i=0; i < localCount; i++)
         globalIds[i] = offset++;
 
-    switch(/*coordArray->GetDataType()*/ VTK_FLOAT)
-    {
-        vtkZoltanTemplateMacro(
-            vtkZoltan2Helper<VTK_TT>::SolveZoltan2Partition(
-                coordArray, localCount, globalIds, static_cast<VTK_TT*>(this->weights_data_ptr), this, input));
-    }
+    // System Trilinos only instantiates Tpetra for double, so we always
+    // drive Zoltan2 with double-precision coordinates/weights.
+    vtkZoltan2Helper::SolveZoltan2Partition(
+        coordArray, localCount, globalIds, this->weights_data_ptr, this, input);
 
 
     //////////////////////////////////////////////////////////////////////

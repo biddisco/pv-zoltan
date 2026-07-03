@@ -3,7 +3,7 @@
 #include <sstream>
 //
 // For PARAVIEW_USE_MPI 
-#include "vtkPVConfig.h"     
+#include "vtkPVVersion.h"     
 #ifdef PARAVIEW_USE_MPI
   #include "vtkMPI.h"
   #include "vtkMPIController.h"
@@ -29,6 +29,9 @@ class vtkXMLPolyDataReader;
 class vtkXMLPPolyDataReader;
 class vtkXMLUnstructuredGridReader;
 class vtkXMLPUnstructuredGridReader;
+//----------------------------------------------------------------------------
+void InitializeKokkos(int argc, char* argv[]);
+void FinalizeKokkos();
 //----------------------------------------------------------------------------
 #if 1
   #define OUTPUTTEXT(a) std::cout << (a);

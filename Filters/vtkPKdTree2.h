@@ -37,10 +37,10 @@
 // .SECTION See Also
 //      vtkKdTree
 
-#ifndef __vtkPKdTree2_h
-#define __vtkPKdTree2_h
+#ifndef vtkPKdTree2_h
+#define vtkPKdTree2_h
 
-#include "vtkFiltersParallelModule.h" // For export macro
+#include "vtkPVZoltanFiltersModule.h" // For export macro
 #include "vtkPKdTree.h"
 
 class vtkMultiProcessController;
@@ -49,7 +49,7 @@ class vtkSubGroup;
 class vtkIntArray;
 class vtkKdNode;
 
-class VTK_EXPORT vtkPKdTree2 : public vtkPKdTree
+class VTKPVZOLTANFILTERS_EXPORT vtkPKdTree2 : public vtkPKdTree
 {
 public:
   vtkTypeMacro(vtkPKdTree2, vtkPKdTree);
@@ -61,7 +61,7 @@ public:
   // Create a polydata representation of the boundaries of
   // the k-d tree regions.  If level equals GetLevel(), the
   // leaf nodes are represented.
-  virtual void GenerateRepresentation(int level, vtkPolyData *pd);
+  void GenerateRepresentation(int level, vtkPolyData *pd) override;
   void GenerateBoxes(int level, vtkPolyData *pd);
 
    vtkSetMacro(InflateFactor, double);
@@ -71,14 +71,14 @@ public:
 
 protected:
 
-   vtkPKdTree2();
-  ~vtkPKdTree2();
+  vtkPKdTree2();
+  ~vtkPKdTree2() override;
 
   double InflateFactor;
 private:
 
-  vtkPKdTree2(const vtkPKdTree2&); // Not implemented
-  void operator=(const vtkPKdTree2&); // Not implemented
+  vtkPKdTree2(const vtkPKdTree2&) = delete;
+  void operator=(const vtkPKdTree2&) = delete;
 };
 
 #endif

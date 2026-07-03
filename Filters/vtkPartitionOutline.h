@@ -22,13 +22,14 @@
 // .SECTION See Also
 // 
 
-#ifndef _vtkPartitionOutline_h
-#define _vtkPartitionOutline_h
+#ifndef vtkPartitionOutline_h
+#define vtkPartitionOutline_h
 
+#include "vtkPVZoltanFiltersModule.h" // for export macro
 #include "vtkPolyDataAlgorithm.h"
 class vtkPKdTree;
 
-class VTK_EXPORT vtkPartitionOutline : public vtkPolyDataAlgorithm {
+class VTKPVZOLTANFILTERS_EXPORT vtkPartitionOutline : public vtkPolyDataAlgorithm {
   public:
     // Description:
     // Standard Type-Macro
@@ -59,25 +60,24 @@ class VTK_EXPORT vtkPartitionOutline : public vtkPolyDataAlgorithm {
 
   protected:
      vtkPartitionOutline(void);
-    ~vtkPartitionOutline();
+    ~vtkPartitionOutline() override;
     //
-    virtual int RequestInformation (vtkInformation *,
-                                    vtkInformationVector **,
-                                    vtkInformationVector *);
+    int RequestInformation (vtkInformation *,
+                            vtkInformationVector **,
+                            vtkInformationVector *) override;
     //
-    virtual int RequestData(vtkInformation *request,
-                            vtkInformationVector** inputVector,
-                            vtkInformationVector* outputVector);
+    int RequestData(vtkInformation *request,
+                    vtkInformationVector** inputVector,
+                    vtkInformationVector* outputVector) override;
     //
-    virtual int FillInputPortInformation(int port, vtkInformation* info);
+    int FillInputPortInformation(int port, vtkInformation* info) override;
 
     int    AllBoxesOnAllProcesses;
     int    ShowKdTreeBounds;
     double InflateFactor;
 private:
-  // Not implemented.
-  vtkPartitionOutline(const vtkPartitionOutline&);
-  void operator=(const vtkPartitionOutline&);
+  vtkPartitionOutline(const vtkPartitionOutline&) = delete;
+  void operator=(const vtkPartitionOutline&) = delete;
 };
 
 #endif

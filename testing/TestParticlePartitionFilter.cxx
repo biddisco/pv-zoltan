@@ -12,7 +12,7 @@
 #include <math.h>
 //
 // For PARAVIEW_USE_MPI
-#include "vtkPVConfig.h"
+#include "vtkPVVersion.h"
 #ifdef PARAVIEW_USE_MPI
   #include "vtkMPI.h"
   #include "vtkMPIController.h"
@@ -30,7 +30,7 @@
 #include "vtkPolyDataMapper.h"
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
-#include "vtkInteractorStyleSwitch.h"
+
 #include "vtkRenderer.h"
 #include "vtkWindowToImageFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
@@ -45,7 +45,7 @@
 #include "vtkTimerLog.h"
 #include "vtkBoundingBox.h"
 #include "vtkOutlineSource.h"
-#include "vtkProcessIdScalars.h"
+#include "vtkGenerateProcessIds.h"
 #include "vtkTransform.h"
 //
 #include <vtksys/SystemTools.hxx>
@@ -157,7 +157,7 @@ int main (int argc, char* argv[])
   //--------------------------------------------------------------
   // Add process Id's
   //--------------------------------------------------------------
-  vtkSmartPointer<vtkProcessIdScalars> processId = vtkSmartPointer<vtkProcessIdScalars>::New();
+  vtkSmartPointer<vtkGenerateProcessIds> processId = vtkSmartPointer<vtkGenerateProcessIds>::New();
   processId->SetInputConnection(test.partitioner->GetOutputPort());
   processId->SetController(test.controller);
   //
@@ -178,7 +178,12 @@ int main (int argc, char* argv[])
   // no piece info set yet, assumes info is not piece dependent
   sddp->UpdateInformation();
   // now set piece info and update
-  sddp->SetUpdateExtent(0, test.myRank, test.numProcs, 0);
+  {
+    vtkInformation* outInfo = sddp->GetOutputInformation(0);
+    outInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(), test.myRank);
+    outInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(), test.numProcs);
+    outInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0);
+  }
   sddp->Update();
 
   if (test.doRender) {
@@ -206,6 +211,7 @@ int main (int argc, char* argv[])
     DisplayParameter<const char *>("====================", "", &empty, 1, test.myRank);
   }
 
+  FinalizeKokkos();
   test.controller->Finalize();
 
   return !retVal;

@@ -1,0 +1,20 @@
+NAME
+  pvZoltanFilters
+LIBRARY_NAME
+  vtkPVZoltanFilters
+SPDX_LICENSE_IDENTIFIER
+  LicenseRef-CSCS
+SPDX_COPYRIGHT_TEXT
+  Copyright (C) CSCS - Swiss National Supercomputing Centre
+DEPENDS
+  VTK::CommonCore
+  VTK::CommonDataModel
+  VTK::CommonExecutionModel
+  VTK::FiltersCore
+  VTK::FiltersGeneral
+  VTK::ParallelCore
+  VTK::ParallelMPI
+  VTK::FiltersParallel
+  VTK::FiltersGeometry
+  ParaView::RemotingCore
+  ParaView::RemotingViews

@@ -21,11 +21,12 @@
 // filter for PolyData or UnstructuredGrid datasets.
 // It uses the Zoltan library from the Trilinos package to perform the redistribution.
 
-#ifndef __vtkMeshPartitionFilter_h
-#define __vtkMeshPartitionFilter_h
+#ifndef vtkMeshPartitionFilter_h
+#define vtkMeshPartitionFilter_h
 
 #include "vtkZoltanVersion.h"
 
+#include "vtkPVZoltanFiltersModule.h" // for export macro
 #include "vtkBoundingBox.h"
 #include "vtkSmartPointer.h"
 //
@@ -40,12 +41,12 @@ class vtkUnsignedCharArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
-class VTK_EXPORT vtkMeshPartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
+class VTKPVZOLTANFILTERS_EXPORT vtkMeshPartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
 {
   public:
     static vtkMeshPartitionFilter *New();
     vtkTypeMacro(vtkMeshPartitionFilter, @VTK_ZOLTAN_PARTITION_FILTER@);
-    void PrintSelf(ostream& os, vtkIndent indent);
+    void PrintSelf(ostream& os, vtkIndent indent) override;
 
     template <typename T>
     static void zoltan_pre_migrate_function_cell(void *data, int num_gid_entries, int num_lid_entries,
@@ -133,7 +134,7 @@ class VTK_EXPORT vtkMeshPartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
 
   protected:
      vtkMeshPartitionFilter();
-    ~vtkMeshPartitionFilter();
+    ~vtkMeshPartitionFilter() override;
 
     // flag used after assigning the points making up a cell to decide
     // where the cell will be sent or if it will be kept
@@ -146,9 +147,9 @@ class VTK_EXPORT vtkMeshPartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
     };
 
     // Description:
-    virtual int RequestData(vtkInformation*,
-                            vtkInformationVector**,
-                            vtkInformationVector*);
+    int RequestData(vtkInformation*,
+                    vtkInformationVector**,
+                    vtkInformationVector*) override;
 
     // called after cell partition to ensure received cells are not marked as
     // ghost cells when they are only ghost cells on another process
@@ -163,8 +164,8 @@ class VTK_EXPORT vtkMeshPartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
     vtkSmartPointer<vtkUnsignedCharArray> ghost_cell_flags;
 
   private:
-    vtkMeshPartitionFilter(const vtkMeshPartitionFilter&);  // Not implemented.
-    void operator=(const vtkMeshPartitionFilter&);  // Not implemented.
+    vtkMeshPartitionFilter(const vtkMeshPartitionFilter&) = delete;
+    void operator=(const vtkMeshPartitionFilter&) = delete;
 };
 
 #endif

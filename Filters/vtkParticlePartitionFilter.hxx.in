@@ -22,11 +22,12 @@
 // will be duplicated on bordering processes of these regions.
 // It uses the Zoltan library from the Trilinos package to perform the redistribution.
 
-#ifndef __vtkParticlePartitionFilter_h
-#define __vtkParticlePartitionFilter_h
+#ifndef vtkParticlePartitionFilter_h
+#define vtkParticlePartitionFilter_h
 
 #include "vtkZoltanVersion.h"
 
+#include "vtkPVZoltanFiltersModule.h" // for export macro
 #include "vtkBoundingBox.h"
 #include <vector>
 
@@ -37,7 +38,7 @@ class vtkIntArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
-class VTK_EXPORT vtkParticlePartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
+class VTKPVZOLTANFILTERS_EXPORT vtkParticlePartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
 {
   public:
     static vtkParticlePartitionFilter *New();
@@ -57,12 +58,12 @@ class VTK_EXPORT vtkParticlePartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTE
 
   protected:
      vtkParticlePartitionFilter();
-    ~vtkParticlePartitionFilter();
+    ~vtkParticlePartitionFilter() override;
 
     // Description:
-    virtual int RequestData(vtkInformation*,
-                            vtkInformationVector**,
-                            vtkInformationVector*);
+    int RequestData(vtkInformation*,
+                    vtkInformationVector**,
+                    vtkInformationVector*) override;
 
     void FindPointsInHaloRegions(vtkPoints *pts, PartitionInfo &point_partitioninfo, ZoltanLoadBalanceData &loadBalanceData, PartitionInfo &ghost_info);
 
@@ -70,8 +71,8 @@ class VTK_EXPORT vtkParticlePartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTE
     double                      GridOrigin[3];
 
   private:
-    vtkParticlePartitionFilter(const vtkParticlePartitionFilter&);  // Not implemented.
-    void operator=(const vtkParticlePartitionFilter&);  // Not implemented.
+    vtkParticlePartitionFilter(const vtkParticlePartitionFilter&) = delete;
+    void operator=(const vtkParticlePartitionFilter&) = delete;
 };
 
 #endif

@@ -12,7 +12,7 @@
 #include <math.h>
 //
 // For PARAVIEW_USE_MPI
-#include "vtkPVConfig.h"
+#include "vtkPVVersion.h"
 #ifdef PARAVIEW_USE_MPI
 #include "vtkMPI.h"
 #include "vtkMPIController.h"
@@ -30,7 +30,7 @@
 #include "vtkPolyDataMapper.h"
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
-#include "vtkInteractorStyleSwitch.h"
+
 #include "vtkRenderer.h"
 #include "vtkWindowToImageFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
@@ -45,7 +45,6 @@
 #include "vtkTimerLog.h"
 #include "vtkBoundingBox.h"
 #include "vtkOutlineSource.h"
-#include "vtkProcessIdScalars.h"
 #include "vtkTransform.h"
 //
 #include <vtksys/SystemTools.hxx>
@@ -157,39 +156,17 @@ int main (int argc, char* argv[])
     static_cast<vtkParticlePartitionFilter*>(test.partitioner.GetPointer())->SetGhostHaloSize(test.ghostOverlap);
     partition_elapsed = test.UpdatePartitioner();
 
-    //--------------------------------------------------------------
-    // Add process Id's
-    //--------------------------------------------------------------
-    vtkSmartPointer<vtkProcessIdScalars> processId = vtkSmartPointer<vtkProcessIdScalars>::New();
-    processId->SetInputConnection(test.partitioner->GetOutputPort());
-    processId->SetController(test.controller);
-    //
     test.controller->Barrier();
     if (test.myRank==0) {
         testDebugMacro( "Process Id : " << test.myRank << " Generated N Points : " << test.generateN );
     }
 
-    //--------------------------------------------------------------
-    // Update in parallel
     //
-    // To get parallel operation correct, we need to make sure that piece
-    // information is passed upstream. first update information,
-    // then set piece update extent,
-    //--------------------------------------------------------------
-    testDebugMacro( "Setting piece information " << test.myRank << " of " << test.numProcs );
-    vtkStreamingDemandDrivenPipeline *sddp = vtkStreamingDemandDrivenPipeline::SafeDownCast(processId->GetExecutive());
-    // no piece info set yet, assumes info is not piece dependent
-    sddp->UpdateInformation();
-    // now set piece info and update
-    sddp->SetUpdateExtent(0, test.myRank, test.numProcs, 0);
-    sddp->Update();
-
-    //
-    // Send all the data to process zero for display
+    // Send all the partition output to process zero for analysis
     //
     vtkSmartPointer<vtkPolyData> OutputData;
-    OutputData.TakeReference(vtkPolyData::SafeDownCast(sddp->GetOutputData(0)->NewInstance()));
-    OutputData->ShallowCopy(sddp->GetOutputData(0));
+    OutputData.TakeReference(vtkPolyData::SafeDownCast(test.partitioner->GetOutputDataObject(0)->NewInstance()));
+    OutputData->ShallowCopy(test.partitioner->GetOutputDataObject(0));
     if (test.myRank>0) {
         test.controller->Send(OutputData, 0, DATA_SEND_TAG);
     }
@@ -216,14 +193,18 @@ int main (int argc, char* argv[])
             vtkFloatArray *weights = vtkFloatArray::SafeDownCast(pd->GetPointData()->GetArray("Weights"));
             vtkUnsignedCharArray *ghosts = vtkUnsignedCharArray::SafeDownCast(pd->GetPointData()->GetArray("vtkGhostType"));
 
-            for (int n = 0; n < weights->GetNumberOfTuples(); ++n)
+            if (weights)
             {
-                // ghost cells are trnasferred in and are were not used for the weighting
-                int ghost = ghosts->GetValue(n);
-                if (ghost==0) {
-                    weightCounts[i] += weights->GetValue(n);
-                    pointsCounts[i] ++;
-                }
+              for (int n = 0; n < weights->GetNumberOfTuples(); ++n)
+              {
+                  // ghost cells are transferred in and were not used for the weighting.
+                  // If no ghost array is present, treat all points as owned.
+                  int ghost = ghosts ? ghosts->GetValue(n) : 0;
+                  if (ghost==0) {
+                      weightCounts[i] += weights->GetValue(n);
+                      pointsCounts[i] ++;
+                  }
+              }
             }
         }
         for (int i=0; i<test.numProcs; i++){
@@ -235,10 +216,12 @@ int main (int argc, char* argv[])
         double sq_sum = std::inner_product(weightCounts.begin(), weightCounts.end(), weightCounts.begin(), 0.0);
         double stdev = std::sqrt(sq_sum / weightCounts.size() - mean * mean);
         std::cout << "standard deviation : " << stdev << ")\n";
+// The threshold is relative because the total weight scales with the
+// number of particles and whether ghost particles are present in the output.
 #ifdef VTK_ZOLTAN1_PARTITION_FILTER
-        ok = (stdev<0.7);
+        ok = (stdev < 0.7);
 #else
-        ok = (stdev<0.2);
+        ok = (stdev < 0.05 * mean);
 #endif
     }
 
@@ -250,6 +233,7 @@ int main (int argc, char* argv[])
     }
     retVal = (ok==true);
 
+    FinalizeKokkos();
     test.controller->Finalize();
 
     return !retVal;

@@ -1,0 +1,11 @@
+NAME
+  pv_zoltan
+DESCRIPTION
+  CSCS Zoltan/Trilinos based partitioning filters for ParaView
+REQUIRES_MODULES
+  VTK::CommonCore
+  VTK::CommonDataModel
+  VTK::CommonExecutionModel
+  VTK::FiltersCore
+  VTK::ParallelCore
+  ParaView::RemotingViews

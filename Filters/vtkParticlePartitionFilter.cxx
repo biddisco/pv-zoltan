@@ -34,7 +34,7 @@
 #include "vtkPKdTree.h"
 //
 // For PARAVIEW_USE_MPI
-#include "vtkPVConfig.h"
+#include "vtkPVVersion.h"
 #ifdef PARAVIEW_USE_MPI
   #include "vtkMPI.h"
   #include "vtkMPIController.h"
@@ -194,10 +194,9 @@ int vtkParticlePartitionFilter::RequestData(vtkInformation* info,
   // If polydata create Vertices for each final point
   //
   vtkSmartPointer<vtkCellArray> cells = vtkSmartPointer<vtkCellArray>::New();
-  vtkIdType *arraydata = cells->WritePointer(N, 2*N);
-  for (int i=0; i<this->ZoltanCallbackData.Output->GetNumberOfPoints(); i++) {
-    arraydata[i*2]   = 1;
-    arraydata[i*2+1] = i;
+  vtkIdType numPoints = this->ZoltanCallbackData.Output->GetNumberOfPoints();
+  for (vtkIdType i=0; i<numPoints; i++) {
+    cells->InsertNextCell(1, &i);
   }
   if (vtkPolyData::SafeDownCast(this->ZoltanCallbackData.Output)) {
     vtkPolyData::SafeDownCast(this->ZoltanCallbackData.Output)->SetVerts(cells);

@@ -23,16 +23,18 @@
 // .SECTION See Also
 // vtkParticlePartitionFilter, vtkMeshPartitionFilter
 //
-#ifndef __vtkZoltanBasePartitionFilter_h
-#define __vtkZoltanBasePartitionFilter_h
+#ifndef vtkZoltanBasePartitionFilter_h
+#define vtkZoltanBasePartitionFilter_h
 //
 #include <vector>                // std used throughout
 #include <map>                   // std used throughout
 #include <string>                // std used throughout
+#include <iostream>              // for debug macros
 //
-#include "vtkDataSetAlgorithm.h" // superclass
-#include "vtkBoundingBox.h"      // used as parameter
-#include "vtkSmartPointer.h"     // for memory safety
+#include "vtkPVZoltanFiltersModule.h" // for export macro
+#include "vtkDataSetAlgorithm.h"      // superclass
+#include "vtkBoundingBox.h"           // used as parameter
+#include "vtkSmartPointer.h"          // for memory safety
 //
 #include "zoltan.h"              // required for definitions
 
@@ -88,8 +90,7 @@ class  vtkFieldData;
 class  vtkPKdTree;
 // our special extent translator
 class  vtkBoundsExtentTranslator;
-class vtkInformationDataObjectMetaDataKey;
-class vtkInformationIntegerRequestKey;
+class vtkInformationObjectMetaDataKey;
 class vtkInformationIntegerKey;
 
 //----------------------------------------------------------------------------
@@ -126,11 +127,11 @@ class vtkInformationDoubleKey;
 class vtkInformationDoubleVectorKey;
 class vtkInformationIntegerKey;
 //----------------------------------------------------------------------------
-class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
+class VTKPVZOLTANFILTERS_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
 {
   public:
     vtkTypeMacro(vtkZoltanBasePartitionFilter,vtkDataSetAlgorithm);
-    void PrintSelf(ostream& os, vtkIndent indent);
+    void PrintSelf(ostream& os, vtkIndent indent) override;
 
     static vtkInformationDoubleVectorKey* ZOLTAN_SAMPLE_RESOLUTION();
     static vtkInformationDoubleVectorKey* ZOLTAN_SAMPLE_ORIGIN();
@@ -386,7 +387,7 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
 
   // utility function to find average of point list
   template <typename T>
-  void FindCentroid(int npts, vtkIdType *pts, CallbackData *callbackdata, T avg[3])
+  void FindCentroid(int npts, const vtkIdType *pts, CallbackData *callbackdata, T avg[3])
   {
       avg[0] = avg[1] = avg[2] = 0.0;
       for (int i=0; i<npts; ++i) {
@@ -430,24 +431,24 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
         int &datatype, std::string &dataname, int &numComponents, int &attrib);
 
     // Override to specify support for vtkPointSet input type.
-    virtual int FillInputPortInformation(int port, vtkInformation* info);
+    int FillInputPortInformation(int port, vtkInformation* info) override;
 
     // Override to specify different type of output
-    virtual int FillOutputPortInformation(int port, vtkInformation* info);
+    int FillOutputPortInformation(int port, vtkInformation* info) override;
 
     // Description:
-    virtual int RequestInformation(vtkInformation*,
-                                   vtkInformationVector**,
-                                   vtkInformationVector*);
+    int RequestInformation(vtkInformation*,
+                           vtkInformationVector**,
+                           vtkInformationVector*) override;
     // Description:
-    virtual int RequestUpdateExtent(vtkInformation*,
-                                    vtkInformationVector**,
-                                    vtkInformationVector*);
-
-    // Description:
-    virtual int RequestData(vtkInformation*,
+    int RequestUpdateExtent(vtkInformation*,
                             vtkInformationVector**,
-                            vtkInformationVector*);
+                            vtkInformationVector*) override;
+
+    // Description:
+    int RequestData(vtkInformation*,
+                    vtkInformationVector**,
+                    vtkInformationVector*) override;
 
     MPI_Comm GetMPIComm();
 
@@ -501,8 +502,8 @@ class VTK_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSetAlgorithm
 #endif
 
   private:
-    vtkZoltanBasePartitionFilter(const vtkZoltanBasePartitionFilter&);  // Not implemented.
-    void operator=(const vtkZoltanBasePartitionFilter&);  // Not implemented.
+    vtkZoltanBasePartitionFilter(const vtkZoltanBasePartitionFilter&) = delete;
+    void operator=(const vtkZoltanBasePartitionFilter&) = delete;
 };
 
 #endif

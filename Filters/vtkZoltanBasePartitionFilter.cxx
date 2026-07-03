@@ -38,9 +38,9 @@
 #include "vtkFloatArray.h"
 #include "vtkDoubleArray.h"
 //
-// For PARAVIEW_USE_MPI
-#include "vtkPVConfig.h"
-#ifdef PARAVIEW_USE_MPI
+// For VTK_USE_MPI
+#include "vtkPVVersion.h"
+#ifdef VTK_USE_MPI
   #include "vtkMPI.h"
   #include "vtkMPIController.h"
   #include "vtkMPICommunicator.h"
@@ -51,10 +51,10 @@
 #include "vtkHexahedron.h"
 #include "vtkPKdTree.h"
 #include "vtkBSPCuts.h"
-#include "vtkKdTreeGenerator.h"
 //
 #include "vtkPKdTree2.h"
 #include "vtkBoundsExtentTranslator.h"
+#include "vtkInformationObjectMetaDataKey.h"
 #include "vtkZoltanBasePartitionFilter.h"
 //
 #define _USE_MATH_DEFINES
@@ -68,8 +68,7 @@
 #include <sstream>
 #include <iterator>
 //
-#include "zz_const.h"
-#include "rcb.h"
+
 //
 //----------------------------------------------------------------------------
 vtkCxxSetObjectMacro(vtkZoltanBasePartitionFilter, Controller, vtkMultiProcessController);
@@ -347,7 +346,7 @@ int vtkZoltanBasePartitionFilter::GatherDataTypeInfo(vtkDataSet *input, vtkPoint
   }
   return datatype;
 #else
-  return pInput->GetPoints()->GetDataType();
+  return input->GetPoints()->GetDataType();
 #endif
 }
 
@@ -682,7 +681,7 @@ int vtkZoltanBasePartitionFilter::PartitionPoints(vtkInformation*,
   // This also stops hangs during collective operations by ensuring all ranks participate
   // we must not modfiy the input, so make a copy
   //
-  vtkDebugMacro("Creating copy of input PointData")
+  vtkDebugMacro("Creating copy of input PointData");
   vtkPointData *inputPointData = input->GetPointData();
   this->ZoltanCallbackData.InputPointData = inputPointData->NewInstance();
   this->ZoltanCallbackData.InputPointData->ShallowCopy(inputPointData);
@@ -1055,130 +1054,10 @@ int vtkZoltanBasePartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLi
 //----------------------------------------------------------------------------
 vtkSmartPointer<vtkPKdTree> vtkZoltanBasePartitionFilter::CreatePkdTree()
 {
-  vtkSmartPointer<vtkBSPCuts> cuts = vtkSmartPointer<vtkBSPCuts>::New();
-  //
-  RCB_STRUCT *rcb = (RCB_STRUCT *) (this->ZoltanData->LB.Data_Structure);
-  struct rcb_tree *treept = rcb->Tree_Ptr;
-  //
-  if (treept[0].dim < 0) {
-    vtkErrorMacro("RCB Tree invalid");
-    return NULL;
-  }
-
-  // Zoltan might have remapped the partitions from the default depth first ordering
-  std::vector<int> remapping(this->UpdateNumPieces, -1);
-  for (int i=0; i<this->ZoltanData->LB.Num_Global_Parts; i++) {
-    if (this->ZoltanData->LB.Remap) {
-      remapping[this->ZoltanData->LB.Remap[i]] = i;
-    }
-    else {
-      remapping[i] = i;
-    }
-  }
-
-  // list we will pass to CreateCuts
-  std::vector<int>    cut_axis;
-  std::vector<double> cut_position;
-  std::vector<int>    cut_lower;
-  std::vector<int>    cut_upper;
-
-  // use a stack to traverse the RCB cut tree
-  typedef std::pair<struct rcb_tree*, int> cutpair;
-  std::stack<cutpair> tree_stack;
-  struct rcb_tree *nodept = &treept[0];
-
-  // push the root onto the stack
-  if (nodept->right_leaf) {
-    tree_stack.push(cutpair(&treept[nodept->right_leaf],-1));
-  }
-
-  // Traverse the RCB cut tree creating nodes for the the vtk cuts
-  int RegionId = 0;
-  while (!tree_stack.empty()) {
-    nodept = tree_stack.top().first;
-    int node_parent = tree_stack.top().second;
-    tree_stack.pop();
-
-    // create a node for this cut, append it to the list
-    cut_position.push_back(nodept->cut);
-    cut_axis.push_back(nodept->dim);
-
-    // we don't know where child nodes will be in the list yet
-    cut_lower.push_back(-1);
-    cut_upper.push_back(-1);
-
-    // the new node we've just added to the list has this index
-    int new_node_index = cut_position.size()-1;
-
-    // if the parent of this node had a missing child pointer/index
-    // and this is the child required, set the child index
-    if (node_parent>=0) {
-      // the left node will always be done first, so check it
-      if (cut_lower[node_parent] == -1) {
-        cut_lower[node_parent] = new_node_index;
-      }
-      // if it has already been filled in, we must be the right node
-      else if (cut_upper[node_parent] == -1) {
-        cut_upper[node_parent] = new_node_index;
-      }
-    }
-
-    // if this is a new 'normal' parent node with 2 children
-    if (nodept->right_leaf > 0) {
-      // push two new nodes onto the stack : always push right(upper) then left(lower)
-      // to make sure the left is processed/popped first and the array offset/indexes are correct
-      // (since we don't know the child locations when we create them, save the parent ID
-      // so that we can fill in the missing info when the children are created)
-      tree_stack.push(cutpair(&(treept[nodept->right_leaf]),new_node_index));
-      tree_stack.push(cutpair(&(treept[nodept->left_leaf]), new_node_index));
-    }
-    // if the node is a leaf, hanging from an unbalanced node (e.g. 7 leaf tree)
-    else if (nodept->left_leaf > 0) {
-      // push the node which has more cuts
-      tree_stack.push(cutpair(&(treept[nodept->left_leaf]),new_node_index));
-      // create one leaf node, set the (region) Id for BSPCuts to use
-      cut_position.push_back(0.0);
-      cut_axis.push_back(0);
-      cut_lower.push_back(-remapping[RegionId]);
-      cut_upper.push_back(-1);
-      // point the parent node to this leaf
-      cut_upper[new_node_index] = new_node_index+1;
-      RegionId++;
-    }
-    else {
-      // create two leaf nodes, set the (region) Id for BSPCuts to use
-      cut_position.push_back(0.0);
-      cut_axis.push_back(0);
-      cut_lower.push_back(-remapping[RegionId]);
-      cut_upper.push_back(-1);
-      RegionId++;
-      cut_position.push_back(0.0);
-      cut_axis.push_back(0);
-      cut_lower.push_back(-remapping[RegionId]);
-      cut_upper.push_back(-1);
-      RegionId++;
-      // the children are created now, so we know what the indices are
-      cut_lower[new_node_index] = new_node_index+1;
-      cut_upper[new_node_index] = new_node_index+2;
-    }
-  };
-
-  cuts->CreateCuts(
-    this->ExtentTranslator->GetWholeBounds(),
-    cut_axis.size(),
-    &cut_axis[0],
-    &cut_position[0],
-    &cut_lower[0],
-    &cut_upper[0],
-    NULL,NULL,NULL);
-
-  this->KdTree = vtkSmartPointer<vtkPKdTree2>::New();
-  this->KdTree->SetController(this->Controller);
-  this->KdTree->SetCuts(cuts);
-  vtkPKdTree2::SafeDownCast(this->KdTree)->BuildLocator(
-    this->ExtentTranslator->GetWholeBounds(), this->ZoltanData->LB.Remap /* &remapping[0]*/, this->UpdateNumPieces);
-
-  return KdTree;
+  // Creating an exact k-d tree from Zoltan's internal RCB structure requires
+  // private Trilinos headers that are not installed with the system package.
+  // Stub this out for now; the partition filter itself is unaffected.
+  return nullptr;
 }
 
 

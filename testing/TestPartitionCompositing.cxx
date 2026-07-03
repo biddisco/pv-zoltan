@@ -237,6 +237,7 @@ int main (int argc, char* argv[])
     DisplayParameter<const char *>("====================", "", &empty, 1, test.myRank);
   }
 
+  FinalizeKokkos();
   test.controller->Finalize();
 
   return !retVal;

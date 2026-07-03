@@ -23,16 +23,17 @@
 // .SECTION See Also
 // vtkParticlePartitionFilter, vtkMeshPartitionFilter
 //
-#ifndef __vtkZoltanV2PartitionFilter_h
-#define __vtkZoltanV2PartitionFilter_h
+#ifndef vtkZoltanV2PartitionFilter_h
+#define vtkZoltanV2PartitionFilter_h
 //
 #include <vector>                // std used throughout
 #include <map>                   // std used throughout
 #include <string>                // std used throughout
 //
-#include "vtkDataSetAlgorithm.h" // superclass
-#include "vtkBoundingBox.h"      // used as parameter
-#include "vtkSmartPointer.h"     // for memory safety
+#include "vtkPVZoltanFiltersModule.h" // for export macro
+#include "vtkDataSetAlgorithm.h"      // superclass
+#include "vtkBoundingBox.h"           // used as parameter
+#include "vtkSmartPointer.h"          // for memory safety
 //
 #include "vtkZoltanBasePartitionFilter.h"
 #include "zoltan.h"
@@ -50,9 +51,6 @@ class  vtkFieldData;
 class  vtkPKdTree;
 // our special extent translator
 class  vtkBoundsExtentTranslator;
-class vtkInformationDataObjectMetaDataKey;
-class vtkInformationIntegerRequestKey;
-class vtkInformationIntegerKey;
 namespace Teuchos {
   class ParameterList;
 }
@@ -78,7 +76,7 @@ class vtkInformationDoubleKey;
 class vtkInformationDoubleVectorKey;
 class vtkInformationIntegerKey;
 //----------------------------------------------------------------------------
-class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkZoltanBasePartitionFilter
+class VTKPVZOLTANFILTERS_EXPORT vtkZoltanV2PartitionFilter : public vtkZoltanBasePartitionFilter
 {
   public:
     static vtkZoltanV2PartitionFilter *New();
@@ -86,21 +84,20 @@ class VTK_EXPORT vtkZoltanV2PartitionFilter : public vtkZoltanBasePartitionFilte
 
   protected:
      vtkZoltanV2PartitionFilter();
-    ~vtkZoltanV2PartitionFilter();
+    ~vtkZoltanV2PartitionFilter() override;
 
-    virtual void InitializeZoltanLoadBalance();
-    virtual void ExecuteZoltanPartition(vtkPointSet *output, vtkPointSet *input);
-    virtual void GetZoltanBoundingBoxes(vtkBoundingBox &globalBounds);
+    void InitializeZoltanLoadBalance() override;
+    void ExecuteZoltanPartition(vtkPointSet *output, vtkPointSet *input) override;
+    void GetZoltanBoundingBoxes(vtkBoundingBox &globalBounds) override;
 
 //BTX
-    template<typename U>
     friend struct vtkZoltan2Helper;
 //ETX
     Teuchos::ParameterList *ZoltanParams;
 
   private:
-    vtkZoltanV2PartitionFilter(const vtkZoltanV2PartitionFilter&);  // Not implemented.
-    void operator=(const vtkZoltanV2PartitionFilter&);  // Not implemented.
+    vtkZoltanV2PartitionFilter(const vtkZoltanV2PartitionFilter&) = delete;
+    void operator=(const vtkZoltanV2PartitionFilter&) = delete;
 };
 
 #endif

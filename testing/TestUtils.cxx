@@ -32,12 +32,13 @@
 #include "vtkPolyDataMapper.h"
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
-#include "vtkInteractorStyleSwitch.h"
 #include "vtkRenderer.h"
 #include "vtkWindowToImageFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkInformation.h"
+#include "vtkMPIController.h"
 #include "vtkDebugLeaks.h"
+#include <Kokkos_Core.hpp>
 #include "vtkProperty.h"
 #include "vtkPointData.h"
 #include "vtkDoubleArray.h"
@@ -47,7 +48,9 @@
 #include "vtkTimerLog.h"
 #include "vtkBoundingBox.h"
 #include "vtkOutlineSource.h"
-#include "vtkProcessIdScalars.h"
+#include "vtkGenerateProcessIds.h"
+#include "vtkIntArray.h"
+#include "vtkCellData.h"
 #include "vtkXMLPolyDataReader.h"
 #include "vtkXMLPPolyDataReader.h"
 #include "vtkTransform.h"
@@ -55,6 +58,16 @@
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
+//----------------------------------------------------------------------------
+void InitializeKokkos(int argc, char* argv[])
+{
+  Kokkos::initialize(argc, argv);
+}
+//----------------------------------------------------------------------------
+void FinalizeKokkos()
+{
+  Kokkos::finalize();
+}
 //----------------------------------------------------------------------------
 // Template specialization for string types to handle spaces in names
 //
@@ -121,6 +134,7 @@ void CubePoints(int n, float radius, float X[], float W[]) {
 int initTest(int argc, char* argv[], TestStruct &test)
 {
   MPI_Init(&argc,&argv);
+  InitializeKokkos(argc, argv);
   test.controller = vtkSmartPointer<vtkMPIController>::New();
   test.controller->Initialize(&argc, &argv, 1);
   
@@ -372,7 +386,12 @@ double TestStruct::UpdatePartitioner()
   vtkStreamingDemandDrivenPipeline *partition_sddp = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->partitioner->GetExecutive());
   partition_sddp->UpdateDataObject();
   testDebugMacro( "Partition DataObject Updated " << this->myRank << " of " << this->numProcs );
-  partition_sddp->SetUpdateExtent(0, this->myRank, this->numProcs, 0);
+  {
+    vtkInformation* outInfo = partition_sddp->GetOutputInformation(0);
+    outInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(), this->myRank);
+    outInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(), this->numProcs);
+    outInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0);
+  }
   partition_sddp->UpdateInformation();
   testDebugMacro( "Partition Information Updated " << this->myRank << " of " << this->numProcs );
   testDebugMacro( "Partition Update coming " << this->myRank << " of " << this->numProcs );
@@ -399,14 +418,11 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
     vtkSmartPointer<vtkRenderer>                ren = vtkSmartPointer<vtkRenderer>::New();
     vtkSmartPointer<vtkRenderWindow>      renWindow = vtkSmartPointer<vtkRenderWindow>::New();
     vtkSmartPointer<vtkRenderWindowInteractor> iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
-    vtkSmartPointer<vtkInteractorStyleSwitch> style = vtkSmartPointer<vtkInteractorStyleSwitch>::New();
     renWindow->LineSmoothingOn();
     renWindow->PolygonSmoothingOn();
     renWindow->PointSmoothingOn();
     iren->SetRenderWindow(renWindow);
-    iren->SetInteractorStyle(style);
-    style->SetCurrentStyleToTrackballCamera();
-    ren->SetBackground(1.0, 1.0, 1.0);
+    ren->SetBackground(0.1, 0.1, 0.1);
     renWindow->SetSize(windowSize);
     renWindow->AddRenderer(ren);
     //
@@ -433,10 +449,33 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
             testDebugMacro("data received at "<<myRank<<" from "<< i);
         }
 //        pd->PrintSelf(std::cout, vtkIndent(0));
+        //
+        // Create a plain integer scalar array for this piece.  This replaces
+        // the vtkConstantArray produced by vtkGenerateProcessIds, which does
+        // not colour reliably with vtkPolyDataMapper.
+        //
+        std::string colorArrayName = scalarName.empty() ? "ProcessId" : scalarName;
+        vtkSmartPointer<vtkIntArray> pidArray = vtkSmartPointer<vtkIntArray>::New();
+        pidArray->SetName(colorArrayName.c_str());
+        vtkIdType nTuples = scalarMode==0 ? pd->GetNumberOfPoints() : pd->GetNumberOfCells();
+        pidArray->SetNumberOfTuples(nTuples);
+        for (vtkIdType t=0; t<nTuples; ++t)
+        {
+            pidArray->SetValue(t, i);
+        }
+        if (scalarMode==0) {
+            pd->GetPointData()->AddArray(pidArray);
+            pd->GetPointData()->SetActiveScalars(colorArrayName.c_str());
+        }
+        else {
+            pd->GetCellData()->AddArray(pidArray);
+            pd->GetCellData()->SetActiveScalars(colorArrayName.c_str());
+        }
+
         vtkSmartPointer<vtkPolyDataMapper>       mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
         vtkSmartPointer<vtkActor>                 actor = vtkSmartPointer<vtkActor>::New();
         mapper->SetInputData(pd);
-        mapper->SetImmediateModeRendering(1);
+
         // scalars
         mapper->SetColorModeToMapScalars();
         if (scalarMode==0) {
@@ -445,19 +484,19 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         else {
             mapper->SetScalarModeToUseCellFieldData();
         }
-        testDebugMacro("setting scalar colours to " << scalarName.c_str());
-        mapper->SelectColorArray(scalarName.c_str());
+        testDebugMacro("setting scalar colours to " << colorArrayName.c_str());
+        mapper->SelectColorArray(colorArrayName.c_str());
         mapper->SetUseLookupTableScalarRange(0);
         mapper->SetScalarRange(scalarRange[0], scalarRange[1]);
         mapper->SetInterpolateScalarsBeforeMapping(0);
         //
         actor->SetMapper(mapper);
-        actor->GetProperty()->SetPointSize(5);
+        actor->GetProperty()->SetPointSize(2);
         actor->GetProperty()->SetLineWidth(2);
         if (doEdges) {
           actor->GetProperty()->SetLineWidth(2);
           actor->GetProperty()->SetEdgeVisibility(1);
-          actor->GetProperty()->SetEdgeColor(0.0, 0.0, 0.0);
+          actor->GetProperty()->SetEdgeColor(1.0, 1.0, 1.0);
         }
         ren->AddActor(actor);
         // move each actor away from the midpoint so we can see ghost cells better
@@ -497,8 +536,8 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         bmapper->SetInputConnection(boxsource->GetOutputPort());
         bactor->SetMapper(bmapper);
         ren->AddActor(bactor);
-        bactor->GetProperty()->SetColor(0.0,0.0,0.0);
-        bactor->GetProperty()->SetLineWidth(4.0);
+        bactor->GetProperty()->SetColor(1.0,1.0,1.0);
+        bactor->GetProperty()->SetLineWidth(1.0);
 
         // move each box away from the midpoint so we can see ghost cells better
         box->GetCenter(centre);
@@ -525,8 +564,8 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
           bmapper2->SetInputConnection(boxsource2->GetOutputPort());
           bactor2->SetMapper(bmapper2);
           ren->AddActor(bactor2);
-          bactor2->GetProperty()->SetColor(0.0, 0.0, 0.0);
-          bactor2->GetProperty()->SetLineWidth(4.0);
+          bactor2->GetProperty()->SetColor(1.0, 1.0, 1.0);
+          bactor2->GetProperty()->SetLineWidth(1.0);
           bactor2->SetUserTransform(transform);
         }
     }
@@ -534,7 +573,7 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
     testDebugMacro( "Process Id : " << myRank << " About to Render" );
     renWindow->Render();
 
-    int retVal = vtkRegressionTester::Test(argc, argv, renWindow, 10);
+    int retVal = vtkRegressionTester::Test(argc, argv, renWindow, 5000);
 
     if ( retVal == vtkRegressionTester::DO_INTERACTOR) {
         iren->Start();
