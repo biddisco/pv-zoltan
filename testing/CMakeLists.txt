@@ -278,13 +278,14 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
         -F wavelet-unstructured.vtu
         -D ${CMAKE_CURRENT_SOURCE_DIR}/data
         -V ${CMAKE_CURRENT_SOURCE_DIR}/baseline/MeshPartition-unstructured-${GMODE}-${_test_version}.png
-        -doRender 1
-        -edges 1
-        -boundaryMode 2
-        -ghostMode ${index}
-        ${overlap_}
-        ${scalars_}
-        -actorShift 1.0
+          -doRender 1
+          -edges 1
+          -edgeColor "0 0 0"
+          -boundaryMode 2
+          -ghostMode ${index}
+          ${overlap_}
+          ${scalars_}
+          -actorShift 1.0
         -imageThreshold ${threshold_}
         -windowSize "1024 800"
     )

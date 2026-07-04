@@ -420,12 +420,10 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
     vtkSmartPointer<vtkRenderer>                ren = vtkSmartPointer<vtkRenderer>::New();
     vtkSmartPointer<vtkRenderWindow>      renWindow = vtkSmartPointer<vtkRenderWindow>::New();
     vtkSmartPointer<vtkRenderWindowInteractor> iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
-    renWindow->LineSmoothingOn();
-    renWindow->PolygonSmoothingOn();
-    renWindow->PointSmoothingOn();
     iren->SetRenderWindow(renWindow);
     ren->SetBackground(0.1, 0.1, 0.1);
     renWindow->SetSize(windowSize);
+    renWindow->SetMultiSamples(0);
     renWindow->AddRenderer(ren);
     //
     // To make display of ghost cells and boundary regions better, find the centre of
@@ -506,10 +504,11 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         mapper->SetInterpolateScalarsBeforeMapping(0);
         //
         actor->SetMapper(mapper);
-        actor->GetProperty()->SetPointSize(1);
-        actor->GetProperty()->SetLineWidth(1);
+        actor->GetProperty()->SetOpacity(1.0);
+        actor->GetProperty()->SetPointSize(5);
+        actor->GetProperty()->SetLineWidth(2);
         if (doEdges) {
-          actor->GetProperty()->SetLineWidth(1);
+          actor->GetProperty()->SetLineWidth(2);
           actor->GetProperty()->SetEdgeVisibility(1);
           actor->GetProperty()->SetEdgeColor(this->edgeColor);
         }
