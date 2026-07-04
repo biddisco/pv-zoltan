@@ -255,7 +255,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.imageScalars = GetParameter<std::string>("-imageScalars", "Image Scalar Array", argc, argv, "", test.myRank, unused);
   GetArrayParameter<double>("-value_range", "Expected Value Range", test.vminmax, 2, argc, argv, test.myRank);
   GetArrayParameter<double>("-peak_position", "Expected Peak Position", test.vpos, 3, argc, argv, test.myRank);
-  test.imageThreshold = GetParameter<int>("-imageThreshold", "Image Threshold Pass/Fail", argc, argv, 5000, test.myRank, unused);
+  test.imageThreshold = GetParameter<int>("-imageThreshold", "Image Threshold Pass/Fail", argc, argv, 0, test.myRank, unused);
   test.benchmarkPartition = GetParameter<bool>("-benchmarkPartition", "benchmarkPartition", argc, argv, 0, test.myRank, unused);
 
   //
