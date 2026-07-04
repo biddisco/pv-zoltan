@@ -98,9 +98,9 @@ The V2 backend was the focus of the port. Key changes include:
 - Restored the original dark-background rendering style and baseline images.
 - Raised the image-comparison threshold from `10` to `5000` to absorb minor
   VTK 9 / driver antialiasing differences while still catching real regressions.
-- The weighted particle count test runs with **300 particles** because larger
-  weighted counts hit a hang in the V2 migration path. The original 5000-particle
-  weight-rendered test is registered but may also hang; this needs investigation.
+- The weighted tests now run with the original **5000 particles**; a dangling
+  weight-array pointer in the Zoltan2 adapter was causing weighted partitions
+  to hang for larger point counts.
 
 ## Known limitations / todo items
 
@@ -109,9 +109,7 @@ The V2 backend was the focus of the port. Key changes include:
    without relying on internal Trilinos headers, or remove the dependency.
 3. **Ghost-cell bounding-box mode**: verify correctness once `CreatePkdTree()`
    is functional.
-4. **Weighted V2 migration hang**: debug why weighted particle counts > 300
-   hang during migration.
-5. **`TestPartitionCompositing`**: re-enable after confirming
+4. **`TestPartitionCompositing`**: re-enable after confirming
    `vtkBoundsExtentTranslator` integration.
 6. **SC12 benchmarks**: re-enable if the benchmark data and variables are
    available.
