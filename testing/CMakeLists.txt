@@ -158,7 +158,6 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
           -D ${CMAKE_CURRENT_SOURCE_DIR}/data
           -V ${CMAKE_CURRENT_SOURCE_DIR}/baseline/MeshPartition-${BMODE}-${dmode}-${_test_version}.png
           -doRender 1
-          -edges 1
           -ghostMode 0
           -boundaryMode ${mode}
           -scalarMode 0
@@ -236,6 +235,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
           -V ${CMAKE_CURRENT_SOURCE_DIR}/baseline/MeshPartition-ghost-${GMODE}-${dmode}-${_test_version}.png
           -doRender 1
           -edges 1
+          -edgeColor "0 0 0"
           -boundaryMode 2
           -ghostMode ${index}
           ${overlap_}

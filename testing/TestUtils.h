@@ -85,6 +85,7 @@ class TestStruct {
 
   bool        doRender;
   bool        doEdges;
+  double      edgeColor[3];
   bool        keepTempFiles;
   //
   // (Random) Particle Generation

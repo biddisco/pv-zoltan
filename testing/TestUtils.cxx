@@ -145,6 +145,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   //
   test.debugWait = false;
   test.doEdges = false;
+  test.edgeColor[0] = test.edgeColor[1] = test.edgeColor[2] = 1.0;
   //
   test.gridSpacing[0] = test.gridSpacing[1] = test.gridSpacing[2] = 0.0;
   test.gridResolution[0] = test.gridResolution[1] = test.gridResolution[2] = -1;
@@ -195,6 +196,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   test.debugWait = GetParameter<bool>("-debugWait", "Wait for debugger attach", argc, argv, 0, test.myRank, unused);
   test.doRender = GetParameter<bool>("-doRender", "Enable Render", argc, argv, 0, test.myRank, unused);
   test.doEdges  = GetParameter<bool>("-edges", "Display Mesh edges", argc, argv, 0, test.myRank, unused);
+  GetArrayParameter<double>("-edgeColor", "Edge Color", test.edgeColor, 3, argc, argv, test.myRank);
   test.keepTempFiles = GetParameter<bool>("-X", "Keep Temporary Files", argc, argv, 0, test.myRank, unused);
 
   //
@@ -509,7 +511,7 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         if (doEdges) {
           actor->GetProperty()->SetLineWidth(1);
           actor->GetProperty()->SetEdgeVisibility(1);
-          actor->GetProperty()->SetEdgeColor(1.0, 1.0, 1.0);
+          actor->GetProperty()->SetEdgeColor(this->edgeColor);
         }
         ren->AddActor(actor);
         // move each actor away from the midpoint so we can see ghost cells better
