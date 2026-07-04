@@ -78,7 +78,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
       $<TARGET_FILE:TestParticlePartitionWeightCount>
       -testName TestParticlePartitionWeightCount-P4
       -T "${PLUGIN_TEST_DIR}"
-      -generateParticles 300
+      -generateParticles 5000
       -particleGenerator 1
       -useWeights 1
       -scalarName ProcessId
@@ -121,7 +121,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
       $<TARGET_FILE:TestParticlePartitionFilter>
       -testName TestParticlePartitionWeights-P4
       -T "${PLUGIN_TEST_DIR}"
-      -generateParticles 300
+      -generateParticles 5000
       -particleGenerator 1
       -ghostOverlap 50
       -scalarName Weights

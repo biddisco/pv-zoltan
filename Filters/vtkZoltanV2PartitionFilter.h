@@ -94,6 +94,9 @@ class VTKPVZOLTANFILTERS_EXPORT vtkZoltanV2PartitionFilter : public vtkZoltanBas
     friend struct vtkZoltan2Helper;
 //ETX
     Teuchos::ParameterList *ZoltanParams;
+    // Converted point weights (double) used by the Zoltan2 adapter.
+    // Kept as a member so the adapter's data pointers remain valid.
+    std::vector<double> ZoltanWeights;
 
   private:
     vtkZoltanV2PartitionFilter(const vtkZoltanV2PartitionFilter&) = delete;

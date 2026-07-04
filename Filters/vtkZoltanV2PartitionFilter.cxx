@@ -230,13 +230,14 @@ struct vtkZoltan2Helper
             std::vector<const scalar_t *> coordVec = {x, y, z};
             std::vector<int> coordStrides = {stride, stride, stride};
             // weights are stored as float in the base class
-            std::vector<scalar_t> weights(localCount);
+            // keep the converted weights alive for the lifetime of the adapter
+            self->ZoltanWeights.resize(localCount);
             const float *weightarray = static_cast<const float *>(weightarray_void);
             for (int i = 0; i < localCount; ++i)
             {
-                weights[i] = static_cast<scalar_t>(weightarray[i]);
+                self->ZoltanWeights[i] = static_cast<scalar_t>(weightarray[i]);
             }
-            std::vector<const scalar_t*> weightVec = {weights.data()};
+            std::vector<const scalar_t*> weightVec = {self->ZoltanWeights.data()};
             std::vector<int> weightStrides = {1};
 
             InputAdapter = new inputAdapter_t(
@@ -328,9 +329,6 @@ void vtkZoltanV2PartitionFilter::ExecuteZoltanPartition(
     //////////////////////////////////////////////////////////////////////
     // Zoltan 2 partitioning
     //////////////////////////////////////////////////////////////////////
-    int rank = this->UpdatePiece;
-    int nprocs = this->UpdateNumPieces;
-
     int localCount = (coordArray)?coordArray->GetNumberOfTuples():0;
     // global Ids should be optional, fix this when they are
     globalId_t *globalIds = new globalId_t [localCount];
