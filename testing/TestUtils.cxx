@@ -512,7 +512,7 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         //
         actor->SetMapper(mapper);
         actor->GetProperty()->SetOpacity(1.0);
-        actor->GetProperty()->SetPointSize(1);
+        actor->GetProperty()->SetPointSize(1.5);
         actor->GetProperty()->SetLineWidth(1);
         if (doEdges) {
           actor->GetProperty()->SetLineWidth(1);
