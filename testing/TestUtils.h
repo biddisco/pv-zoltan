@@ -123,6 +123,7 @@ class TestStruct {
   // Test/Display of results
   //
   bool        scalarMode; // point=0 or cell=1
+  bool        useScalars; // color geometry by a scalar array
   std::string scalarName;
   double      scalarRange[2];
   double      contourVal;

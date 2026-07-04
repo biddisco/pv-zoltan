@@ -213,6 +213,11 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
       list(GET ghostmode_list ${ghostmode} GMODE)
       set(overlap_ "")
       set(actorshift_ -actorShift 0.25)
+      if(ghostmode STREQUAL "0")
+        set(scalars_ -useScalars 0)
+      else()
+        set(scalars_ -scalarMode 1 -scalarName vtkGhostRanks -scalarRange "0 4")
+      endif()
       if(ghostmode STREQUAL "2")
         if(dmode STREQUAL "sphere")
           set(overlap_ -ghostOverlap 0.09)
@@ -239,9 +244,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
           -boundaryMode 2
           -ghostMode ${index}
           ${overlap_}
-          -scalarMode 1
-          -scalarName vtkGhostRanks
-          -scalarRange "0 4"
+          ${scalars_}
           ${actorshift_}
           -imageThreshold ${threshold_}
           -windowSize "1024 800"

@@ -160,6 +160,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
 
   test.unstructured = 0;
   test.scalarMode = 0;
+  test.useScalars = true;
   test.actor_shift = 0.0;
 
   test.ghostMode    = 0;
@@ -248,6 +249,7 @@ int initTest(int argc, char* argv[], TestStruct &test)
   //
   test.scalarName = GetParameter<std::string>("-scalarName", "Testing Scalar Array", argc, argv, "", test.myRank, unused);
   test.scalarMode = GetParameter<bool>("-scalarMode", "Point(0) or Cell(1) data", argc, argv, "", test.myRank, unused);
+  test.useScalars = GetParameter<bool>("-useScalars", "Use scalar coloring", argc, argv, 1, test.myRank, unused);
   test.contourVal = GetParameter<double>("-contour", "Contour Value", argc, argv, 0.0, test.myRank, unused);
   GetArrayParameter<double>("-scalarRange", "Scalar Range", test.scalarRange, 2, argc, argv, test.myRank);
   test.actor_shift = GetParameter<double>("-actorShift", "Shift pieces by amount", argc, argv, 0.0, test.myRank, unused);
@@ -454,54 +456,59 @@ int TestStruct::RenderPieces(int argc, char **argv, vtkPolyData *OutputData)
         // Only create a plain integer process-id array when the array is
         // missing (e.g. "ProcessId" after we stopped using vtkGenerateProcessIds).
         //
-        std::string colorArrayName = scalarName.empty() ? "ProcessId" : scalarName;
-        vtkDataArray* existingArray = nullptr;
-        if (scalarMode==0) {
-            existingArray = pd->GetPointData()->GetArray(colorArrayName.c_str());
-        }
-        else {
-            existingArray = pd->GetCellData()->GetArray(colorArrayName.c_str());
-        }
-        if (!existingArray) {
-            vtkSmartPointer<vtkIntArray> pidArray = vtkSmartPointer<vtkIntArray>::New();
-            pidArray->SetName(colorArrayName.c_str());
-            vtkIdType nTuples = scalarMode==0 ? pd->GetNumberOfPoints() : pd->GetNumberOfCells();
-            pidArray->SetNumberOfTuples(nTuples);
-            for (vtkIdType t=0; t<nTuples; ++t)
-            {
-                pidArray->SetValue(t, i);
-            }
-            if (scalarMode==0) {
-                pd->GetPointData()->AddArray(pidArray);
-            }
-            else {
-                pd->GetCellData()->AddArray(pidArray);
-            }
-        }
-        if (scalarMode==0) {
-            pd->GetPointData()->SetActiveScalars(colorArrayName.c_str());
-        }
-        else {
-            pd->GetCellData()->SetActiveScalars(colorArrayName.c_str());
-        }
-
         vtkSmartPointer<vtkPolyDataMapper>       mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
         vtkSmartPointer<vtkActor>                 actor = vtkSmartPointer<vtkActor>::New();
         mapper->SetInputData(pd);
 
-        // scalars
-        mapper->SetColorModeToMapScalars();
-        if (scalarMode==0) {
-            mapper->SetScalarModeToUsePointFieldData();
+        if (this->useScalars) {
+            std::string colorArrayName = scalarName.empty() ? "ProcessId" : scalarName;
+            vtkDataArray* existingArray = nullptr;
+            if (scalarMode==0) {
+                existingArray = pd->GetPointData()->GetArray(colorArrayName.c_str());
+            }
+            else {
+                existingArray = pd->GetCellData()->GetArray(colorArrayName.c_str());
+            }
+            if (!existingArray) {
+                vtkSmartPointer<vtkIntArray> pidArray = vtkSmartPointer<vtkIntArray>::New();
+                pidArray->SetName(colorArrayName.c_str());
+                vtkIdType nTuples = scalarMode==0 ? pd->GetNumberOfPoints() : pd->GetNumberOfCells();
+                pidArray->SetNumberOfTuples(nTuples);
+                for (vtkIdType t=0; t<nTuples; ++t)
+                {
+                    pidArray->SetValue(t, i);
+                }
+                if (scalarMode==0) {
+                    pd->GetPointData()->AddArray(pidArray);
+                }
+                else {
+                    pd->GetCellData()->AddArray(pidArray);
+                }
+            }
+            if (scalarMode==0) {
+                pd->GetPointData()->SetActiveScalars(colorArrayName.c_str());
+            }
+            else {
+                pd->GetCellData()->SetActiveScalars(colorArrayName.c_str());
+            }
+
+            // scalars
+            mapper->SetColorModeToMapScalars();
+            if (scalarMode==0) {
+                mapper->SetScalarModeToUsePointFieldData();
+            }
+            else {
+                mapper->SetScalarModeToUseCellFieldData();
+            }
+            testDebugMacro("setting scalar colours to " << colorArrayName.c_str());
+            mapper->SelectColorArray(colorArrayName.c_str());
+            mapper->SetUseLookupTableScalarRange(0);
+            mapper->SetScalarRange(scalarRange[0], scalarRange[1]);
+            mapper->SetInterpolateScalarsBeforeMapping(0);
         }
         else {
-            mapper->SetScalarModeToUseCellFieldData();
+            mapper->ScalarVisibilityOff();
         }
-        testDebugMacro("setting scalar colours to " << colorArrayName.c_str());
-        mapper->SelectColorArray(colorArrayName.c_str());
-        mapper->SetUseLookupTableScalarRange(0);
-        mapper->SetScalarRange(scalarRange[0], scalarRange[1]);
-        mapper->SetInterpolateScalarsBeforeMapping(0);
         //
         actor->SetMapper(mapper);
         actor->GetProperty()->SetOpacity(1.0);
