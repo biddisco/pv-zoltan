@@ -140,18 +140,18 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   # Partition outline / k-d tree test
   #------------------------------------------------
   add_test(
-    NAME TestPartitionOutline-P4-${_test_version}
+    NAME TestPartitionOutline-P8-${_test_version}
     COMMAND
-      ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
+      ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 8
       $<TARGET_FILE:TestPartitionOutline>
-      -testName TestPartitionOutline-P4
+      -testName TestPartitionOutline-P8
       -T "${PLUGIN_TEST_DIR}"
       -generateParticles 2000
       -particleGenerator 1
       -useScalars 1
       -scalarName ProcessId
       -scalarMode 0
-      -scalarRange "0 3"
+      -scalarRange "0 7"
       -actorShift 0.0
       -V ${CMAKE_CURRENT_SOURCE_DIR}/baseline/PartitionOutline-${_test_version}.png
       -doRender 1

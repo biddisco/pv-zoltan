@@ -137,6 +137,9 @@ int main(int argc, char* argv[])
   vtkSmartPointer<vtkPartitionOutline> outline = vtkSmartPointer<vtkPartitionOutline>::New();
   outline->SetInputConnection(test.partitioner->GetOutputPort());
   outline->ShowKdTreeBoundsOn();
+  // Shrink each k-d tree box slightly so neighbouring box edges do not
+  // overlap exactly, making the subdivision visible.
+  outline->SetInflateFactor(0.99);
 
   vtkStreamingDemandDrivenPipeline* sddp =
       vtkStreamingDemandDrivenPipeline::SafeDownCast(outline->GetExecutive());
