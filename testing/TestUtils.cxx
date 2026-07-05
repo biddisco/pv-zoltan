@@ -97,7 +97,9 @@ std::string GetParameter(const char *argstr, const char *message, int argc, char
 //----------------------------------------------------------------------------
 void SpherePoints(int n, float radius, float X[]) {
   double x, y, z, w, t;
-  std::mt19937 generator(12345);
+  // Baselines were generated with GCC 4.x, where std::default_random_engine
+  // is std::minstd_rand0. Keep the same engine so positions match.
+  std::minstd_rand0 generator(12345);
   std::uniform_real_distribution<double> uniform_dist(0.0, 1.0);
   for (int i=0; i<n; i++ ) {
     double r1 = uniform_dist(generator);
@@ -116,7 +118,9 @@ void SpherePoints(int n, float radius, float X[]) {
 //----------------------------------------------------------------------------
 void CubePoints(int n, float radius, float X[], float W[]) {
   // generate uniformly distributed data to evenly fill a cube
-  std::mt19937 generator(12345);
+  // Baselines were generated with GCC 4.x, where std::default_random_engine
+  // is std::minstd_rand0. Keep the same engine so positions match.
+  std::minstd_rand0 generator(12345);
   std::uniform_real_distribution<double> uniform_dist(0.0, radius);
 
   for (int i=0; i<n; i++ ) {
