@@ -148,7 +148,10 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
       -T "${PLUGIN_TEST_DIR}"
       -generateParticles 2000
       -particleGenerator 1
-      -useScalars 0
+      -useScalars 1
+      -scalarName ProcessId
+      -scalarMode 0
+      -scalarRange "0 3"
       -actorShift 0.0
       -V ${CMAKE_CURRENT_SOURCE_DIR}/baseline/PartitionOutline-${_test_version}.png
       -doRender 1
