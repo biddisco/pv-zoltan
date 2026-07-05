@@ -11,9 +11,6 @@ find_package(MPI REQUIRED)
 set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(Trilinos REQUIRED)
 
-set(VTK_ZOLTAN_PARTITION_FILTER "vtkZoltanV2PartitionFilter")
-add_compile_definitions(VTK_ZOLTAN2_PARTITION_FILTER)
-
 set("_paraview_plugin_default_${PROJECT_NAME}" ON)
 
 paraview_plugin_scan(

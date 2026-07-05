@@ -8,8 +8,8 @@ ParaView 6.1 plugin using VTK 9 and system Trilinos 17.1.1.
 
 - The plugin now builds as a standard ParaView 6.1 plugin with `vtk.module`,
   `paraview.plugin`, and modern CMake targets.
-- Only the **Zoltan2 V2** backend is enabled by default.
-- The V1 Zoltan backend is still present in source but is **not compiled**.
+- Only the **Zoltan2 V2** backend remains. The legacy V1 Zoltan backend has
+  been removed.
 - All previously registered image tests have been restored and several ghost /
   mesh partition tests have been added back.
 
@@ -51,22 +51,16 @@ The V2 backend was the focus of the port. Key changes include:
 
 ## Filters / features not fully updated
 
-### `vtkZoltanV1PartitionFilter` (V1 backend)
-
-- The V1 source files are still in the tree but are **not built** by default.
-- Enabling them would require restoring the Zoltan1 callback adapter and
-  verifying it against the current VTK / MPI APIs.
-
 ### `CreatePkdTree()` in `vtkZoltanBasePartitionFilter`
 
 - System Trilinos 17.1.1 no longer installs the internal Zoltan headers
   (`zz_const.h`, `rcb.h`) that the original `CreatePkdTree()` implementation
   needed.
 - `CreatePkdTree()` has been reimplemented to build a `vtkPKdTree2` from the
-  per-part bounding boxes stored in `BoxList`.  These boxes come from the
-  public Zoltan API (`Zoltan_RCB_Box`) for the Zoltan1 backend and from
-  `Zoltan2::PartitioningSolution::getPartBoxesView()` for the Zoltan2 backend.
-- The V1 code no longer includes `zz_const.h` / `rcb.h`.
+  per-part bounding boxes stored in `BoxList`.  These boxes come from
+  `Zoltan2::PartitioningSolution::getPartBoxesView()`.
+- The Zoltan1 headers `zz_const.h` / `rcb.h` are no longer used anywhere in the
+  plugin.
 
 ### `vtkPKdTree2`
 
@@ -95,16 +89,15 @@ The V2 backend was the focus of the port. Key changes include:
   `vtkConstantArray` produced by modern `vtkGenerateProcessIds` does not colour
   reliably with `vtkPolyDataMapper`.
 - Restored the original dark-background rendering style and baseline images.
-- Raised the image-comparison threshold from `10` to `5000` to absorb minor
-  VTK 9 / driver antialiasing differences while still catching real regressions.
+- Removed per-test image-comparison thresholds; the default threshold in
+  `TestUtils.cxx` is `0` so every pixel difference is reported.
 - The weighted tests now run with the original **5000 particles**; a dangling
   weight-array pointer in the Zoltan2 adapter was causing weighted partitions
   to hang for larger point counts.
 
 ## Known limitations / todo items
 
-1. **V1 backend**: decide whether to port or remove `vtkZoltanV1PartitionFilter`.
-2. **Ghost-cell bounding-box mode**: verify correctness now that `CreatePkdTree()`
+1. **Ghost-cell bounding-box mode**: verify correctness now that `CreatePkdTree()`
    is functional.
 4. **`TestPartitionCompositing`**: re-enable after confirming
    `vtkBoundsExtentTranslator` integration.

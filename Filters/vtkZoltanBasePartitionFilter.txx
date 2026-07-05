@@ -18,26 +18,6 @@
 // templated functions that need to be instantiated
 
 //----------------------------------------------------------------------------
-// Zoltan callback which returns coordinate geometry data (points)
-// templated here to alow float/double instances in our implementation
-//----------------------------------------------------------------------------
-template<typename T>
-void vtkZoltanBasePartitionFilter::get_geometry_list(
-  void *data, int sizeGID, int sizeLID, int num_obj,
-  ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
-  int num_dim, double *geom_vec, int *ierr)
-{
-  CallbackData *callbackdata = static_cast<CallbackData*>(data);
-  for (int i=0;  i<num_obj; i++){
-    geom_vec[3*i]   = ((T*)(callbackdata->InputPointsData))[3*i+0];
-    geom_vec[3*i+1] = ((T*)(callbackdata->InputPointsData))[3*i+1];
-    geom_vec[3*i+2] = ((T*)(callbackdata->InputPointsData))[3*i+2];
-  }
-  *ierr = ZOLTAN_OK;
-  return;
-}
-
-//----------------------------------------------------------------------------
 // A ZOLTAN_OBJ_SIZE_FN query function returns the size (in bytes) of the data buffer
 // that is needed to pack all of a single object's data.
 //

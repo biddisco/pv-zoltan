@@ -283,29 +283,6 @@ class VTKPVZOLTANFILTERS_EXPORT vtkZoltanBasePartitionFilter : public vtkDataSet
     } MigrationLists;
 
     // Description:
-    // zoltan callback to return number of points participating in load/balance
-    static int get_number_of_objects_points(void *data, int *ierr);
-
-    // Description:
-    // Zoltan callback which fills the Ids/weights for each point in the exchange
-    static void get_object_list_points(void *data, int sizeGID, int sizeLID,
-      ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
-      int wgt_dim, float *obj_wgts, int *ierr);
-
-    // Description:
-    // Zoltan callback which returns the dimension of geometry (3D for us)
-    static int get_num_geometry(void *data, int *ierr);
-
-    // Description:
-    // Zoltan callback which returns coordinate geometry data (points)
-    // templated here to alow float/double instances in our implementation
-    template<typename T>
-    static void get_geometry_list(
-      void *data, int sizeGID, int sizeLID, int num_obj,
-      ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
-      int num_dim, double *geom_vec, int *ierr);
-
-    // Description:
     // A ZOLTAN_OBJ_SIZE_FN query function returns the size (in bytes) of the data buffer
     // that is needed to pack all of a single object's data.
     // Here we add up the size of all the field arrays for points + the geometry itself

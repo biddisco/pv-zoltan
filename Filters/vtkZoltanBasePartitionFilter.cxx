@@ -102,44 +102,6 @@ int vtkZoltanBasePartitionFilter::size_count = 0;
 
 
 //----------------------------------------------------------------------------
-// Zoltan callback which returns number of objects participating in exchange
-//----------------------------------------------------------------------------
-int vtkZoltanBasePartitionFilter::get_number_of_objects_points(void *data, int *ierr)
-{
-  int res = static_cast<CallbackData*>(data)->Input->GetNumberOfPoints();
-  *ierr = (res < 0) ? ZOLTAN_FATAL : ZOLTAN_OK;
-  return res;
-}
-
-//----------------------------------------------------------------------------
-// Zoltan callback which fills the Ids/weights for each object in the exchange
-//----------------------------------------------------------------------------
-void vtkZoltanBasePartitionFilter::get_object_list_points(void *data, int sizeGID, int sizeLID,
-    ZOLTAN_ID_PTR globalID, ZOLTAN_ID_PTR localID,
-    int wgt_dim, float *obj_wgts, int *ierr)
-{
-    CallbackData *callbackdata = static_cast<CallbackData*>(data);
-
-    *ierr = ZOLTAN_OK;
-    vtkIdType N = callbackdata->Input->GetNumberOfPoints();
-    for (vtkIdType i=0; i<N; ++i) {
-        globalID[i] = i + callbackdata->ProcessOffsetsPointId[callbackdata->ProcessRank];
-        if (wgt_dim && callbackdata->self->weights_data_ptr) {
-            obj_wgts[i] = ((float*)callbackdata->self->weights_data_ptr)[i];
-        }
-    }
-}
-
-//----------------------------------------------------------------------------
-// Zoltan callback which returns the dimension of geometry (3D for us)
-//----------------------------------------------------------------------------
-int vtkZoltanBasePartitionFilter::get_num_geometry(void *data, int *ierr)
-{
-  *ierr = ZOLTAN_OK;
-  return 3;
-}
-
-//----------------------------------------------------------------------------
 // Zoltan callback which does nothing, we register this during load balance
 // when we do not want any pre migration operations (we manually handle it)
 //----------------------------------------------------------------------------
@@ -500,90 +462,21 @@ int vtkZoltanBasePartitionFilter::RequestInformation(
 void vtkZoltanBasePartitionFilter::InitializeZoltanLoadBalance()
 {
   //***************************************************************
-  //* Create a Zoltan library structure for this instance of load
-  //* balancing.  Set the parameters and query functions that will
-  //* govern the library's calculation.  See the Zoltan User's
-  //* Guide for the definition of these and many other parameters.
+  //* Create a Zoltan library structure that is used only for the
+  //* legacy migration helpers (Zoltan_Invert_Lists / Zoltan_Migrate).
+  //* The actual geometric partitioning is done by the Zoltan2 V2 backend.
   //***************************************************************
 
   this->ZoltanData = Zoltan_Create(this->GetMPIComm());
 
-  // we don't need any debug info
-  Zoltan_Set_Param(this->ZoltanData, "RCB_OUTPUT_LEVEL", "0");
   Zoltan_Set_Param(this->ZoltanData, "DEBUG_LEVEL", "0");
-
-  // Method for subdivision
-  Zoltan_Set_Param(this->ZoltanData, "LB_APPROACH", "REPARTITION");
-  Zoltan_Set_Param(this->ZoltanData, "LB_METHOD", "RCB");
-  //  Zoltan_Set_Param(this->ZoltanData, "LB_METHOD", "PARMETIS");
-
-  // Global and local Ids are a single integer
   Zoltan_Set_Param(this->ZoltanData, "NUM_GID_ENTRIES", "1");
   Zoltan_Set_Param(this->ZoltanData, "NUM_LID_ENTRIES", "0");
-
-  // divide into N global and M local partitions
-  std::stringstream global;
-  global << this->UpdateNumPieces << ends;
-  // just one local piece for now
-  std::stringstream local;
-  local << 1 << ends;
-  //
-//  Zoltan_Set_Param(this->ZoltanData, "NUM_GLOBAL_PARTS", global.str().c_str());
-//  Zoltan_Set_Param(this->ZoltanData, "NUM_LOCAL_PARTS",  local.str().c_str());
-
-  // if we have weights, turn on weight
-  if(this->weights_data_ptr) {
-      vtkDebugMacro("Setting zoltan weights dimension 1");
-      Zoltan_Set_Param(this->ZoltanData, "OBJ_WEIGHT_DIM", "1");
-  }
-  else {
-      vtkDebugMacro("Setting zoltan weights dimension 0");
-      Zoltan_Set_Param(this->ZoltanData, "OBJ_WEIGHT_DIM", "0");
-  }
-
-  // we need the import and export lists
-  Zoltan_Set_Param(this->ZoltanData, "RETURN_LISTS", "IMPORT AND EXPORT");
-
-  // RCB parameters
-  // Zoltan_Set_Param(this->ZoltanData, "PARMETIS_METHOD", "PARTKWAY");
-  Zoltan_Set_Param(this->ZoltanData, "RCB_RECOMPUTE_BOX", "1");
-  Zoltan_Set_Param(this->ZoltanData, "REDUCE_DIMENSIONS", "0");
-
-  // Don't allow very extended regions
-  std::stringstream aspect;
-  aspect << this->MaxAspectRatio << std::ends;
-  Zoltan_Set_Param(this->ZoltanData, "RCB_MAX_ASPECT_RATIO", aspect.str().c_str());
-
-  // we need the cuts to get BBoxes for partitions later
-  Zoltan_Set_Param(this->ZoltanData, "KEEP_CUTS", "1");
-
-  // don't allow points on cut to be in different partitions
-  // not likely/useful for particle data anyway
-  Zoltan_Set_Param(this->ZoltanData, "RCB_RECTILINEAR_BLOCKS", "1");
 
   // Let Zoltan compute the load balance step, but we will manually
   // do the migrations of points/cells afterwards
   Zoltan_Set_Param(this->ZoltanData, "AUTO_MIGRATE", "0");
   Zoltan_Set_Param(this->ZoltanData, "MIGRATE_ONLY_PROC_CHANGES", "1");
-
-  //
-  // Query functions, to provide geometry to Zoltan
-  //
-  Zoltan_Set_Num_Obj_Fn(this->ZoltanData, get_number_of_objects_points,
-      &this->ZoltanCallbackData);
-  Zoltan_Set_Obj_List_Fn(this->ZoltanData, get_object_list_points,
-      &this->ZoltanCallbackData);
-
-  Zoltan_Set_Num_Geom_Fn(this->ZoltanData, get_num_geometry, &this->ZoltanCallbackData);
-  if (this->ZoltanCallbackData.PointType == VTK_FLOAT) {
-//    vtkDebugMacro("Using float data pointers ");
-    Zoltan_Set_Geom_Multi_Fn(this->ZoltanData, get_geometry_list < float > ,
-        &this->ZoltanCallbackData);
-  } else if (this->ZoltanCallbackData.PointType == VTK_DOUBLE) {
-//    vtkDebugMacro("Using double data pointers ");
-    Zoltan_Set_Geom_Multi_Fn(this->ZoltanData, get_geometry_list < double > ,
-        &this->ZoltanCallbackData);
-  }
 }
 
 //----------------------------------------------------------------------------

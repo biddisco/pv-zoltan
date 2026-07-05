@@ -218,11 +218,7 @@ int main (int argc, char* argv[])
         std::cout << "standard deviation : " << stdev << ")\n";
 // The threshold is relative because the total weight scales with the
 // number of particles and whether ghost particles are present in the output.
-#ifdef VTK_ZOLTAN1_PARTITION_FILTER
-        ok = (stdev < 0.7);
-#else
         ok = (stdev < 0.05 * mean);
-#endif
     }
 
     if (ok && test.myRank==0) {

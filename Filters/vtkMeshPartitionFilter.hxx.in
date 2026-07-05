@@ -41,11 +41,11 @@ class vtkUnsignedCharArray;
 class vtkBoundsExtentTranslator;
 class vtkPointSet;
 
-class VTKPVZOLTANFILTERS_EXPORT vtkMeshPartitionFilter : public @VTK_ZOLTAN_PARTITION_FILTER@
+class VTKPVZOLTANFILTERS_EXPORT vtkMeshPartitionFilter : public vtkZoltanV2PartitionFilter
 {
   public:
     static vtkMeshPartitionFilter *New();
-    vtkTypeMacro(vtkMeshPartitionFilter, @VTK_ZOLTAN_PARTITION_FILTER@);
+    vtkTypeMacro(vtkMeshPartitionFilter, vtkZoltanV2PartitionFilter);
     void PrintSelf(ostream& os, vtkIndent indent) override;
 
     template <typename T>
