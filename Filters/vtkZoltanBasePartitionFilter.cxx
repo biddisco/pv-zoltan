@@ -59,6 +59,8 @@
 //
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <cfloat>
+#include <cstring>
 #include <numeric>
 #include <algorithm>
 #include <map>
@@ -1052,12 +1054,165 @@ int vtkZoltanBasePartitionFilter::ZoltanPointMigrate(MigrationLists &migrationLi
 //   upperDataCoord - optional lower bound of the data in the upper region
 //   npoints - optional number of points in the spatial region
 //----------------------------------------------------------------------------
+namespace
+{
+struct PartBox
+{
+  int partId;
+  double bounds[6];
+};
+
+void UnionBoxes(const std::vector<PartBox>& boxes, double b[6])
+{
+  b[0] = b[2] = b[4] = DBL_MAX;
+  b[1] = b[3] = b[5] = -DBL_MAX;
+  for (const auto& pb : boxes)
+  {
+    for (int d = 0; d < 3; ++d)
+    {
+      b[d * 2] = std::min(b[d * 2], pb.bounds[d * 2]);
+      b[d * 2 + 1] = std::max(b[d * 2 + 1], pb.bounds[d * 2 + 1]);
+    }
+  }
+}
+
+inline double BoxCenter(const PartBox& pb, int axis)
+{
+  return (pb.bounds[axis * 2] + pb.bounds[axis * 2 + 1]) * 0.5;
+}
+
+// Recursively build vtkBSPCuts-style arrays from a set of per-part bounding
+// boxes.  This avoids the private Zoltan RCB tree headers (rcb.h/zz_const.h)
+// by deriving the spatial decomposition directly from the boxes that Zoltan
+// exposes through the public Zoltan_RCB_Box / Zoltan2 getPartBoxesView APIs.
+int BuildCutsFromBoxes(std::vector<PartBox>& boxes,
+                       const double nodeBounds[6],
+                       std::vector<int>& dim,
+                       std::vector<double>& coord,
+                       std::vector<int>& lower,
+                       std::vector<int>& upper)
+{
+  int idx = static_cast<int>(dim.size());
+  dim.push_back(0);
+  coord.push_back(0.0);
+  lower.push_back(0);
+  upper.push_back(0);
+
+  if (boxes.size() == 1)
+  {
+    dim[idx] = -1;
+    coord[idx] = 0.0;
+    lower[idx] = -boxes[0].partId;
+    upper[idx] = -boxes[0].partId;
+    return idx;
+  }
+
+  // Split along the longest axis of the current node.
+  double lengths[3] = {
+    nodeBounds[1] - nodeBounds[0],
+    nodeBounds[3] - nodeBounds[2],
+    nodeBounds[5] - nodeBounds[4]
+  };
+  int axis = 0;
+  if (lengths[1] > lengths[axis])
+  {
+    axis = 1;
+  }
+  if (lengths[2] > lengths[axis])
+  {
+    axis = 2;
+  }
+
+  size_t mid = boxes.size() / 2;
+  std::nth_element(boxes.begin(), boxes.begin() + mid, boxes.end(),
+    [axis](const PartBox& a, const PartBox& b) {
+      return BoxCenter(a, axis) < BoxCenter(b, axis);
+    });
+
+  std::vector<PartBox> leftBoxes(boxes.begin(), boxes.begin() + mid);
+  std::vector<PartBox> rightBoxes(boxes.begin() + mid, boxes.end());
+
+  double leftBounds[6];
+  double rightBounds[6];
+  UnionBoxes(leftBoxes, leftBounds);
+  UnionBoxes(rightBoxes, rightBounds);
+
+  // Place the cut halfway between the two child bounding boxes.  For
+  // rectilinear partitions produced by RCB/MultiJagged this reproduces the
+  // actual cut plane; for overlapping part boxes it still yields a valid
+  // spatial split.
+  double cutCoord = (leftBounds[axis * 2 + 1] + rightBounds[axis * 2]) * 0.5;
+
+  double leftNodeBounds[6];
+  double rightNodeBounds[6];
+  std::memcpy(leftNodeBounds, nodeBounds, 6 * sizeof(double));
+  std::memcpy(rightNodeBounds, nodeBounds, 6 * sizeof(double));
+  leftNodeBounds[axis * 2 + 1] = cutCoord;
+  rightNodeBounds[axis * 2] = cutCoord;
+
+  int leftIdx = BuildCutsFromBoxes(leftBoxes, leftNodeBounds,
+                                   dim, coord, lower, upper);
+  int rightIdx = BuildCutsFromBoxes(rightBoxes, rightNodeBounds,
+                                    dim, coord, lower, upper);
+
+  dim[idx] = axis;
+  coord[idx] = cutCoord;
+  lower[idx] = leftIdx;
+  upper[idx] = rightIdx;
+  return idx;
+}
+} // anonymous namespace
+
+//----------------------------------------------------------------------------
 vtkSmartPointer<vtkPKdTree> vtkZoltanBasePartitionFilter::CreatePkdTree()
 {
-  // Creating an exact k-d tree from Zoltan's internal RCB structure requires
-  // private Trilinos headers that are not installed with the system package.
-  // Stub this out for now; the partition filter itself is unaffected.
-  return nullptr;
+  // The per-part bounding boxes are already available in BoxList:
+  //   - V1/Zoltan1: filled via the public Zoltan_RCB_Box() API.
+  //   - V2/Zoltan2: filled via PartitioningSolution::getPartBoxesView().
+  // Build a vtkBSPCuts description from these boxes instead of reaching into
+  // Zoltan's private RCB_STRUCT/rcb_tree types.
+  size_t numParts = this->BoxList.size();
+  if (numParts == 0)
+  {
+    return nullptr;
+  }
+
+  std::vector<PartBox> boxes;
+  boxes.reserve(numParts);
+  for (size_t i = 0; i < numParts; ++i)
+  {
+    PartBox pb;
+    pb.partId = static_cast<int>(i);
+    this->BoxList[i].GetBounds(pb.bounds);
+    boxes.push_back(pb);
+  }
+
+  double rootBounds[6];
+  UnionBoxes(boxes, rootBounds);
+
+  std::vector<int> dim;
+  std::vector<double> coord;
+  std::vector<int> lower;
+  std::vector<int> upper;
+  BuildCutsFromBoxes(boxes, rootBounds, dim, coord, lower, upper);
+
+  vtkSmartPointer<vtkBSPCuts> cuts = vtkSmartPointer<vtkBSPCuts>::New();
+  cuts->CreateCuts(rootBounds, static_cast<int>(dim.size()),
+                   dim.data(), coord.data(), lower.data(), upper.data(),
+                   nullptr, nullptr, nullptr);
+
+  vtkSmartPointer<vtkPKdTree2> kdtree = vtkSmartPointer<vtkPKdTree2>::New();
+  kdtree->SetController(this->Controller);
+  kdtree->SetCuts(cuts);
+
+  // Each region is owned by the process with the same id (num_global_parts ==
+  // num procs, one part per process).
+  std::vector<int> remap(numParts);
+  std::iota(remap.begin(), remap.end(), 0);
+  kdtree->BuildLocator(rootBounds, remap.data(), static_cast<int>(numParts));
+
+  this->KdTree = kdtree;
+  return this->KdTree;
 }
 
 

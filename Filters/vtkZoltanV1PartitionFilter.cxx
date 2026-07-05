@@ -49,7 +49,6 @@
 #include "vtkHexahedron.h"
 #include "vtkPKdTree.h"
 #include "vtkBSPCuts.h"
-#include "vtkKdTreeGenerator.h"
 //
 #include "vtkPKdTree2.h"
 #include "vtkBoundsExtentTranslator.h"
@@ -66,9 +65,6 @@
 #include <sstream>
 #include <iterator>
 //
-#include "zz_const.h"
-#include "rcb.h"
-
 #include "vtkZoltanBasePartitionFilter.txx"
 
 //----------------------------------------------------------------------------
