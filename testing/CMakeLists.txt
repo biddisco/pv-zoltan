@@ -12,6 +12,7 @@ set(_test_srcs
   TestParticlePartitionFilter.cxx
   TestParticlePartitionWeightCount.cxx
   TestMeshPartitionFilter.cxx
+  TestPartitionOutline.cxx
   TestUtils.cxx
 )
 
@@ -19,6 +20,7 @@ set(_test_executables
   TestParticlePartitionFilter
   TestParticlePartitionWeightCount
   TestMeshPartitionFilter
+  TestPartitionOutline
 )
 
 foreach (_exe IN LISTS _test_executables)
@@ -130,6 +132,25 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
       -actorShift 0.5
       -useWeights 1
       -V ${CMAKE_CURRENT_SOURCE_DIR}/baseline/ParticlePartitionWeights-${_test_version}.png
+      -doRender 1
+      -windowSize "800 800"
+  )
+
+  #------------------------------------------------
+  # Partition outline / k-d tree test
+  #------------------------------------------------
+  add_test(
+    NAME TestPartitionOutline-P4-${_test_version}
+    COMMAND
+      ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
+      $<TARGET_FILE:TestPartitionOutline>
+      -testName TestPartitionOutline-P4
+      -T "${PLUGIN_TEST_DIR}"
+      -generateParticles 2000
+      -particleGenerator 1
+      -useScalars 0
+      -actorShift 0.0
+      -V ${CMAKE_CURRENT_SOURCE_DIR}/baseline/PartitionOutline-${_test_version}.png
       -doRender 1
       -windowSize "800 800"
   )
