@@ -62,19 +62,18 @@ The V2 backend was the focus of the port. Key changes include:
 - System Trilinos 17.1.1 no longer installs the internal Zoltan headers
   (`zz_const.h`, `rcb.h`) that the original `CreatePkdTree()` implementation
   needed.
-- `CreatePkdTree()` is currently **stubbed**; it instantiates a basic
-  `vtkPKdTree2` but does not perform the Zoltan-based rank-tree build that the
-  old code used.
-- This means the distributed k-d tree path used by the V1 backend / ghost-cell
-  bounding-box queries is **not functional** for the Zoltan1 code path.
+- `CreatePkdTree()` has been reimplemented to build a `vtkPKdTree2` from the
+  per-part bounding boxes stored in `BoxList`.  These boxes come from the
+  public Zoltan API (`Zoltan_RCB_Box`) for the Zoltan1 backend and from
+  `Zoltan2::PartitioningSolution::getPartBoxesView()` for the Zoltan2 backend.
+- The V1 code no longer includes `zz_const.h` / `rcb.h`.
 
 ### `vtkPKdTree2`
 
 - Updated for VTK 9 API changes.
 - A warning about `BuildLocator` being hidden is still emitted; the class uses
   its own `BuildKdTree` path instead of the base `vtkKdTree::BuildLocator`.
-- Because `CreatePkdTree()` is stubbed, the rank-tree functionality is not
-  exercised at runtime.
+- `CreatePkdTree()` is now functional again and exercises the rank-tree path.
 
 ### `TestPartitionCompositing`
 
@@ -105,9 +104,7 @@ The V2 backend was the focus of the port. Key changes include:
 ## Known limitations / todo items
 
 1. **V1 backend**: decide whether to port or remove `vtkZoltanV1PartitionFilter`.
-2. **`CreatePkdTree()` / `vtkPKdTree2`**: restore a working rank-tree build
-   without relying on internal Trilinos headers, or remove the dependency.
-3. **Ghost-cell bounding-box mode**: verify correctness once `CreatePkdTree()`
+2. **Ghost-cell bounding-box mode**: verify correctness now that `CreatePkdTree()`
    is functional.
 4. **`TestPartitionCompositing`**: re-enable after confirming
    `vtkBoundsExtentTranslator` integration.
