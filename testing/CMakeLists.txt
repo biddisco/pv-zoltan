@@ -139,12 +139,6 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   #------------------------------------------------
   set(boundary_list "first;most;centroid")
   foreach(dmode soma sphere)
-    # Sphere variants need a slightly higher threshold due to driver/AA differences.
-    if(dmode STREQUAL "sphere")
-      set(threshold_ 0)
-    else()
-      set(threshold_ 0)
-    endif()
     foreach(mode 0 1 2)
       list(GET boundary_list ${mode} BMODE)
       add_test(
@@ -164,7 +158,6 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
           -scalarName ProcessId
           -scalarRange "0 3"
           -actorShift 0.0
-          -imageThreshold ${threshold_}
           -windowSize "1024 800"
       )
     endforeach()
@@ -203,11 +196,6 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   #------------------------------------------------
   set(ghostmode_list "none;boundary;bbox")
   foreach(dmode soma sphere)
-    if(dmode STREQUAL "sphere")
-      set(threshold_ 0)
-    else()
-      set(threshold_ 0)
-    endif()
     set(index 0)
     foreach(ghostmode 0 1 2)
       list(GET ghostmode_list ${ghostmode} GMODE)
@@ -246,7 +234,6 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
           ${overlap_}
           ${scalars_}
           ${actorshift_}
-          -imageThreshold ${threshold_}
           -windowSize "1024 800"
       )
       math(EXPR index "${index} + 1")
@@ -256,7 +243,6 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   #------------------------------------------------
   # Mesh partition tests: unstructured grid
   #------------------------------------------------
-  set(threshold_ 0)
   set(ghostmode_list "none;boundary;bbox")
   set(index 0)
   foreach(ghostmode 0 1 2)
@@ -289,7 +275,6 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
           ${overlap_}
           ${scalars_}
           -actorShift 1.0
-        -imageThreshold ${threshold_}
         -windowSize "1024 800"
     )
     math(EXPR index "${index} + 1")
