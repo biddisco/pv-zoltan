@@ -30,6 +30,7 @@
 #include "vtkWindowToImageFilter.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkInformation.h"
+#include "vtkTesting.h"
 #include "vtkProperty.h"
 #include "vtkPointData.h"
 #include "vtkDoubleArray.h"
@@ -51,6 +52,7 @@
 //
 #include "TestUtils.h"
 //
+#include "vtkBoundsExtentTranslator.h"
 #include "vtkParticlePartitionFilter.h"
 #include "vtkPartitionOutline.h"
 
@@ -132,6 +134,47 @@ int main(int argc, char* argv[])
   partition_elapsed = test.UpdatePartitioner();
 
   //--------------------------------------------------------------
+  // Verify the bounds-extent translator information key is published
+  //--------------------------------------------------------------
+  vtkStreamingDemandDrivenPipeline* partition_sddp =
+      vtkStreamingDemandDrivenPipeline::SafeDownCast(test.partitioner->GetExecutive());
+  vtkInformation* partitionOutInfo = partition_sddp->GetOutputInformation(0);
+  if (!partitionOutInfo->Has(vtkBoundsExtentTranslator::META_DATA())) {
+    std::cerr << "ERROR: Partitioner output is missing vtkBoundsExtentTranslator meta-data key"
+              << std::endl;
+    ok = false;
+  }
+  else {
+    vtkBoundsExtentTranslator* bet = vtkBoundsExtentTranslator::SafeDownCast(
+        partitionOutInfo->Get(vtkBoundsExtentTranslator::META_DATA()));
+    if (!bet) {
+      std::cerr << "ERROR: Meta-data key is present but is not a vtkBoundsExtentTranslator"
+                << std::endl;
+      ok = false;
+    }
+    else if (bet->GetNumberOfPieces() != test.numProcs) {
+      std::cerr << "ERROR: Translator has " << bet->GetNumberOfPieces()
+                << " pieces, expected " << test.numProcs << std::endl;
+      ok = false;
+    }
+    else if (!bet->GetKdTree()) {
+      std::cerr << "ERROR: Translator does not have a k-d tree" << std::endl;
+      ok = false;
+    }
+    else {
+      for (int p = 0; p < test.numProcs; ++p) {
+        double b[6];
+        bet->GetBoundsForPiece(p, b);
+        if (b[0] > b[1] || b[2] > b[3] || b[4] > b[5]) {
+          std::cerr << "ERROR: Invalid bounds for piece " << p << std::endl;
+          ok = false;
+          break;
+        }
+      }
+    }
+  }
+
+  //--------------------------------------------------------------
   // Generate the partition outline from the k-d tree
   //--------------------------------------------------------------
   vtkSmartPointer<vtkPartitionOutline> outline = vtkSmartPointer<vtkPartitionOutline>::New();
@@ -149,6 +192,13 @@ int main(int argc, char* argv[])
     outInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(), test.myRank);
     outInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(), test.numProcs);
     outInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), 0);
+  }
+  // Make sure the meta-data key propagated to the outline filter's input.
+  vtkInformation* outlineInputInfo = sddp->GetInputInformation(0, 0);
+  if (!outlineInputInfo || !outlineInputInfo->Has(vtkBoundsExtentTranslator::META_DATA())) {
+    std::cerr << "ERROR: Outline filter input is missing vtkBoundsExtentTranslator meta-data key"
+              << std::endl;
+    ok = false;
   }
   sddp->Update();
 
@@ -174,6 +224,10 @@ int main(int argc, char* argv[])
     DisplayParameter<vtkIdType>("Total Particles", "", &totalParticles, 1, test.myRank);
     DisplayParameter<double>("Read Time", "", &read_elapsed, 1, test.myRank);
     DisplayParameter<double>("Partition Time", "", &partition_elapsed, 1, test.myRank);
+  }
+
+  if (!ok) {
+    retVal = vtkTesting::FAILED;
   }
 
   FinalizeKokkos();
