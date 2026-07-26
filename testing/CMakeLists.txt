@@ -46,16 +46,34 @@ foreach (_exe IN LISTS _test_executables)
   target_compile_options(${_exe}
     PRIVATE
       --extended-lambda)
+
+  # Ensure the test executable can find the plugin module library
+  # (libvtkPVZoltanFilters.so) in the build tree without manual LD_LIBRARY_PATH.
+  set_target_properties(${_exe} PROPERTIES
+    BUILD_RPATH "$ORIGIN;$ORIGIN/..;$ORIGIN/../..;$ORIGIN/../../.."
+    INSTALL_RPATH "$ORIGIN;$ORIGIN/..;$ORIGIN/../..;$ORIGIN/../../.."
+  )
 endforeach ()
 
 if (MPIEXEC_MAX_NUMPROCS LESS 4)
   message(WARNING "pv-zoltan tests are designed to run with at least 4 MPI ranks")
 endif ()
 
+# Helper that records each registered test name so we can attach common
+# properties (e.g. LD_LIBRARY_PATH) afterwards.
+function(_zoltan_add_test)
+  cmake_parse_arguments(PARSE_ARGV 0 _arg "" "NAME" "")
+  add_test(${ARGN})
+  set(_zoltan_test_names
+    "${_zoltan_test_names};${_arg_NAME}"
+    PARENT_SCOPE)
+endfunction()
+
 if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   set(_test_version "v2")
+  set(_zoltan_test_names)
 
-  add_test(
+  _zoltan_add_test(
     NAME TestParticlePartitionFilter-P4-${_test_version}
     COMMAND
       ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
@@ -73,7 +91,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
       -windowSize "800 800"
   )
 
-  add_test(
+  _zoltan_add_test(
     NAME TestParticlePartitionWeightCount-P4-${_test_version}
     COMMAND
       ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
@@ -94,7 +112,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   #------------------------------------------------
   # Particle partition tests with ghost layers
   #------------------------------------------------
-  add_test(
+  _zoltan_add_test(
     NAME TestParticlePartitionFilterGhost-P4-${_test_version}
     COMMAND
       ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
@@ -116,7 +134,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   #------------------------------------------------
   # Particle partition tests with weights (rendered)
   #------------------------------------------------
-  add_test(
+  _zoltan_add_test(
     NAME TestParticlePartitionWeights-P4-${_test_version}
     COMMAND
       ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
@@ -139,7 +157,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   #------------------------------------------------
   # Partition outline / k-d tree test
   #------------------------------------------------
-  add_test(
+  _zoltan_add_test(
     NAME TestPartitionOutline-P8-${_test_version}
     COMMAND
       ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 8
@@ -165,7 +183,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   foreach(dmode soma sphere)
     foreach(mode 0 1 2)
       list(GET boundary_list ${mode} BMODE)
-      add_test(
+      _zoltan_add_test(
         NAME TestMeshPartitionFilterBoundary-${BMODE}-${dmode}-${_test_version}
         COMMAND
           ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
@@ -194,7 +212,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   set(index 0)
   foreach(dmode soma sphere)
     list(GET scalar_vars ${index} SCALAR)
-    add_test(
+    _zoltan_add_test(
       NAME TestMeshPartitionFilterCellData-${dmode}-${_test_version}
       COMMAND
         ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
@@ -240,7 +258,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
         endif()
       endif()
 
-      add_test(
+      _zoltan_add_test(
         NAME TestMeshPartitionFilterGhost-${GMODE}-${dmode}-${_test_version}
         COMMAND
           ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
@@ -281,7 +299,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
       set(scalars_ -scalarMode 1 -scalarName vtkGhostRanks -scalarRange "0 4")
     endif()
 
-    add_test(
+    _zoltan_add_test(
       NAME TestMeshPartitionFilterUnstructured-${GMODE}-${_test_version}
       COMMAND
         ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
@@ -307,7 +325,7 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
   #------------------------------------------------
   # Mesh partition tests: point-data scalar transfer
   #------------------------------------------------
-  add_test(
+  _zoltan_add_test(
     NAME TestMeshPartitionFilterScalars-P4-${_test_version}
     COMMAND
       ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4
@@ -325,6 +343,13 @@ if (MPIEXEC_MAX_NUMPROCS GREATER_EQUAL 4)
       -actorShift 0.25
       -windowSize "1024 800"
   )
+
+  # Provide an LD_LIBRARY_PATH fallback for MPI launchers (e.g. srun) that do
+  # not honour the executable's embedded RUNPATH.
+  if(_zoltan_test_names)
+    set_tests_properties(${_zoltan_test_names} PROPERTIES
+      ENVIRONMENT "LD_LIBRARY_PATH=$<TARGET_FILE_DIR:pvZoltanFilters>:$ENV{LD_LIBRARY_PATH}")
+  endif()
 
   #------------------------------------------------
   # Mesh partition tests: mixed polydata
