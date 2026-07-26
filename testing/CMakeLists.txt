@@ -48,10 +48,13 @@ foreach (_exe IN LISTS _test_executables)
       --extended-lambda)
 
   # Ensure the test executable can find the plugin module library
-  # (libvtkPVZoltanFilters.so) in the build tree without manual LD_LIBRARY_PATH.
+  # (libvtkPVZoltanFilters.so) and its transitive dependencies (Kokkos,
+  # Trilinos, etc.) in the build tree without manual LD_LIBRARY_PATH.
   set_target_properties(${_exe} PROPERTIES
     BUILD_RPATH "$ORIGIN;$ORIGIN/..;$ORIGIN/../..;$ORIGIN/../../.."
     INSTALL_RPATH "$ORIGIN;$ORIGIN/..;$ORIGIN/../..;$ORIGIN/../../.."
+    BUILD_RPATH_USE_LINK_PATH TRUE
+    INSTALL_RPATH_USE_LINK_PATH TRUE
   )
 endforeach ()
 
